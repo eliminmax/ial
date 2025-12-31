@@ -71,7 +71,7 @@ macro_rules! padded {
 
 macro_rules! with_sep {
     ($inner: expr) => {{
-        $inner.then_ignore(text::inline_whitespace().repeated().at_least(1))
+        padded!($inner.then_ignore(text::inline_whitespace()))
     }};
 }
 
