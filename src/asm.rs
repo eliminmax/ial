@@ -125,7 +125,10 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
                 .map_err(|_| EmptyErr::default())
         });
         let ident = text::ident().map(|s: &str| Expr::Ident(s));
-        let atom = int.or(ident);
+        let atom = expr
+            .delimited_by(just('('), just(')'))
+            .map(|e| Expr::Inner(Arc::new(e)))
+            .or(int.or(ident));
         let unary = padded!(one_of("-+"))
             .repeated()
             .foldr(atom, |op, rhs| match op {
@@ -139,7 +142,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
             rhs: Arc::new(rhs),
         };
 
-        let prod = unary.foldl(
+        let prod = unary.clone().foldl(
             choice((
                 padded!(just('*')).to(BinOperator::Mul),
                 padded!(just('/')).to(BinOperator::Div),
@@ -148,7 +151,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
             .repeated(),
             folder,
         );
-        let sum = prod.clone().foldl(
+        prod.clone().foldl(
             choice((
                 padded!(just('+')).to(BinOperator::Add),
                 padded!(just('-')).to(BinOperator::Sub),
@@ -156,13 +159,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
             .then(prod)
             .repeated(),
             folder,
-        );
-
-        expr.padded_by(text::inline_whitespace())
-            .delimited_by(just('('), just(')'))
-            .map(|e: Expr<'a>| Expr::Inner(Arc::new(e)))
-            .or(atom)
-            .or(sum)
+        )
     })
 }
 
