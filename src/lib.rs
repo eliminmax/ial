@@ -125,9 +125,9 @@ pub enum ParamMode {
 impl Display for ParamMode {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParamMode::Positional => write!(fmt, "p"),
-            ParamMode::Relative => write!(fmt, "r"),
-            ParamMode::Immediate => Ok(()),
+            ParamMode::Positional => Ok(()),
+            ParamMode::Relative => write!(fmt, "#"),
+            ParamMode::Immediate => write!(fmt, "@"),
         }
     }
 }
