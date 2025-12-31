@@ -6,7 +6,7 @@ use chumsky::prelude::*;
 use super::ParamMode;
 use std::sync::Arc;
 #[derive(Debug, Clone)]
-enum BinOperator {
+pub enum BinOperator {
     Add,
     Sub,
     Mul,
@@ -14,7 +14,7 @@ enum BinOperator {
 }
 
 #[derive(Debug, Clone)]
-enum Expr<'a> {
+pub enum Expr<'a> {
     Number(i64),
     Ident(&'a str),
     BinOp {
@@ -28,11 +28,11 @@ enum Expr<'a> {
 }
 
 #[derive(Debug, Clone)]
-struct Parameter<'a>(ParamMode, Expr<'a>);
+pub struct Parameter<'a>(pub ParamMode, pub Expr<'a>);
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[repr(u8)]
-enum Instr<'a> {
+pub enum Instr<'a> {
     Add(Parameter<'a>, Parameter<'a>) = 1,
     Mul(Parameter<'a>, Parameter<'a>) = 2,
     In(Parameter<'a>) = 3,
@@ -45,14 +45,14 @@ enum Instr<'a> {
     Halt = 99,
 }
 
-enum LineInner<'a> {
+pub enum LineInner<'a> {
     DataDirective(Vec<Expr<'a>>),
     Instruction(Instr<'a>),
 }
 
 pub struct Line<'a> {
-    label: Option<&'a str>,
-    inner: Option<LineInner<'a>>,
+    pub label: Option<&'a str>,
+    pub inner: Option<LineInner<'a>>,
 }
 
 fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>> {
@@ -177,6 +177,16 @@ fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>> {
         .map(|(label, inner)| Line { label, inner })
 }
 
-pub fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>> {
+fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>> {
     parse_line().separated_by(just("\n")).collect()
 }
+
+#[derive(Debug)]
+pub struct AstParseError(#[allow(unused, reason = "for error info")] Vec<chumsky::error::EmptyErr>);
+
+/// Parse the assembly code into a [Vec<Line<'a>>]
+pub fn build_ast<'a>(s: &'a str) -> Result<Vec<Line<'a>>, AstParseError> {
+    grammar().parse(s).into_result().map_err(AstParseError)
+}
+
+mod fmt_impls;
