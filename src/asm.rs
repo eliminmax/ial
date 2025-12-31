@@ -5,6 +5,7 @@ use chumsky::prelude::*;
 
 use super::ParamMode;
 use std::sync::Arc;
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub enum BinOperator {
     Add,
@@ -13,6 +14,7 @@ pub enum BinOperator {
     Div,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub enum Expr<'a> {
     Number(i64),
@@ -27,9 +29,11 @@ pub enum Expr<'a> {
     Inner(Arc<Expr<'a>>),
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub struct Parameter<'a>(pub ParamMode, pub Expr<'a>);
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 #[repr(u8)]
 pub enum Instr<'a> {
@@ -45,11 +49,15 @@ pub enum Instr<'a> {
     Halt = 99,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub enum LineInner<'a> {
     DataDirective(Vec<Expr<'a>>),
     Instruction(Instr<'a>),
 }
 
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Line<'a> {
     pub label: Option<&'a str>,
     pub inner: Option<LineInner<'a>>,
@@ -125,10 +133,10 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
                 .map_err(|_| EmptyErr::default())
         });
         let ident = text::ident().map(|s: &str| Expr::Ident(s));
-        let atom = expr
+        let bracketed = expr
             .delimited_by(just('('), just(')'))
-            .map(|e| Expr::Inner(Arc::new(e)))
-            .or(int.or(ident));
+            .map(|e| Expr::Inner(Arc::new(e)));
+        let atom = int.or(ident).or(bracketed);
         let unary = padded!(one_of("-+"))
             .repeated()
             .foldr(atom, |op, rhs| match op {
@@ -136,6 +144,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
                 '-' => Expr::Negate(Arc::new(rhs)),
                 _ => unreachable!(),
             });
+
         let folder = |lhs: Expr<'a>, (op, rhs): (BinOperator, Expr<'a>)| Expr::BinOp {
             lhs: Arc::new(lhs),
             op,
@@ -151,6 +160,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
             .repeated(),
             folder,
         );
+
         prod.clone().foldl(
             choice((
                 padded!(just('+')).to(BinOperator::Add),
@@ -185,6 +195,7 @@ fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>> {
 
 /// A newtype that wraps around the chumsky error vector from the AST, to allow for changing the
 /// underlying error type or parser in the future
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct AstParseError(#[allow(unused, reason = "for error info")] Vec<EmptyErr>);
 
@@ -194,3 +205,52 @@ pub fn build_ast<'a>(s: &'a str) -> Result<Vec<Line<'a>>, AstParseError> {
 }
 
 mod fmt_impls;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parse_blank_line() {
+        assert_eq!(
+            parse_line().parse("").unwrap(),
+            Line {
+                label: None,
+                inner: None
+            }
+        )
+    }
+
+    #[test]
+    fn parse_exprs() {
+        let expr_parse = expr();
+        macro_rules! expr_test {
+            ($expr: literal, $expected: ident) => {
+                let parsed = expr_parse.parse($expr).unwrap();
+                assert_eq!(parsed, $expected, "{{ {} }} != {{ {parsed} }}", $expr);
+            };
+        }
+        let one = Expr::Number(1);
+        expr_test!("1", one);
+
+        let one = Arc::new(one);
+        let lhs = Arc::clone(&one);
+        let rhs = Arc::clone(&one);
+        let expected = Expr::BinOp {
+            lhs,
+            op: BinOperator::Add,
+            rhs,
+        };
+        expr_test!("1 + 1", expected);
+
+        let expected = Expr::BinOp {
+            lhs: Arc::new(Expr::BinOp {
+                lhs: Arc::clone(&one),
+                op: BinOperator::Mul,
+                rhs: Arc::clone(&one),
+            }),
+            op: BinOperator::Add,
+            rhs: Arc::clone(&one),
+        };
+        expr_test!("1 * 1 + 1", expected);
+    }
+}
