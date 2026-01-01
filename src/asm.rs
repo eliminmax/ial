@@ -74,9 +74,10 @@ macro_rules! padded {
 
 macro_rules! with_sep {
     ($inner: expr) => {{
-        padded!($inner.then_ignore(text::inline_whitespace()))
+        padded!($inner.then_ignore(text::inline_whitespace().at_least(1)))
     }};
 }
+
 type RichErr<'a> = chumsky::extra::Err<Rich<'a, char>>;
 
 fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
