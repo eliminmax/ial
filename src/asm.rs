@@ -77,8 +77,9 @@ macro_rules! with_sep {
         padded!($inner.then_ignore(text::inline_whitespace()))
     }};
 }
+type RichErr<'a> = chumsky::extra::Err<Rich<'a, char>>;
 
-fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>> {
+fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
     padded!(choice((
         just('@').ignore_then(expr().map(|e| Parameter(ParamMode::Relative, e))),
         just('#').ignore_then(expr().map(|e| Parameter(ParamMode::Immediate, e))),
@@ -86,7 +87,7 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>> {
     )))
 }
 
-fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>> {
+fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     macro_rules! params {
         ($n: literal) => {{
             param()
@@ -110,7 +111,7 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>> {
         };
     }
 
-    choice((
+    padded!(choice((
         op!("ADD", Add::<2>),
         op!("MUL", Mul::<2>),
         op!("IN", In::<1>),
@@ -122,16 +123,16 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>> {
         op!("SEQ", Seq::<3>),
         op!("EQ", Seq::<3>),
         op!("INCB", Incb::<1>),
-        padded!(just("HALT")).to(Instr::Halt),
-    ))
+        just("HALT").to(Instr::Halt),
+    )))
 }
 
-fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
+fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>, RichErr<'a>> + Clone {
     recursive(|expr| {
-        let int = text::int(10).try_map(|s: &str, _| {
+        let int = text::int(10).try_map(|s: &str, span| {
             s.parse::<i64>()
                 .map(Expr::Number)
-                .map_err(|_| EmptyErr::default())
+                .map_err(|e| Rich::custom(span, format!("error parsing {s} as i64: {e}")))
         });
         let ident = text::ident().map(|s: &str| Expr::Ident(s));
         let bracketed = expr
@@ -174,7 +175,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Expr<'a>> + Clone {
     })
 }
 
-fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<LineInner<'a>>> {
+fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<LineInner<'a>>, RichErr<'a>> {
     (with_sep!(just("DATA"))
         .ignore_then(expr().separated_by(padded!(just(","))).collect())
         .map(LineInner::DataDirective))
@@ -182,7 +183,7 @@ fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<LineInner<'a>>> {
     .or_not()
 }
 
-fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>> {
+fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
     text::ascii::ident()
         .then_ignore(just(":"))
         .or_not()
@@ -190,7 +191,7 @@ fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>> {
         .map(|(label, inner)| Line { label, inner })
 }
 
-fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>> {
+fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     parse_line().separated_by(just("\n")).collect()
 }
 
@@ -198,10 +199,10 @@ fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>> {
 /// underlying error type or parser in the future
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
-pub struct AstParseError(#[allow(unused, reason = "for error info")] Vec<EmptyErr>);
+pub struct AstParseError<'a>(#[allow(unused, reason = "for error info")] Vec<Rich<'a, char>>);
 
 /// Parse the assembly code into a [Vec<Line<'a>>]
-pub fn build_ast<'a>(s: &'a str) -> Result<Vec<Line<'a>>, AstParseError> {
+pub fn build_ast<'a>(s: &'a str) -> Result<Vec<Line<'a>>, AstParseError<'a>> {
     grammar().parse(s).into_result().map_err(AstParseError)
 }
 
