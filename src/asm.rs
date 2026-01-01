@@ -213,7 +213,7 @@ impl<'a> Instr<'a> {
 #[derive(Debug)]
 pub enum LineInner<'a> {
     DataDirective(Vec<Spanned<Expr<'a>>>),
-    Instruction(Instr<'a>),
+    Instruction(Box<Instr<'a>>),
 }
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -393,7 +393,7 @@ fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<LineInner<'a>>>, 
     (with_sep!(just("DATA"))
         .ignore_then(expr().separated_by(padded!(just(","))).collect())
         .map(LineInner::DataDirective))
-    .or(instr().map(LineInner::Instruction))
+    .or(instr().map(Box::new).map(LineInner::Instruction))
     .spanned()
     .or_not()
 }
