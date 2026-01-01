@@ -99,15 +99,14 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
         }};
     }
     macro_rules! op {
-        ($name: literal, $variant: ident ::<1>) => {
+        ($name: literal, $variant: ident::<1>) => {
             with_sep!(just($name)).ignore_then(param().map(Instr::$variant))
         };
-        ($name: literal, $variant: ident ::<2>) => {
+        ($name: literal, $variant: ident::<2>) => {
             with_sep!(just($name)).ignore_then((params!(2)).map(|[a, b]| Instr::$variant(a, b)))
         };
-        ($name: literal, $variant: ident ::<3>) => {
+        ($name: literal, $variant: ident::<3>) => {
             with_sep!(just($name))
-                .padded_by(text::inline_whitespace())
                 .ignore_then((params!(3)).map(|[a, b, c]| Instr::$variant(a, b, c)))
         };
     }
