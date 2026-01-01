@@ -28,9 +28,6 @@ impl BinOperator {
     }
 }
 
-pub type SpannedExpr<'a> = Spanned<Expr<'a>>;
-type SpannedExprRc<'a> = Arc<SpannedExpr<'a>>;
-
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -38,13 +35,13 @@ pub enum Expr<'a> {
     Number(i64),
     Ident(&'a str),
     BinOp {
-        lhs: SpannedExprRc<'a>,
+        lhs: Arc<Spanned<Expr<'a>>>,
         op: Spanned<BinOperator>,
-        rhs: SpannedExprRc<'a>,
+        rhs: Arc<Spanned<Expr<'a>>>,
     },
-    Negate(SpannedExprRc<'a>),
-    UnaryAdd(SpannedExprRc<'a>),
-    Inner(SpannedExprRc<'a>),
+    Negate(Arc<Spanned<Expr<'a>>>),
+    UnaryAdd(Arc<Spanned<Expr<'a>>>),
+    Inner(Arc<Spanned<Expr<'a>>>),
 }
 
 #[derive(Debug)]
@@ -76,7 +73,7 @@ impl<'a> Expr<'a> {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct Parameter<'a>(pub ParamMode, pub SpannedExpr<'a>);
+pub struct Parameter<'a>(pub ParamMode, pub Spanned<Expr<'a>>);
 
 fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
     inner
@@ -215,7 +212,7 @@ impl<'a> Instr<'a> {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum LineInner<'a> {
-    DataDirective(Vec<SpannedExpr<'a>>),
+    DataDirective(Vec<Spanned<Expr<'a>>>),
     Instruction(Instr<'a>),
 }
 
@@ -283,7 +280,7 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     )))
 }
 
-fn expr<'a>() -> impl Parser<'a, &'a str, SpannedExpr<'a>, RichErr<'a>> + Clone {
+fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clone {
     recursive(|expr| {
         let int = text::int(10).try_map(|s: &str, span| {
             s.parse::<i64>()
@@ -297,7 +294,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, SpannedExpr<'a>, RichErr<'a>> + Clone 
         let atom = int.or(ident).or(bracketed).spanned();
         let unary = padded!(one_of("-+").spanned()).repeated().foldr(
             atom,
-            |Spanned { inner, mut span }: Spanned<char>, rhs: SpannedExpr<'a>| {
+            |Spanned { inner, mut span }: Spanned<char>, rhs: Spanned<Expr<'a>>| {
                 span.end = rhs.span.end;
                 Spanned {
                     inner: match inner {
@@ -310,7 +307,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, SpannedExpr<'a>, RichErr<'a>> + Clone 
             },
         );
 
-        let folder = |lhs: SpannedExpr<'a>, (op, rhs): (Spanned<BinOperator>, SpannedExpr<'a>)| {
+        let folder = |lhs: Spanned<Expr<'a>>, (op, rhs): (Spanned<BinOperator>, Spanned<Expr<'a>>)| {
             let span = SimpleSpan {
                 start: lhs.span.start,
                 end: rhs.span.end,
