@@ -70,6 +70,9 @@ impl Display for LineInner<'_> {
                 }
                 Ok(())
             }
+            LineInner::Ascii(spanned) => {
+                write!(f, "ASCII {}", spanned.inner.escape_ascii())
+            }
             LineInner::Instruction(instr) => write!(f, "{instr}"),
         }
     }

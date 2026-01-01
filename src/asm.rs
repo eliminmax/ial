@@ -213,6 +213,7 @@ impl<'a> Instr<'a> {
 #[derive(Debug)]
 pub enum LineInner<'a> {
     DataDirective(Vec<Spanned<Expr<'a>>>),
+    Ascii(Spanned<Vec<u8>>),
     Instruction(Box<Instr<'a>>),
 }
 
@@ -362,6 +363,10 @@ impl LineInner<'_> {
                 .len()
                 .try_into()
                 .expect("less than i64::MAX expressions"),
+            LineInner::Ascii(text) => text
+                .len()
+                .try_into()
+                .expect("less than i64::MAX expressions"),
             LineInner::Instruction(instr) => instr.size(),
         }
     }
@@ -380,6 +385,7 @@ impl<'a> Line<'a> {
                         v.push(unspan(expr).resolve(labels)?);
                     }
                 }
+                LineInner::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
                 LineInner::Instruction(instr) => {
                     v.extend(instr.resolve(labels)?);
                 }
@@ -389,11 +395,65 @@ impl<'a> Line<'a> {
     }
 }
 
+fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
+    const HEX_DIGITS: &str = "0123456789ABCDEFabcdef";
+    const OCT_DIGITS: &str = "01234567";
+
+    fn strict_hex_val(c: char) -> u8 {
+        assert!(c.is_ascii());
+        #[expect(
+            non_contiguous_range_endpoints,
+            reason = "mask leaves 1 byte value before b'a' possible"
+        )]
+        match c as u8 | 0x20 {
+            d @ b'0'..=b'9' => d - b'0',
+            l @ b'a'..=b'f' => l - b'a' + 10,
+            ..32 | 64..96 => unreachable!("masked out"),
+            128 => unreachable!("known ascii"),
+            c => panic!("invalid hex digit: {}", c.escape_ascii()),
+        }
+    }
+    just('"')
+        .ignore_then(
+            choice((
+                none_of("\"\\")
+                    .filter(|c: &char| c.is_ascii())
+                    .map(|c| c as u8),
+                just('\\').ignore_then(choice((
+                    just('\\').to(b'\\'),
+                    just('\'').to(b'\''),
+                    just('\"').to(b'\"'),
+                    just('n').to(b'\n'),
+                    just('t').to(b'\t'),
+                    just('r').to(b'\r'),
+                    just('e').to(b'\x1b'),
+                    just('3')
+                        .ignore_then(one_of(OCT_DIGITS).then(one_of(OCT_DIGITS)))
+                        .map(|(a, b)| 0o300 + ((a as u8 - b'0') * 8) + (b as u8 - b'0')),
+                    (one_of(OCT_DIGITS).repeated().at_least(1).at_most(2))
+                        .fold(0, |acc, x| acc * 8 + (x as u8 - b'0')),
+                    just('x')
+                        .ignore_then(one_of(HEX_DIGITS).then(one_of(HEX_DIGITS)))
+                        .map(|(a, b)| (strict_hex_val(a) << 4) | strict_hex_val(b)),
+                ))),
+            ))
+            .repeated()
+            .collect(),
+        )
+        .then_ignore(just('"'))
+        .spanned()
+}
+
 fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<LineInner<'a>>>, RichErr<'a>> {
-    (with_sep!(just("DATA"))
-        .ignore_then(expr().separated_by(padded!(just(","))).collect())
-        .map(LineInner::DataDirective))
-    .or(instr().map(Box::new).map(LineInner::Instruction))
+    choice((
+        (with_sep!(just("DATA"))
+            .ignore_then(expr().separated_by(padded!(just(","))).collect())
+            .map(LineInner::DataDirective)),
+        with_sep!(just("ASCII"))
+            .ignore_then(ascii_parse())
+            .map(LineInner::Ascii),
+        instr().map(Box::new).map(LineInner::Instruction),
+    ))
     .spanned()
     .or_not()
 }
