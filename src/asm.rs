@@ -588,7 +588,7 @@ mod ast_tests {
 
         let n0 = Arc::new(spanned!(Expr::Number(1), 0, 1));
         let n1 = Arc::new(spanned!(Expr::Number(1), 4, 5));
-        let n2 = Arc::new(spanned!(Expr::Number(1), 6, 7));
+        let n2 = Arc::new(spanned!(Expr::Number(1), 8, 9));
         let expected = Expr::BinOp {
             lhs: Arc::clone(&n0),
             op: spanned!(BinOperator::Add, 2, 3),
@@ -611,21 +611,23 @@ mod ast_tests {
         };
         expr_test!("1 * 1 + 1", expected);
 
-        let expected = Expr::Inner(Arc::new(spanned!(
-            Expr::UnaryAdd(Arc::new(spanned!(Expr::Ident("e"), 2, 3))),
-            0,
-            4
-        )));
+        let mut expected = Expr::Ident("e");
+        expected = Expr::UnaryAdd(Arc::new(spanned!(expected, 2, 3)));
+        expected = Expr::Inner(Arc::new(spanned!(expected, 1, 3)));
         expr_test!("(+e)", expected);
 
-        let lhs = {
-            let lhs = Arc::new(spanned!(Expr::Number(1), 1, 2));
-            let op = spanned!(BinOperator::Add, 3, 4);
-            let mut rhs = Arc::new(spanned!(Expr::Number(1), 7, 8));
-            rhs = Arc::new(spanned!(Expr::Negate(rhs), 6, 7));
-            rhs = Arc::new(spanned!(Expr::UnaryAdd(rhs), 5, 6));
-            Arc::new(spanned!(Expr::BinOp { lhs, op, rhs}, 1, 8))
-        };
+        let lhs = Arc::new(spanned!(
+            Expr::Inner({
+                let lhs = Arc::new(spanned!(Expr::Number(1), 1, 2));
+                let op = spanned!(BinOperator::Add, 3, 4);
+                let mut rhs = Arc::new(spanned!(Expr::Ident("e"), 7, 8));
+                rhs = Arc::new(spanned!(Expr::Negate(rhs), 6, 8));
+                rhs = Arc::new(spanned!(Expr::UnaryAdd(rhs), 5, 8));
+                Arc::new(spanned!(Expr::BinOp { lhs, op, rhs }, 1, 8))
+            }),
+            0,
+            9
+        ));
         let rhs = Arc::new(spanned!(Expr::Number(1), 12, 13));
 
         let expected = Expr::BinOp {
