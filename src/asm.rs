@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Eli Array Minkoff
 //
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: 0BSD
+
 use super::ParamMode;
 use chumsky::prelude::*;
 use std::collections::HashMap;

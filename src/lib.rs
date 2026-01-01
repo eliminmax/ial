@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2024 - 2025 Eli Array Minkoff
 //
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: 0BSD
 
 //! Library providing an Intcode interpreter, which can be constructed with [`Interpreter::new`].
 //!

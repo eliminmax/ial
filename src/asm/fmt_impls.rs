@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Eli Array Minkoff
+//
+// SPDX-License-Identifier: 0BSD
+
 use super::{BinOperator, Expr, Instr, Line, LineInner, Parameter};
 
 use std::fmt::{self, Display};
