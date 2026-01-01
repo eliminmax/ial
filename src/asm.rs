@@ -230,6 +230,52 @@ mod tests {
     }
 
     #[test]
+    fn parse_instrs() {
+        let parser = instr();
+        macro_rules! p {
+            (#$e: literal) => {
+                Parameter(ParamMode::Immediate, Expr::Number($e))
+            };
+            (@$e: literal) => {
+                Parameter(ParamMode::Relative, Expr::Number($e))
+            };
+            ($e: literal) => {
+                Parameter(ParamMode::Positional, Expr::Number($e))
+            };
+            (#$e: ident) => {
+                Parameter(ParamMode::Immediate, Expr::Ident(stringify!($e)))
+            };
+            (@$e: ident) => {
+                Parameter(ParamMode::Relative, Expr::Ident(stringify!($e)))
+            };
+            ($e: ident) => {
+                Parameter(ParamMode::Positional, Expr::Ident(stringify!($e)))
+            };
+        }
+        macro_rules! i {
+            [$i: ident] => { Instr::$i };
+            [$i: ident ($($params: expr),+)] => { Instr::$i ($($params),+ ) };
+        }
+        macro_rules! parse {
+            ($text: literal) => {
+                parser.parse($text).unwrap()
+            };
+        }
+        assert_eq!(parse!("ADD #1, @1"), i![Add(p!(#1), p!(@1))]);
+        assert_eq!(parse!("MUL 3, @20"), i![Mul(p!(3), p!(@20))]);
+        assert_eq!(parse!("IN #e"), i![In(p!(#e))]);
+        assert_eq!(parse!("OUT #5"), i![Out(p!(#5))]);
+        assert_eq!(parse!("JNZ @a, #b"), i![Jnz(p!(@a), p!(#b))]);
+        assert_eq!(parse!("JZ @a, #b"), i![Jz(p!(@a), p!(#b))]);
+        assert_eq!(parse!("SLT 1,@1, #5"), i![Slt(p!(1), p!(@1), p!(#5))]);
+        assert_eq!(parse!("LT 1,@1, #5"), i![Slt(p!(1), p!(@1), p!(#5))]);
+        assert_eq!(parse!("SEQ @3, 32, 1"), i![Seq(p!(@3), p!(32), p!(1))]);
+        assert_eq!(parse!("EQ @3, 32, 1"), i![Seq(p!(@3), p!(32), p!(1))]);
+        assert_eq!(parse!("INCB #hello"), i![Incb(p!(#hello))]);
+        assert_eq!(parse!("HALT"), i![Halt]);
+    }
+
+    #[test]
     fn parse_exprs() {
         let expr_parse = expr();
         macro_rules! expr_test {
