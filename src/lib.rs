@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![warn(missing_docs)]
+
 //! Library providing an Intcode interpreter, which can be constructed with [`Interpreter::new`].
 //!
 //! # Example
