@@ -158,8 +158,6 @@ impl TryFrom<i64> for ParamMode {
 
 impl<'a> Interpreter<'a> {
     /// Log with the provided item that implements [`io::Write`].
-    /// Note that this is intended for debugging purposes, and [Interpreter::clone] does not clone
-    /// the logger
     pub fn log_with(&mut self, logger: &'a mut (dyn io::Write + Send + Sync)) {
         self.logger = Some(Arc::new(Mutex::new(logger)));
     }
