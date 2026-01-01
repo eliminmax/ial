@@ -7,16 +7,17 @@ use std::fmt;
 
 /// a virtual memory management unit
 pub(super) struct IntcodeMem {
-    segments: HashMap<u64, [i64; 512]>,
+    segments: HashMap<u64, Box<[i64; 512]>>,
 }
 
 impl IntcodeMem {
     fn active_segments(&self) -> BTreeSet<u64> {
         self.segments
             .iter()
-            .filter_map(|(&k, &v)| if v == [0; 512] { Some(k) } else { None })
+            .filter_map(|(&k, v)| if v.as_ref() == &[0; 512] { Some(k) } else { None })
             .collect()
     }
+
     /// remove all segments that are filled with zeroes, and
     pub(super) fn prune(&mut self) {
         self.segments.retain(|_, s| s[..] != [0; 512]);
@@ -48,12 +49,12 @@ impl std::iter::FromIterator<i64> for IntcodeMem {
             i += 1;
             if i == chunk.len() {
                 i = 0;
-                segments.insert(current_segment, chunk);
+                segments.insert(current_segment, Box::new(chunk));
                 chunk = [0; 512];
                 current_segment += 512;
             }
         }
-        segments.insert(current_segment, chunk);
+        segments.insert(current_segment, Box::new(chunk));
 
         Self { segments }
     }
@@ -72,7 +73,7 @@ impl std::ops::Index<u64> for IntcodeMem {
 impl std::ops::IndexMut<u64> for IntcodeMem {
     fn index_mut(&mut self, i: u64) -> &mut i64 {
         let segment_index = i as usize & 0x1ff;
-        &mut self.segments.entry(i & !0x1ff).or_insert([0; 512])[segment_index]
+        &mut self.segments.entry(i & !0x1ff).or_insert(Box::new([0; 512]))[segment_index]
     }
 }
 
@@ -82,9 +83,9 @@ impl Clone for IntcodeMem {
         let segments = self
             .segments
             .iter()
-            .filter_map(|(&index, &mem)| {
-                if mem != [0_i64; 512] {
-                    Some((index, mem))
+            .filter_map(|(&index, mem)| {
+                if mem.as_ref() != &[0_i64; 512] {
+                    Some((index, mem.clone()))
                 } else {
                     None
                 }
@@ -130,7 +131,7 @@ impl IntoIterator for IntcodeMem {
     fn into_iter(mut self) -> IntcodeMemIter {
         self.prune();
         IntcodeMemIter {
-            segments: self.segments.into_iter().collect(),
+            segments: self.segments.into_iter().map(|(k, v)| (k, *v)).collect(),
             current_segment: 0,
             segment_index: 0,
         }
@@ -142,7 +143,7 @@ impl fmt::Debug for IntcodeMem {
         let mut fmtstruct = fmt.debug_map();
         // collect into an ordered set
         for sn in self.segments.keys().collect::<BTreeSet<_>>() {
-            if self.segments[sn] != [0; 512] {
+            if self.segments[sn].as_ref() != &[0; 512] {
                 fmtstruct.entry(
                     &format_args!("{{ segment 0x{sn:04x} }}"),
                     &format_args!("{:?}", self.segments[sn]),
