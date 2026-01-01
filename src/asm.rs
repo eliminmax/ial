@@ -195,15 +195,9 @@ fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     parse_line().separated_by(just("\n")).collect()
 }
 
-/// A newtype that wraps around the chumsky error vector from the AST, to allow for changing the
-/// underlying error type or parser in the future
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
-pub struct AstParseError<'a>(#[allow(unused, reason = "for error info")] Vec<Rich<'a, char>>);
-
-/// Parse the assembly code into a [Vec<Line<'a>>]
-pub fn build_ast<'a>(s: &'a str) -> Result<Vec<Line<'a>>, AstParseError<'a>> {
-    grammar().parse(s).into_result().map_err(AstParseError)
+/// Parse the assembly code into a [Vec<Line<'a>>], or a [Vec<Rich<char>>] on failure.
+pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>> {
+    grammar().parse(code).into_result()
 }
 
 mod fmt_impls;
