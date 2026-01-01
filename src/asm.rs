@@ -307,7 +307,8 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
             },
         );
 
-        let folder = |lhs: Spanned<Expr<'a>>, (op, rhs): (Spanned<BinOperator>, Spanned<Expr<'a>>)| {
+        let folder = |lhs: Spanned<Expr<'a>>,
+                      (op, rhs): (Spanned<BinOperator>, Spanned<Expr<'a>>)| {
             let span = SimpleSpan {
                 start: lhs.span.start,
                 end: rhs.span.end,

@@ -22,9 +22,9 @@ mod mmu;
 
 use std::error::Error;
 use std::fmt::{self, Display};
+use std::io;
 use std::num::TryFromIntError;
 use std::sync::{Arc, Mutex};
-use std::io;
 
 #[cfg(feature = "asm")]
 pub mod asm;
@@ -246,9 +246,7 @@ impl Interpreter<'_> {
 
         /// Shorthand to get the `$n`th parameter's value
         macro_rules! select_by_mode {
-            ($n: literal) => {{
-                self.param_val(self.index + $n, modes[$n - 1])?
-            }};
+            ($n: literal) => {{ self.param_val(self.index + $n, modes[$n - 1])? }};
         }
 
         /// Resolves to the destination address pointed to by the `$n`th parameter
@@ -276,13 +274,7 @@ impl Interpreter<'_> {
 
         /// A comparison instruction
         macro_rules! comp {
-            ($op: expr) => {{
-                if $op {
-                    1
-                } else {
-                    0
-                }
-            }};
+            ($op: expr) => {{ if $op { 1 } else { 0 } }};
         }
 
         macro_rules! report_op {
@@ -470,7 +462,6 @@ impl Interpreter<'_> {
         }
         Ok(())
     }
-
 }
 #[cfg(test)]
 mod tests {

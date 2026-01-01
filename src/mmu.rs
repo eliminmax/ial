@@ -14,7 +14,13 @@ impl IntcodeMem {
     fn active_segments(&self) -> BTreeSet<u64> {
         self.segments
             .iter()
-            .filter_map(|(&k, v)| if v.as_ref() == &[0; 512] { Some(k) } else { None })
+            .filter_map(|(&k, v)| {
+                if v.as_ref() == &[0; 512] {
+                    Some(k)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -73,7 +79,10 @@ impl std::ops::Index<u64> for IntcodeMem {
 impl std::ops::IndexMut<u64> for IntcodeMem {
     fn index_mut(&mut self, i: u64) -> &mut i64 {
         let segment_index = i as usize & 0x1ff;
-        &mut self.segments.entry(i & !0x1ff).or_insert(Box::new([0; 512]))[segment_index]
+        &mut self
+            .segments
+            .entry(i & !0x1ff)
+            .or_insert(Box::new([0; 512]))[segment_index]
     }
 }
 

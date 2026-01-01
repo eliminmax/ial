@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use intcode::asm::{build_ast, assemble_ast};
+use intcode::asm::{assemble_ast, build_ast};
 use std::env::args_os;
 use std::fs::read_to_string;
 
