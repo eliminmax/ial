@@ -481,11 +481,11 @@ mod ast_tests {
                 },
                 Spanned {
                     inner: Expr::Number(1),
-                    span: span!(7, 8)
+                    span: span!(8, 9)
                 },
                 Spanned {
                     inner: Expr::Number(1),
-                    span: span!(9, 10)
+                    span: span!(11, 12)
                 },
             ]))
         );
@@ -563,13 +563,13 @@ mod ast_tests {
         );
         assert_eq!(
             parse!("SEQ @3, 32, 1"),
-            i![Seq(p!(@3, 5, 6), p!(32, 9, 11), p!(1, 13, 14))]
+            i![Seq(p!(@3, 5, 6), p!(32, 8, 10), p!(1, 12, 13))]
         );
         assert_eq!(
             parse!("EQ @3, 32, 1"),
-            i![Seq(p!(@3, 3, 4), p!(32, 8, 10), p!(1, 12, 13))]
+            i![Seq(p!(@3, 4, 5), p!(32, 7, 9), p!(1, 11, 12))]
         );
-        assert_eq!(parse!("INCB #hello"), i![Incb(p!(#hello, 6, 12))]);
+        assert_eq!(parse!("INCB #hello"), i![Incb(p!(#hello, 6, 11))]);
         assert_eq!(parse!("HALT"), i![Halt]);
     }
 
