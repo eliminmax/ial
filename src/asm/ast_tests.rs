@@ -39,7 +39,7 @@ fn parse_data() {
     assert_eq!(
         line_inner().parse("DATA 1, 1, 1").unwrap(),
         Some(spanned!(
-            LineInner::DataDirective(vec![
+            Directive::DataDirective(vec![
                 Spanned {
                     inner: Expr::Number(1),
                     span: span!(5, 6)

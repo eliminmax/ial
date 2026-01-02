@@ -4,7 +4,7 @@
 
 use chumsky::span::Spanned;
 
-use super::{BinOperator, Expr, Instr, Line, LineInner, Parameter};
+use super::{BinOperator, Expr, Instr, Line, Directive, Parameter};
 
 use std::fmt::{self, Display};
 
@@ -57,10 +57,10 @@ impl Display for Instr<'_> {
     }
 }
 
-impl Display for LineInner<'_> {
+impl Display for Directive<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LineInner::DataDirective(exprs) => {
+            Directive::DataDirective(exprs) => {
                 write!(f, "DATA ")?;
                 if let Some(expr) = exprs.first() {
                     write!(f, "{}", expr.inner)?;
@@ -70,10 +70,10 @@ impl Display for LineInner<'_> {
                 }
                 Ok(())
             }
-            LineInner::Ascii(spanned) => {
+            Directive::Ascii(spanned) => {
                 write!(f, "ASCII {}", spanned.inner.escape_ascii())
             }
-            LineInner::Instruction(instr) => write!(f, "{instr}"),
+            Directive::Instruction(instr) => write!(f, "{instr}"),
         }
     }
 }

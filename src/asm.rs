@@ -4,15 +4,28 @@
 
 //! Module for working with an assembly language for Intcode
 //!
-//! This module defines an AST for an extended version of the [`proposed assembly syntax`] from
+//! This module defines an AST for an extended version of the [proposed assembly syntax] from
 //! the Esolangs Community Wiki, powered by [chumsky]. It provides mnemonics for each of the
 //! intcode instructions, and the ability to include inline data, either directly or as ASCII text.
 //!
-//! Each [line] can have an optional label, followed by either an [instruction](Instr), a
-//! [DATA](LineInner::DataDirective) directive, or an [ASCII](LineInner::Ascii) directive.
+//! Each [line](Line) has three components, any of which can be omitted.
 //!
-//! [line]: Line
-//! [`proposed assembly syntax`]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
+//! The first component is a label, which will resolve to the index of the next intcode int added.
+//! The next is a [directive](Directive), which is what will actually be converted into intcode.
+//! The third is a comment - it is ignored completely.
+//!
+//! Following from [NASM]'s syntax, the syntax of a line is as follows:
+//!
+//! ```text
+//! label: directive ; comment
+//! ```
+//!
+//! Labels are parsed using [chumsky::text::ident], so identifiers the same rules as [Rust], except
+//! without Unicode normalization.
+//!
+//! [NASM]: <https://www.nasm.us/doc/nasm03.html>
+//! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
+//! [Rust](https://doc.rust-lang.org/reference/identifiers.html)
 
 use super::ParamMode;
 use chumsky::prelude::*;
@@ -77,7 +90,19 @@ impl BinOperator {
 /// -expr
 /// ```
 ///
-/// Two expressions can be combined using [basic arithmetic operations]
+/// Two expressions can be combined using [basic arithmetic operations]:
+///
+/// ```code
+/// expr * expr
+/// expr / expr
+/// expr + expr
+/// expr - expr
+/// ```
+///
+/// The order of operations is standard:
+/// 1. Parentheses
+/// 2. Multiplication and Division, from Left to Right
+/// 3. Addition and Subtraction, from Left to Right
 ///
 /// [A literal number]: Expr::Number
 /// [A label]: Expr::Ident
@@ -120,6 +145,9 @@ pub enum AssemblyError<'a> {
     UnresolvedLabel(&'a str),
     /// A label was defined more than once
     DuplicateLabel(&'a str),
+    /// A directive resolved to more than [`i64::MAX`] ints, and somehow didn't crash your computer
+    /// before it was time to size things up
+    TooLarge(usize),
 }
 
 impl<'a> Expr<'a> {
@@ -346,7 +374,7 @@ impl<'a> Instr<'a> {
 /// The directive of a line
 ///
 /// This is what actually gets output into the program
-pub enum LineInner<'a> {
+pub enum Directive<'a> {
     /// An arbitrary sequence of comma-separated assembler expressions
     DataDirective(Vec<Spanned<Expr<'a>>>),
     /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
@@ -364,7 +392,7 @@ pub struct Line<'a> {
     /// the label for the line, if applicable
     pub label: Option<&'a str>,
     /// the directive for the line, if applicable
-    pub inner: Option<Spanned<LineInner<'a>>>,
+    pub inner: Option<Spanned<Directive<'a>>>,
 }
 
 macro_rules! padded {
@@ -499,19 +527,13 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
     })
 }
 
-impl LineInner<'_> {
-    /// return the number of integers that this LineInner will resolve to
-    pub fn size(&self) -> i64 {
+impl Directive<'_> {
+    /// return the number of integers that this [`Directive`] will resolve to.
+    pub fn size(&self) -> Result<i64, usize> {
         match self {
-            LineInner::DataDirective(exprs) => exprs
-                .len()
-                .try_into()
-                .expect("less than i64::MAX expressions"),
-            LineInner::Ascii(text) => text
-                .len()
-                .try_into()
-                .expect("less than i64::MAX expressions"),
-            LineInner::Instruction(instr) => instr.size(),
+            Directive::DataDirective(exprs) => exprs.len().try_into().map_err(|_| exprs.len()),
+            Directive::Ascii(text) => text.len().try_into().map_err(|_| text.len()),
+            Directive::Instruction(instr) => Ok(instr.size()),
         }
     }
 }
@@ -526,13 +548,13 @@ impl<'a> Line<'a> {
     ) -> Result<(), AssemblyError<'a>> {
         if let Some(Spanned { inner, .. }) = self.inner {
             match inner {
-                LineInner::DataDirective(exprs) => {
+                Directive::DataDirective(exprs) => {
                     for expr in exprs {
                         v.push(unspan(expr).resolve(labels)?);
                     }
                 }
-                LineInner::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
-                LineInner::Instruction(instr) => {
+                Directive::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
+                Directive::Instruction(instr) => {
                     v.extend(instr.resolve(labels)?);
                 }
             }
@@ -590,15 +612,15 @@ fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> 
         .spanned()
 }
 
-fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<LineInner<'a>>>, RichErr<'a>> {
+fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, RichErr<'a>> {
     choice((
         (with_sep!(just("DATA"))
             .ignore_then(expr().separated_by(padded!(just(","))).collect())
-            .map(LineInner::DataDirective)),
+            .map(Directive::DataDirective)),
         with_sep!(just("ASCII"))
             .ignore_then(ascii_parse())
-            .map(LineInner::Ascii),
-        instr().map(Box::new).map(LineInner::Instruction),
+            .map(Directive::Ascii),
+        instr().map(Box::new).map(Directive::Instruction),
     ))
     .spanned()
     .or_not()
@@ -639,7 +661,7 @@ pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'
             return Err(AssemblyError::DuplicateLabel(label));
         }
         if let Some(inner) = line.inner.as_ref() {
-            index += inner.size();
+            index += inner.size().map_err(AssemblyError::TooLarge)?;
         }
     }
 
