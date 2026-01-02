@@ -627,7 +627,7 @@ fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, 
 }
 
 fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    text::ascii::ident()
+    text::ident()
         .then_ignore(just(":"))
         .or_not()
         .then(line_inner())
