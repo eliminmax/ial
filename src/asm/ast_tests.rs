@@ -181,11 +181,11 @@ fn parse_exprs() {
 
     let mut expected = Expr::Ident("e");
     expected = Expr::UnaryAdd(Arc::new(spanned!(expected, 2, 3)));
-    expected = Expr::Inner(Arc::new(spanned!(expected, 1, 3)));
+    expected = Expr::Parenthesized(Arc::new(spanned!(expected, 1, 3)));
     expr_test!("(+e)", expected);
 
     let lhs = Arc::new(spanned!(
-        Expr::Inner({
+        Expr::Parenthesized({
             let lhs = Arc::new(spanned!(Expr::Number(1), 1, 2));
             let op = spanned!(BinOperator::Add, 3, 4);
             let mut rhs = Arc::new(spanned!(Expr::Ident("e"), 7, 8));

@@ -29,7 +29,7 @@ impl Display for Expr<'_> {
             }
             Expr::Negate(e) => write!(f, "-{}", e.inner),
             Expr::UnaryAdd(e) => write!(f, "+{}", e.inner),
-            Expr::Inner(e) => write!(f, "({})", e.inner),
+            Expr::Parenthesized(e) => write!(f, "({})", e.inner),
         }
     }
 }

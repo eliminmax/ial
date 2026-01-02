@@ -212,7 +212,7 @@ pub enum Expr<'a> {
     /// [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
     UnaryAdd(Arc<Spanned<Expr<'a>>>),
     /// an inner expression in parentheses
-    Inner(Arc<Spanned<Expr<'a>>>),
+    Parenthesized(Arc<Spanned<Expr<'a>>>),
 }
 
 /// An error that occured while trying to generate the intcode from the AST.
@@ -244,7 +244,7 @@ impl<'a> Expr<'a> {
                 .ok_or(AssemblyError::UnresolvedLabel(s)),
             Expr::BinOp { lhs, op, rhs } => Ok(op.inner.apply(inner!(lhs), inner!(rhs))),
             Expr::Negate(expr) => Ok(-inner!(expr)),
-            Expr::UnaryAdd(expr) | Expr::Inner(expr) => Ok(inner!(expr)),
+            Expr::UnaryAdd(expr) | Expr::Parenthesized(expr) => Ok(inner!(expr)),
         }
     }
 }
@@ -352,49 +352,48 @@ impl Instr<'_> {
     }
 }
 
-// A zero-allocation iterator of instructions
-enum InstrIter {
-    Four(i64, i64, i64, i64),
-    Three(i64, i64, i64),
-    Two(i64, i64),
-    One(i64),
+/// A cheap iterator that uses a fixed amount of stack space for up to four `T`
+enum StackIter<T: Copy> {
+    Four(T, T, T, T),
+    Three(T, T, T),
+    Two(T, T),
+    One(T),
     Empty,
 }
 
-impl Iterator for InstrIter {
-    type Item = i64;
+impl<T: Copy> Iterator for StackIter<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            InstrIter::Four(a, b, c, d) => {
+            StackIter::Four(a, b, c, d) => {
                 let a = *a;
                 *self = Self::Three(*b, *c, *d);
                 Some(a)
             }
-            InstrIter::Three(a, b, c) => {
+            StackIter::Three(a, b, c) => {
                 let a = *a;
                 *self = Self::Two(*b, *c);
                 Some(a)
             }
-            InstrIter::Two(a, b) => {
+            StackIter::Two(a, b) => {
                 let a = *a;
                 *self = Self::One(*b);
                 Some(a)
             }
-            InstrIter::One(a) => {
+            StackIter::One(a) => {
                 let a = *a;
                 *self = Self::Empty;
                 Some(a)
             }
-            InstrIter::Empty => None,
+            StackIter::Empty => None,
         }
     }
 }
 
 impl<'a> Instr<'a> {
-    /// try to encode the instructions into an opaque [iterator] of [`i64`]s
-    ///
-    /// [iterator]: Iterator
+    /// try to encode the instructions into an opaque [Iterator] of [`i64`]s, using the label
+    /// resolution provided
     pub fn resolve(
         self,
         labels: &HashMap<&'a str, i64>,
@@ -413,20 +412,20 @@ impl<'a> Instr<'a> {
                 let a = process_param!($a * 100, &mut instr);
                 let b = process_param!($b * 1000, &mut instr);
                 let c = process_param!($c * 10000, &mut instr);
-                Ok(InstrIter::Four(instr, a, b, c))
+                Ok(StackIter::Four(instr, a, b, c))
             }};
             ($val: literal, $a: tt, $b: tt) => {{
                 let mut instr = $val;
                 let a = process_param!($a * 100, &mut instr);
                 let b = process_param!($b * 1000, &mut instr);
-                Ok(InstrIter::Three(instr, a, b))
+                Ok(StackIter::Three(instr, a, b))
             }};
             ($val: literal, $a: tt) => {{
                 let mut instr = $val;
                 let a = process_param!($a * 100, &mut instr);
-                Ok(InstrIter::Two(instr, a))
+                Ok(StackIter::Two(instr, a))
             }};
-            ($val: literal) => {{ Ok(InstrIter::One($val)) }};
+            ($val: literal) => {{ Ok(StackIter::One($val)) }};
         }
 
         match self.clone() {
@@ -552,7 +551,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
         let ident = text::ident().map(|s: &str| Expr::Ident(s));
         let bracketed = expr
             .delimited_by(just('('), just(')'))
-            .map(|e| Expr::Inner(Arc::new(e)));
+            .map(|e| Expr::Parenthesized(Arc::new(e)));
         let atom = int.or(ident).or(bracketed).spanned();
         let unary = padded!(one_of("-+").spanned()).repeated().foldr(
             atom,
