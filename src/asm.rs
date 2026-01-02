@@ -23,12 +23,39 @@
 //! Labels are parsed using [chumsky::text::ident], so identifiers the same rules as [Rust], except
 //! without Unicode normalization.
 //!
+//!
+//! # Example
+//!
+//! ```
+//! use intcode::{Interpreter, State};
+//! use intcode::asm::assemble;
+//! const HELLO_ASM: &str = r#"
+//! ; A simple Hello World program
+//! RBO #hello      ; set relative base to address of hello text
+//! loop: OUT @0    ; output int at relative base
+//!       RBO #1    ; increment relative base
+//!       JNZ @0, #loop
+//! HALT
+//!
+//! hello: ASCII "Hello, world!\n\0" ; a classic greeting
+//! "#;
+//!
+//! let mut interpreter = Interpreter::new(assemble(HELLO_ASM).unwrap());
+//! let (output, state) = dbg!(interpreter).run_through_inputs(std::iter::empty()).unwrap();
+//!
+//! let expected_output: Vec<i64> = b"Hello, world!\n".into_iter().copied().map(i64::from).collect();
+//!
+//! assert_eq!(state, State::Halted);
+//! assert_eq!(output, expected_output);
+//! ```
+//!
 //! [NASM]: <https://www.nasm.us/doc/nasm03.html>
 //! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
-//! [Rust](https://doc.rust-lang.org/reference/identifiers.html)
+//! [Rust]: <https://doc.rust-lang.org/reference/identifiers.html>
 
 use super::ParamMode;
 use chumsky::prelude::*;
+use chumsky::text::Char;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -193,9 +220,9 @@ fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
 /// | [OUT]       | `OUT a`         | 4      | `yield a`                  |
 /// | [JNZ]       | `JNZ a, b`      | 5      | `if b != 0: goto a`        |
 /// | [JZ]        | `JZ a, b`       | 6      | `if b == 0: goto a`        |
-/// | [SLT]       | `LT a, b, (c)`  | 7      | `c = if (1 < v) 1 else 0`  |
-/// | [SEQ]       | `EQ a, b, (c)`  | 8      | `c = if (a == b) 1 else 0` |
-/// | [INCB]      | `INCB a`        | 9      | `base_offset += a`         |
+/// | [LT]        | `LT a, b, (c)`  | 7      | `c = if (1 < v) 1 else 0`  |
+/// | [EQ]        | `EQ a, b, (c)`  | 8      | `c = if (a == b) 1 else 0` |
+/// | [RBO]       | `RBO a`         | 9      | `base_offset += a`         |
 /// | [HALT]      | `HALT`          | 99     | `exit()`                   |
 ///
 /// Each parameter consists of an optional [mode specifier], followed by a single [expression].
@@ -207,9 +234,9 @@ fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
 /// [OUT]: Instr::Out  
 /// [JNZ]: Instr::Jnz  
 /// [JZ]: Instr::Jz    
-/// [SLT]: Instr::Slt  
-/// [SEQ]: Instr::Seq  
-/// [INCB]: Instr::Incb
+/// [LT]: Instr::Lt  
+/// [EQ]: Instr::Eq  
+/// [RBO]: Instr::Rbo
 /// [HALT]: Instr::Halt
 /// [expression]: Expr
 /// [mode specifier]: ParamMode
@@ -240,9 +267,9 @@ pub enum Instr<'a> {
     In(Parameter<'a>) = 3,
     /// `OUT a`: output `a`
     Out(Parameter<'a>) = 4,
-    /// `JNZ a, b`: jump to `a` if `b` is nonzero
+    /// `JNZ a, b`: jump to `b` if `a` is nonzero
     Jnz(Parameter<'a>, Parameter<'a>) = 5,
-    /// `JZ a, b`: jump to `a` if `b` is zero
+    /// `JZ a, b`: jump to `b` if `a` is zero
     Jz(Parameter<'a>, Parameter<'a>) = 6,
     /// `LT a, b`: store `(a < b) as i64` in `c`
     ///
@@ -250,16 +277,17 @@ pub enum Instr<'a> {
     ///
     /// [immediate mode]: ParamMode::Immediate
     #[doc(alias("SLT", "LT", "CMP"))]
-    Slt(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 7,
+    Lt(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 7,
     /// `EQ a, b`: store `(a == b) as i64` in `c`
     ///
     /// If `c` is in [immediate mode] at time of execution, instruction will trap
     ///
     /// [immediate mode]: ParamMode::Immediate
     #[doc(alias("SEQ", "EQ", "CMP"))]
-    Seq(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 8,
-    /// `INCB a`: add `a` to Relative Base
-    Incb(Parameter<'a>) = 9,
+    Eq(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 8,
+    /// `RBO a`: add `a` to Relative Base
+    #[doc(alias("INCB", "relative base", "relative base offset"))]
+    Rbo(Parameter<'a>) = 9,
     /// `HALT`: exit program
     Halt = 99,
 }
@@ -269,9 +297,9 @@ impl Instr<'_> {
     pub const fn size(&self) -> i64 {
         match self {
             Instr::Halt => 1,
-            Instr::In(..) | Instr::Out(..) | Instr::Incb(..) => 2,
+            Instr::In(..) | Instr::Out(..) | Instr::Rbo(..) => 2,
             Instr::Jnz(..) | Instr::Jz(..) => 3,
-            Instr::Add(..) | Instr::Mul(..) | Instr::Slt(..) | Instr::Seq(..) => 4,
+            Instr::Add(..) | Instr::Mul(..) | Instr::Lt(..) | Instr::Eq(..) => 4,
         }
     }
 }
@@ -360,9 +388,9 @@ impl<'a> Instr<'a> {
             Instr::Out(a) => process_instr!(4, a),
             Instr::Jnz(a, b) => process_instr!(5, a, b),
             Instr::Jz(a, b) => process_instr!(6, a, b),
-            Instr::Slt(a, b, c) => process_instr!(7, a, b, c),
-            Instr::Seq(a, b, c) => process_instr!(8, a, b, c),
-            Instr::Incb(a) => process_instr!(9, a),
+            Instr::Lt(a, b, c) => process_instr!(7, a, b, c),
+            Instr::Eq(a, b, c) => process_instr!(8, a, b, c),
+            Instr::Rbo(a) => process_instr!(9, a),
             Instr::Halt => process_instr!(99),
         }
     }
@@ -418,6 +446,16 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
     .map(|(mode, expr)| Parameter(mode, Arc::new(expr)))
 }
 
+fn mnemonic<'a>(kw: &'static str) -> impl Parser<'a, &'a str, (), RichErr<'a>> {
+    text::ascii::ident().try_map(move |s: &'a str, span| {
+        if s.eq_ignore_ascii_case(kw) {
+            Ok(())
+        } else {
+            Err(Rich::custom(span, format!("failed to match keyword {kw}")))
+        }
+    })
+}
+
 fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     macro_rules! params {
         ($n: literal) => {{
@@ -430,13 +468,13 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     }
     macro_rules! op {
         ($name: literal, $variant: ident::<1>) => {
-            with_sep!(just($name)).ignore_then(param().map(Instr::$variant))
+            with_sep!(mnemonic($name)).ignore_then(param().map(Instr::$variant))
         };
         ($name: literal, $variant: ident::<2>) => {
-            with_sep!(just($name)).ignore_then((params!(2)).map(|[a, b]| Instr::$variant(a, b)))
+            with_sep!(mnemonic($name)).ignore_then((params!(2)).map(|[a, b]| Instr::$variant(a, b)))
         };
         ($name: literal, $variant: ident::<3>) => {
-            with_sep!(just($name))
+            with_sep!(mnemonic($name))
                 .ignore_then((params!(3)).map(|[a, b, c]| Instr::$variant(a, b, c)))
         };
     }
@@ -448,11 +486,12 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
         op!("OUT", Out::<1>),
         op!("JNZ", Jnz::<2>),
         op!("JZ", Jz::<2>),
-        op!("SLT", Slt::<3>),
-        op!("LT", Slt::<3>),
-        op!("SEQ", Seq::<3>),
-        op!("EQ", Seq::<3>),
-        op!("INCB", Incb::<1>),
+        op!("LT", Lt::<3>),
+        op!("SLT", Lt::<3>),
+        op!("EQ", Eq::<3>),
+        op!("SEQ", Eq::<3>),
+        op!("RBO", Rbo::<1>),
+        op!("INCB", Rbo::<1>),
         just("HALT").to(Instr::Halt),
     )))
 }
@@ -627,23 +666,39 @@ fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, 
 }
 
 fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    text::ident()
-        .then_ignore(just(":"))
-        .or_not()
-        .then(line_inner())
-        .map(|(label, inner)| Line { label, inner })
-        .then_ignore(
-            just(';')
-                .then_ignore(text::newline().not().repeated())
-                .or_not(),
-        )
+    padded!(
+        (text::ident().then_ignore(just(":")))
+            .or_not()
+            .then(line_inner())
+            .map(|(label, inner)| Line { label, inner })
+            .then_ignore(
+                (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
+                    .or_not(),
+            )
+    )
 }
 
 fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     parse_line().separated_by(just("\n")).collect()
 }
 
-/// Parse the assembly code into a [`Vec<Line<'a>>`], or a [`Vec<Rich<char>>`] on failure.
+/// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
+///
+/// # Example
+///
+/// ```
+/// use intcode::asm::build_ast;
+/// use intcode::Interpreter;
+///
+/// assert!(build_ast(r#"
+/// RBO #hello
+/// loop: OUT @0
+///     INCB #1
+///     JNZ @0, #loop
+/// HALT
+/// hello: ASCII "Hello, world!"
+/// "#).is_ok());
+/// ```
 pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>> {
     grammar().parse(code).into_result()
 }
@@ -651,6 +706,21 @@ pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>
 /// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]
 ///
 /// On failure, returns an [`AssemblyError`].
+///
+/// # Example
+///
+/// ```
+/// use intcode::asm::{assemble_ast, Line, Directive, Instr, Parameter};
+/// use chumsky::prelude::{Spanned, SimpleSpan};
+///
+/// let inner = Directive::Instruction(Box::new(Instr::Halt));
+///
+/// let ast = vec![
+///     Line { label: None, inner: Some(Spanned { inner, span: SimpleSpan::default() }) }
+/// ];
+///
+/// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);
+/// ```
 pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'a>> {
     let mut labels: HashMap<&'a str, i64> = HashMap::new();
     let mut index = 0;
@@ -686,10 +756,7 @@ pub enum AsmError<'a> {
 
 /// Try to assemble the code into a [`Vec<i64>`]
 ///
-/// This is a wrapper around [`build_ast`] and [`assemble_ast`].
-/// ```no_run
-/// assemble_ast(build_ast(code).map_err(Error::Parse)?).map_err(Error::Assemble)
-/// ```
+/// This is a thin convenience wrapper around [`build_ast`] and [`assemble_ast`].
 #[inline]
 pub fn assemble<'a>(code: &'a str) -> Result<Vec<i64>, AsmError<'a>> {
     assemble_ast(build_ast(code).map_err(AsmError::BuildAst)?).map_err(AsmError::Assemble)

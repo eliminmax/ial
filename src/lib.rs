@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2024 - 2025 Eli Array Minkoff
 //
 // SPDX-License-Identifier: 0BSD
-
 #![warn(missing_docs)]
 
 //! Library providing an Intcode interpreter and optional assembly language

@@ -123,21 +123,21 @@ fn parse_instrs() {
     assert_eq!(parse!("JZ @a, #b"), i![Jz(p!(@a, 3, 5), p!(#b, 7, 9))]);
     assert_eq!(
         parse!("SLT 1,@1, #5"),
-        i![Slt(p!(1, 4, 5), p!(@1, 6, 8), p!(#5, 10, 12))]
+        i![Lt(p!(1, 4, 5), p!(@1, 6, 8), p!(#5, 10, 12))]
     );
     assert_eq!(
         parse!("LT 1,@1, #5"),
-        i![Slt(p!(1, 3, 4), p!(@1, 5, 7), p!(#5, 9, 11))]
+        i![Lt(p!(1, 3, 4), p!(@1, 5, 7), p!(#5, 9, 11))]
     );
     assert_eq!(
         parse!("SEQ @3, 32, 1"),
-        i![Seq(p!(@3, 4, 6), p!(32, 8, 10), p!(1, 12, 13))]
+        i![Eq(p!(@3, 4, 6), p!(32, 8, 10), p!(1, 12, 13))]
     );
     assert_eq!(
         parse!("EQ @3, 32, 1"),
-        i![Seq(p!(@3, 3, 5), p!(32, 7, 9), p!(1, 11, 12))]
+        i![Eq(p!(@3, 3, 5), p!(32, 7, 9), p!(1, 11, 12))]
     );
-    assert_eq!(parse!("INCB #hello"), i![Incb(p!(#hello, 5, 11))]);
+    assert_eq!(parse!("INCB #hello"), i![Rbo(p!(#hello, 5, 11))]);
     assert_eq!(parse!("HALT"), i![Halt]);
 }
 
