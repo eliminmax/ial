@@ -53,6 +53,7 @@
 //! If you want, you can view the AST before assembling, though it's quite unwieldy:
 //!
 //! # Example
+//!
 //! ```
 //! use intcode::{prelude::*, asm::ast_prelude::*};
 //!
@@ -85,7 +86,29 @@
 //!         )))
 //!     })
 //! }];
-//! 
+//!
+//! assert_eq!(ast, expected);
+//! assert_eq!(assemble_ast(ast).unwrap(), vec![1106, 0, 0]);
+//! ```
+//!
+//! The [ast_util] module provides some small functions and macros to express things more
+//! concicely:
+//!
+//! ```
+//! use intcode::{prelude::*, asm::ast_prelude::*};
+//! use intcode::asm::ast_util::*;
+//! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
+//! let expected = vec![Line {
+//!     label: Some("idle_loop"),
+//!     inner: Some(span(
+//!         Directive::Instruction(Box::new(Instr::Jz(
+//!             param!(#<expr!(0);>[14..16]),
+//!             param!(#<expr!(idle_loop);>[18..28])
+//!         ))),
+//!         10..28
+//!     ))
+//! }];
+//!
 //! assert_eq!(ast, expected);
 //! assert_eq!(assemble_ast(ast).unwrap(), vec![1106, 0, 0]);
 //! ```
@@ -94,21 +117,179 @@
 //! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
 //! [Rust]: <https://doc.rust-lang.org/reference/identifiers.html>
 
-use super::ParamMode;
+use ast_prelude::*;
 use chumsky::prelude::*;
 use chumsky::text::Char;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod ast_prelude {
     pub use crate::{ParamMode, asm};
-    pub use std::sync::Arc;
-    pub use chumsky::span::{Spanned, SimpleSpan};
     pub use asm::{
-        assemble, assemble_ast, build_ast,
-        Line, Directive, Instr, Parameter, Expr, BinOperator,
+        BinOperator, Directive, Expr, Instr, Line, Parameter, assemble, assemble_ast, build_ast,
     };
+    pub use chumsky::span::{SimpleSpan, Spanned};
+    pub use std::sync::Arc;
+}
+
+/// Small utility functions and macros for making it less painful to work with the AST
+pub mod ast_util {
+    use super::ast_prelude::*;
+    use std::ops::Range;
+
+    pub use crate::expr;
+    pub use crate::param;
+    /// A macro to make constructing [expressions](Expr) simpler.
+    ///
+    /// If passed a literal, it will resolve to an [Expr::Number] with that literal value
+    ///
+    /// ```
+    /// use intcode::asm::{ast_prelude::*, ast_util::*};
+    /// assert_eq!(expr!(10), Expr::Number(10));
+    /// ```
+    ///
+    /// If passed an identifier, it will resolve to an `[Expr::Ident]` with that identifer
+    /// (stringified with [`stringify`]).
+    /// ```
+    ///# use intcode::asm::{ast_prelude::*, ast_util::*};
+    /// assert_eq!(expr!(e), Expr::Ident("e"));
+    /// ```
+    ///
+    /// Expressions within expressions can be expressed using the syntax `<expr;>[span]`, which is
+    /// messy, but works around ambiguity about where an expression ends, and allows the span to be
+    /// provided, and is overall still far more concise than fully writing it out:
+    ///
+    /// ```
+    ///# use intcode::asm::{ast_prelude::*, ast_util::*};
+    /// assert_eq!(
+    ///     expr!( (<expr!(e);>[1..2]) ),
+    ///     Expr::Parenthesized(arc(span(Expr::Ident("e"), 1..2)))
+    /// );
+    /// assert_eq!(
+    ///     expr!(- <expr!(e);>[1..2]),
+    ///     Expr::Negate(arc(span(Expr::Ident("e"), 1..2)))
+    /// );
+    /// assert_eq!(
+    ///     expr!(<expr!(1);>[0..1] +[2..3] <expr!(1);>[4..5]),
+    ///     Expr::BinOp {
+    ///         lhs: arc(span(Expr::Number(1), 0..1)),
+    ///         op: span(BinOperator::Add, 2..3),
+    ///         rhs: arc(span(Expr::Number(1), 4..5)),
+    ///     }
+    /// );
+    /// ```
+    ///
+    #[macro_export]
+    macro_rules! expr {
+        (+ <$e:expr;>[$span: expr]) => {{
+            ::intcode::asm::Expr::UnaryAdd(
+                ::std::sync::Arc::new(
+                    ::intcode::asm::ast_util::span($e, $span)
+                )
+            )
+        }};
+        (- <$e:expr;>[$span: expr]) => {{
+            ::intcode::asm::Expr::Negate(Arc::new(::intcode::asm::ast_util::span($e, $span)))
+        }};
+        ($i:ident) => {{ ::intcode::asm::Expr::Ident(stringify!($i)) }};
+        ($n:literal) => {{ ::intcode::asm::Expr::Number($n) }};
+        ( (<$e:expr;>[$span: expr]) ) => {{
+            ::intcode::asm::Expr::Parenthesized(
+                ::std::sync::Arc::new(::intcode::asm::ast_util::span($e, $span))
+            )
+        }};
+        (<$l:expr;>[$span_l:expr] $op:tt[$span_op:expr] <$r:expr;>[$span_r:expr]) => {{
+            macro_rules! op {
+                [+] => {{ ::intcode::asm::BinOperator::Add }};
+                [-] => {{ ::intcode::asm::BinOperator::Sub }};
+                [*] => {{ ::intcode::asm::BinOperator::Mul }};
+                [/] => {{ ::intcode::asm::BinOperator::Div }};
+            }
+            ::intcode::asm::Expr::BinOp {
+                lhs: ::std::sync::Arc::new(::intcode::asm::ast_util::span($l, $span_l)),
+                op: ::intcode::asm::ast_util::span(op![$op], $span_op),
+                rhs: ::std::sync::Arc::new(::intcode::asm::ast_util::span($r, $span_r)),
+            }
+        }};
+    }
+
+    /// A macro to make constructing [parameters](Parameter) simpler.
+    ///
+    /// Construct a parameter using the syntax `param!(<mode> expr; span)`, where `<mode>` is
+    /// either blank for parameter mode, `#` for immediate mode, or `@` for relative mode
+    ///
+    /// ```
+    /// use intcode::asm::{ast_prelude::*, ast_util::*};
+    /// assert_eq!(
+    ///     param!(@<expr!(0);>[0..2]),
+    ///     Parameter(span(ParamMode::Relative, 0..1), arc(span(Expr::Number(0), 1..2)))
+    /// );
+    /// ```
+    #[macro_export]
+    macro_rules! param {
+        (@ <$e: expr;>[$span: expr]) => {{
+            ::intcode::asm::Parameter(
+                ::intcode::asm::ast_util::span(
+                    ::intcode::ParamMode::Relative,
+                    ($span.start)..($span.start + 1)
+                ),
+                ::std::sync::Arc::new(::intcode::asm::ast_util::span(
+                    $e, ($span.start + 1)..($span.end)
+                ))
+            )
+        }};
+        (# <$e: expr;>[$span: expr]) => {{
+            ::intcode::asm::Parameter(
+                ::intcode::asm::ast_util::span(
+                    ::intcode::ParamMode::Immediate,
+                    ($span.start)..($span.start + 1)
+                ),
+                ::std::sync::Arc::new(::intcode::asm::ast_util::span(
+                    $e, ($span.start + 1)..($span.end)
+                ))
+            )
+        }};
+        (<$e: expr;>[$span: expr]) => {{
+            ::intcode::asm::Parameter(
+                ::intcode::asm::ast_util::span(
+                    ::intcode::ParamMode::Positional,
+                    ($span.start)..($span.start)
+                ),
+                ::std::sync::Arc::new(::intcode::asm::ast_util::span($e, $span))
+            )
+        }};
+    }
+
+    #[inline]
+    /// Unwrap a [`Spanned<T>`] into the underlying [`T`]
+    pub fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
+        inner
+    }
+
+    #[inline]
+    /// Wrap a [`T`] into a [`Spanned<T>`] with the provided range
+    pub const fn span<T>(inner: T, range: Range<usize>) -> Spanned<T> {
+        Spanned {
+            inner,
+            span: SimpleSpan {
+                start: range.start,
+                end: range.end,
+                context: (),
+            },
+        }
+    }
+
+    #[inline]
+    /// Move `inner` into an [`Arc`]
+    pub fn arc<T>(inner: T) -> Arc<T> {
+        Arc::new(inner)
+    }
+
+    #[inline]
+    /// get an owned version of the contents of an [`Arc`]
+    pub fn unarc<T: Clone>(arc: Arc<T>) -> T {
+        Arc::unwrap_or_clone(arc)
+    }
 }
 
 #[non_exhaustive]
