@@ -120,8 +120,6 @@ pub enum AssemblyError<'a> {
     UnresolvedLabel(&'a str),
     /// A label was defined more than once
     DuplicateLabel(&'a str),
-    #[doc(hidden)]
-    WriteToImmediate(Box<Instr<'a>>),
 }
 
 impl<'a> Expr<'a> {
@@ -297,20 +295,7 @@ impl<'a> Instr<'a> {
         self,
         labels: &HashMap<&'a str, i64>,
     ) -> Result<impl Iterator<Item = i64>, AssemblyError<'a>> {
-        macro_rules! imm_guard {
-            ($mode: ident) => {
-                if $mode.inner == ParamMode::Immediate {
-                    return Err(AssemblyError::WriteToImmediate(Box::new(self)));
-                }
-            };
-        }
         macro_rules! process_param {
-            ([$param: ident] * $multiplier: literal, &mut $instr: ident) => {{
-                let Parameter(mode, expr) = $param;
-                imm_guard!(mode);
-                $instr += mode.inner as i64 * $multiplier;
-                unspan(Arc::unwrap_or_clone(expr)).resolve(labels)?
-            }};
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, expr) = $param;
                 $instr += mode.inner as i64 * $multiplier;
@@ -341,14 +326,14 @@ impl<'a> Instr<'a> {
         }
 
         match self.clone() {
-            Instr::Add(a, b, c) => process_instr!(1, a, b, [c]),
-            Instr::Mul(a, b, c) => process_instr!(2, a, b, [c]),
-            Instr::In(a) => process_instr!(3, [a]),
+            Instr::Add(a, b, c) => process_instr!(1, a, b, c),
+            Instr::Mul(a, b, c) => process_instr!(2, a, b, c),
+            Instr::In(a) => process_instr!(3, a),
             Instr::Out(a) => process_instr!(4, a),
             Instr::Jnz(a, b) => process_instr!(5, a, b),
             Instr::Jz(a, b) => process_instr!(6, a, b),
-            Instr::Slt(a, b, c) => process_instr!(7, a, b, [c]),
-            Instr::Seq(a, b, c) => process_instr!(8, a, b, [c]),
+            Instr::Slt(a, b, c) => process_instr!(7, a, b, c),
+            Instr::Seq(a, b, c) => process_instr!(8, a, b, c),
             Instr::Incb(a) => process_instr!(9, a),
             Instr::Halt => process_instr!(99),
         }
