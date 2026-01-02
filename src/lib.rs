@@ -4,7 +4,10 @@
 
 #![warn(missing_docs)]
 
-//! Library providing an Intcode interpreter, which can be constructed with [`Interpreter::new`].
+//! Library providing an Intcode interpreter and optional assembly language
+//!
+//! The interpreter is fully functional, with all of the [Opcodes] and [Parameter Modes] defined in
+//! the completed Intcode computer for [Day 9].
 //!
 //! # Example
 //!
@@ -17,6 +20,9 @@
 //!     (vec![1024], State::Halted)
 //! );
 //! ```
+//! [Opcodes]: https://esolangs.org/wiki/Intcode#Opcodes
+//! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
+//! [Day 9]: https://adventofcode.com/2019/day/9
 
 /// A module providing a sort of logical memory management unit, using a hashmap to split memory
 /// into segments, which are each contiguous in memory.
@@ -33,13 +39,23 @@ pub mod asm;
 
 use mmu::IntcodeMem;
 
+/// The state of the intcode system, returned whenever the intcode system has stopped.
+///
+/// [Awaiting](State::Awaiting) means that there are more instructions to execute, but all input
+/// has been consumed and the next instruction requires input.
+///
+/// [Halted](State::Halted) means that a `HALT` instruction has been executed. Once it's been
+/// returned, no more instructions will be executed.
 #[derive(Debug, PartialEq)]
 pub enum State {
+    /// Execution is awaiting input
     Awaiting,
+    /// Execution has halted
     Halted,
 }
 
 #[derive(Debug)]
+/// An error occured when executing an intcode instruction
 pub enum ErrorState {
     /// An invalid opcode was encountered
     UnrecognizedOpcode(i64),
@@ -118,10 +134,36 @@ impl fmt::Debug for Interpreter<'_> {
 }
 
 /// Parameter mode for Intcode instruction
+///
+/// Intcode instruction parameters each have a mode:  [positional], [immediate], or [relative].
+///
+/// When executing an intcode instruction, the instruction's parameters are interpreted in
+/// accordance with their associated modes.
+///
+/// [positional]: ParamMode::Positional
+/// [immediate]: ParamMode::Immediate
+/// [relative]: ParamMode::Relative
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ParamMode {
+    /// Positional Mode
+    ///
+    /// A parameter in positional mode evaluates to the value at the address specified by the
+    /// parameter.
     Positional = 0,
+    /// Immediate Mode
+    ///
+    /// A parameter in immediate mode evaluates directly to the value specified. Instructions which
+    /// write to memory may not use immediate mode for their destinations.
+    #[doc(alias = "#")]
     Immediate = 1,
+    /// Relative Mode
+    ///
+    /// A parameter in positional mode evaluates to the value at the address specified by the
+    /// parameter, added to the [Relative Base], which starts out as `0` but can be modified
+    /// throughout the program's execution.
+    ///
+    /// [Relative Base]: https://adventofcode.com/2019/day/9
+    #[doc(alias = "@")]
     Relative = 2,
 }
 
@@ -218,8 +260,15 @@ impl Interpreter<'_> {
     }
 
     /// Manually set a memory location
+    #[doc(alias = "poke")]
     pub fn mem_override(&mut self, location: u64, value: i64) {
         self.code[location] = value;
+    }
+
+    /// Get the memory at `address`
+    #[doc(alias = "peek")]
+    pub fn mem_get(&self, address: u64) -> i64 {
+        self.code[address]
     }
 
     fn exec_instruction(
@@ -432,8 +481,10 @@ impl Interpreter<'_> {
     }
 
     /// Execute until either the program halts, or it tries to read nonexistent input.
-    /// If the interpreter halted, returns `Ok(v)`, where `v` is a `Vec` of outputs, otherwise, it
-    /// bubbles up the error
+    /// If the interpreter halted, returns `Ok((v, s))`, where `v` is a [`Vec<i64>`] containing all
+    /// outputs that it found, and `s` is the [`State`] at the time it stopped.
+    ///
+    /// On error, it will return an [`ErrorState`] that reflects the error.
     pub fn run_through_inputs(
         &mut self,
         inputs: impl IntoIterator<Item = i64>,
@@ -455,7 +506,7 @@ impl Interpreter<'_> {
     }
 
     /// Pre-compute as much as possible - that is, run every up to, but not including, the first
-    /// In, Out, or Halt instruction, bubbling up any errors that occur.
+    /// `IN`, `OUT`, or `HALT` instruction, bubbling up any errors that occur.
     pub fn precompute(&mut self) -> Result<(), ErrorState> {
         while Self::parse_op(self.code[self.index])
             .is_ok_and(|(opcode, _)| !matches!(opcode, OpCode::In | OpCode::Out | OpCode::Halt))
@@ -465,6 +516,7 @@ impl Interpreter<'_> {
         Ok(())
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
