@@ -162,12 +162,12 @@ impl<'a> Instr<'a> {
                 let Parameter(mode, expr) = $param;
                 imm_guard!(mode);
                 $instr += mode.inner as i64 * $multiplier;
-                unspan(expr).resolve(labels)?
+                unspan(Arc::unwrap_or_clone(expr)).resolve(labels)?
             }};
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, expr) = $param;
                 $instr += mode.inner as i64 * $multiplier;
-                unspan(expr).resolve(labels)?
+                unspan(Arc::unwrap_or_clone(expr)).resolve(labels)?
             }};
         }
 
@@ -244,7 +244,7 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
         .spanned()
         .then(expr())
     )
-    .map(|(mode, expr)| Parameter(mode, expr))
+    .map(|(mode, expr)| Parameter(mode, Arc::new(expr)))
 }
 
 fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {

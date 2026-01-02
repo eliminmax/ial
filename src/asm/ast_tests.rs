@@ -66,37 +66,37 @@ fn parse_instrs() {
         (#$e: literal, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Immediate, $start, $start + 1),
-                spanned!(Expr::Number($e), $start + 1, $end),
+                Arc::new(spanned!(Expr::Number($e), $start + 1, $end)),
             )
         };
         (@$e: literal, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Relative, $start, $start + 1),
-                spanned!(Expr::Number($e), $start + 1, $end),
+                Arc::new(spanned!(Expr::Number($e), $start + 1, $end)),
             )
         };
         ($e: literal, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Positional, $start, $start),
-                spanned!(Expr::Number($e), $start, $end),
+                Arc::new(spanned!(Expr::Number($e), $start, $end)),
             )
         };
         (#$e: ident, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Immediate, $start, $start + 1),
-                spanned!(Expr::Ident(stringify!($e)), $start + 1, $end),
+                Arc::new(spanned!(Expr::Ident(stringify!($e)), $start + 1, $end)),
             )
         };
         (@$e: ident, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Relative, $start, $start + 1),
-                spanned!(Expr::Ident(stringify!($e)), $start + 1, $end),
+                Arc::new(spanned!(Expr::Ident(stringify!($e)), $start + 1, $end)),
             )
         };
         ($e: ident, $start: expr, $end: expr) => {
             Parameter(
                 spanned!(ParamMode::Positional, $start, $start),
-                spanned!(Expr::Ident(stringify!($e)), $start, $end),
+                Arc::new(spanned!(Expr::Ident(stringify!($e)), $start, $end)),
             )
         };
     }
