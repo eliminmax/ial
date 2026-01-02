@@ -59,9 +59,8 @@ use chumsky::text::Char;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 /// A binary operatior within an [`Expr::BinOp`]
 pub enum BinOperator {
     /// An addition operator
@@ -89,8 +88,7 @@ impl BinOperator {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 /// An assembler expression, evaluated into a number when assembling
 ///
@@ -199,8 +197,7 @@ impl<'a> Expr<'a> {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 /// A simple tuple struct containing the parameter mode and the expression for the parameter
 pub struct Parameter<'a>(pub Spanned<ParamMode>, pub Arc<Spanned<Expr<'a>>>);
 
@@ -242,8 +239,7 @@ fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
 /// [mode specifier]: ParamMode
 /// [immediate mode]: ParamMode::Immediate
 ///
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum Instr<'a> {
     /// `ADD a, b, c`: store `a + b` in `c`
@@ -396,9 +392,8 @@ impl<'a> Instr<'a> {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// The directive of a line
 ///
 /// This is what actually gets output into the program
@@ -412,8 +407,7 @@ pub enum Directive<'a> {
     Instruction(Box<Instr<'a>>),
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 /// A single line of assembly, containing an optional label, an optional directive, and an optional
 /// comment - the last of which is not stored.
 pub struct Line<'a> {
