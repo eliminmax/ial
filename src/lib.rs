@@ -19,6 +19,31 @@
 //!     (vec![1024], State::Halted)
 //! );
 //! ```
+//!
+//! Additionally, if the `asm` feature is enabled, tools to work with a minimal assembly language
+//! for Intcode are provided in the [asm] module:
+//!
+//! # Example
+//!
+//! ```rust
+//! use intcode::{Interpreter, State, asm::assemble};
+//! const ASM: &str = r#"
+//! OUT #1024
+//! HALT
+//! "#;
+//!
+//!
+//! let assembled = assemble(ASM).unwrap();
+//! assert_eq!(assembled, vec![104, 1024, 99]);
+//!
+//! let mut interpreter = Interpreter::new(assembled);
+//! assert_eq!(
+//!     interpreter.run_through_inputs(std::iter::empty()).unwrap(),
+//!     (vec![1024], State::Halted)
+//! );
+//!
+//! ```
+//!
 //! [Opcodes]: https://esolangs.org/wiki/Intcode#Opcodes
 //! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
 //! [Day 9]: https://adventofcode.com/2019/day/9

@@ -10,7 +10,9 @@
 //!
 //! Each [line](Line) has three components, any of which can be omitted.
 //!
-//! The first component is a label, which will resolve to the index of the next intcode int added.
+//! The first component is a label, which will resolve to the index of the next intcode int added
+//! by a directive, either on the same line or a future one.
+//!
 //! The next is a [directive](Directive), which is what will actually be converted into intcode.
 //! The third is a comment - it is ignored completely.
 //!
@@ -22,7 +24,6 @@
 //!
 //! Labels are parsed using [chumsky::text::ident], so identifiers the same rules as [Rust], except
 //! without Unicode normalization.
-//!
 //!
 //! # Example
 //!
@@ -47,6 +48,48 @@
 //!
 //! assert_eq!(state, State::Halted);
 //! assert_eq!(output, expected_output);
+//! ```
+//!
+//! If you want, you can view the AST before assembling, though it's quite unwieldy:
+//!
+//! # Example
+//! ```
+//! use intcode::{Interpreter, State, ParamMode, asm::*};
+//! use chumsky::prelude::{Spanned, SimpleSpan};
+//! use std::sync::Arc;
+//!
+//! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
+//! let expected = vec![Line {
+//!     label: Some("idle_loop"),
+//!     inner: Some(Spanned {
+//!         span: SimpleSpan { start: 10, end: 28, context: () },
+//!         inner: Directive::Instruction(Box::new(Instr::Jz(
+//!             Parameter (
+//!                 Spanned {
+//!                     inner: ParamMode::Immediate,
+//!                     span: SimpleSpan { start: 14, end: 15, context: () },
+//!                 },
+//!                 Arc::new(Spanned {
+//!                     inner: Expr::Number(0),
+//!                     span: SimpleSpan { start: 15, end: 16, context: () },
+//!                 }),
+//!             ),
+//!             Parameter (
+//!                 Spanned {
+//!                     inner: ParamMode::Immediate,
+//!                     span: SimpleSpan { start: 18, end: 19, context: () },
+//!                 },
+//!                 Arc::new(Spanned {
+//!                     inner: Expr::Ident("idle_loop"),
+//!                     span: SimpleSpan { start: 19, end: 28, context: () },
+//!                 }),
+//!             ),
+//!         )))
+//!     })
+//! }];
+//! 
+//! assert_eq!(ast, expected);
+//! assert_eq!(assemble_ast(ast).unwrap(), vec![1106, 0, 0]);
 //! ```
 //!
 //! [NASM]: <https://www.nasm.us/doc/nasm03.html>
