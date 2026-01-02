@@ -261,21 +261,29 @@ fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
 ///
 /// There are 10 defined intcode instructions, which take varying numbers of parameters:
 ///
-/// | Instruction | Syntax          | Opcode | Pseudocode                 |
-/// |-------------|-----------------|--------|----------------------------|
-/// | [ADD]       | `ADD a, b, (c)` | 1      | `c = a + b`                |
-/// | [MUL]       | `MUL a, b, (c)` | 2      | `c = a * b`                |
-/// | [IN]        | `IN (a)`        | 3      | `a = input_num()`          |
-/// | [OUT]       | `OUT a`         | 4      | `yield a`                  |
-/// | [JNZ]       | `JNZ a, b`      | 5      | `if b != 0: goto a`        |
-/// | [JZ]        | `JZ a, b`       | 6      | `if b == 0: goto a`        |
-/// | [LT]        | `LT a, b, (c)`  | 7      | `c = if (1 < v) 1 else 0`  |
-/// | [EQ]        | `EQ a, b, (c)`  | 8      | `c = if (a == b) 1 else 0` |
-/// | [RBO]       | `RBO a`         | 9      | `base_offset += a`         |
-/// | [HALT]      | `HALT`          | 99     | `exit()`                   |
+/// | Instruction | Syntax        | Opcode | Pseudocode                 |
+/// |-------------|---------------|--------|----------------------------|
+/// | [ADD]       | `ADD a, b, c` | 1      | `c = a + b`                |
+/// | [MUL]       | `MUL a, b, c` | 2      | `c = a * b`                |
+/// | [IN]        | `IN a`        | 3      | `a = input_num()`          |
+/// | [OUT]       | `OUT a`       | 4      | `yield a`                  |
+/// | [JNZ]       | `JNZ a, b`    | 5      | `if b != 0: goto a`        |
+/// | [JZ]        | `JZ a, b`     | 6      | `if b == 0: goto a`        |
+/// | [LT]        | `LT a, b, c`  | 7      | `c = if (1 < v) 1 else 0`  |
+/// | [EQ]        | `EQ a, b, c`  | 8      | `c = if (a == b) 1 else 0` |
+/// | [RBO]       | `RBO a`       | 9      | `base_offset += a`         |
+/// | [HALT]      | `HALT`        | 99     | `exit()`                   |
+///
+/// Additionally, for compatibility with the [proposed assembly syntax] that this was based on, the
+/// following aliases are defined:
+///
+/// | Alias  | Instruction |
+/// |--------|-------------|
+/// | `INCB` | `RBO`       |
+/// | `SEQ`  | `EQ`        |
+/// | `SLT`  | `LT`        |
 ///
 /// Each parameter consists of an optional [mode specifier], followed by a single [expression].
-/// Parameters marked in parentheses cannot be in [immediate mode].
 ///
 /// [ADD]: Instr::Add  
 /// [MUL]: Instr::Mul  
@@ -289,7 +297,6 @@ fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
 /// [HALT]: Instr::Halt
 /// [expression]: Expr
 /// [mode specifier]: ParamMode
-/// [immediate mode]: ParamMode::Immediate
 ///
 #[derive(Debug, Clone, PartialEq)]
 #[repr(u8)]
