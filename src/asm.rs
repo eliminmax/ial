@@ -2,6 +2,18 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+//! Module for working with an assembly language for Intcode
+//!
+//! This module defines an AST for an extended version of the [`proposed assembly syntax`] from
+//! the Esolangs Community Wiki, powered by [chumsky]. It provides mnemonics for each of the
+//! intcode instructions, and the ability to include inline data, either directly or as ASCII text.
+//!
+//! Each [line] can have an optional label, followed by either an [instruction](Instr), a
+//! [DATA](LineInner::DataDirective) directive, or an [ASCII](LineInner::Ascii) directive.
+//!
+//! [line]: Line
+//! [`proposed assembly syntax`]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
+
 use super::ParamMode;
 use chumsky::prelude::*;
 use std::collections::HashMap;
@@ -10,10 +22,19 @@ use std::sync::Arc;
 #[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
 #[derive(Debug, Clone)]
+/// A binary operatior within an [`Expr::BinOp`]
 pub enum BinOperator {
+    /// An addition operator
+    #[doc(alias = "+")]
     Add = 0,
+    /// A subtraction operator
+    #[doc(alias = "*")]
     Sub = 1,
+    /// A multiplication operator
+    #[doc(alias = "*")]
     Mul = 2,
+    /// A division operator
+    #[doc(alias = "/")]
     Div = 3,
 }
 
@@ -31,27 +52,81 @@ impl BinOperator {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 #[non_exhaustive]
+/// An assembler expression, evaluated into a number when assembling
+///
+/// Expressions must be fully resolvable when assembling, and cannot depend on the assembled code.
+///
+/// There are two types of expression that stand on their own:
+/// * [A literal number] - an integer from `0` through [`i64::MAX`], written in decimal.
+/// * [A label] - a text identifier accepted by [`chumsky::text::ident`]. Evaluates to the
+///   beginning index of the first directive appearing in or after a [line] with the same label.
+///
+/// Additionally, expressions can be defined in relation to other expressions, in a few ways:
+///
+/// An expression can be [wrapped in parentheses] to ensure that it's evaluated before any other
+/// expressions that depend on it:
+///
+/// ```code
+/// (expr)
+/// ```
+///
+/// An expression can be [negated with `-`]. This unsurprisingly evaluates to the negation of its
+/// right-hand side.
+///
+/// ```code
+/// -expr
+/// ```
+///
+/// Two expressions can be combined using [basic arithmetic operations]
+///
+/// [A literal number]: Expr::Number
+/// [A label]: Expr::Ident
+/// [line]: Line
+/// [wrapped in parentheses]: Expr::Inner
+/// [negated with `-`]: Expr::Negate
+/// [basic arithmetic operations]: Expr::BinOp
+///
 pub enum Expr<'a> {
+    /// a 64-bit integer
     Number(i64),
+    /// a label
     Ident(&'a str),
+    /// a binary operation
     BinOp {
+        /// the left-hand-side expression
         lhs: Arc<Spanned<Expr<'a>>>,
+        /// the operation to perform
         op: Spanned<BinOperator>,
+        /// the right-hand-side expression
         rhs: Arc<Spanned<Expr<'a>>>,
     },
+    /// the negation of the inner expression
     Negate(Arc<Spanned<Expr<'a>>>),
+    #[doc(hidden)]
+    /// A unary plus sign, which evaluates to the value of its right-hand side. It's defined for
+    /// compatibility with the [proposed assembly syntax] from the Esolangs Community Wiki, but
+    /// has no use that I can see.
+    ///
+    /// [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
     UnaryAdd(Arc<Spanned<Expr<'a>>>),
+    /// an inner expression in parentheses
     Inner(Arc<Spanned<Expr<'a>>>),
 }
 
+/// An error that occured while trying to generate the intcode from the AST.
 #[derive(Debug)]
 pub enum AssemblyError<'a> {
+    /// An expresison used a label that could not be resolved
     UnresolvedLabel(&'a str),
+    /// A label was defined more than once
     DuplicateLabel(&'a str),
+    #[doc(hidden)]
     WriteToImmediate(Box<Instr<'a>>),
 }
 
 impl<'a> Expr<'a> {
+    /// Given a mapping of labels to indexes, try to resolve into a concrete value.
+    /// If a label can't be resolved, it will return that label
     pub fn resolve(self, labels: &HashMap<&'a str, i64>) -> Result<i64, AssemblyError<'a>> {
         macro_rules! inner {
             ($i: ident) => {
@@ -73,29 +148,98 @@ impl<'a> Expr<'a> {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct Parameter<'a>(pub Spanned<ParamMode>, pub Spanned<Expr<'a>>);
+/// A simple tuple struct containing the parameter mode and the expression for the parameter
+pub struct Parameter<'a>(pub Spanned<ParamMode>, pub Arc<Spanned<Expr<'a>>>);
 
 fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
     inner
 }
 
+/// An Intcode machine instruction
+///
+/// There are 10 defined intcode instructions, which take varying numbers of parameters:
+///
+/// | Instruction | Syntax          | Opcode | Pseudocode                 |
+/// |-------------|-----------------|--------|----------------------------|
+/// | [ADD]       | `ADD a, b, (c)` | 1      | `c = a + b`                |
+/// | [MUL]       | `MUL a, b, (c)` | 2      | `c = a * b`                |
+/// | [IN]        | `IN (a)`        | 3      | `a = input_num()`          |
+/// | [OUT]       | `OUT a`         | 4      | `yield a`                  |
+/// | [JNZ]       | `JNZ a, b`      | 5      | `if b != 0: goto a`        |
+/// | [JZ]        | `JZ a, b`       | 6      | `if b == 0: goto a`        |
+/// | [SLT]       | `LT a, b, (c)`  | 7      | `c = if (1 < v) 1 else 0`  |
+/// | [SEQ]       | `EQ a, b, (c)`  | 8      | `c = if (a == b) 1 else 0` |
+/// | [INCB]      | `INCB a`        | 9      | `base_offset += a`         |
+/// | [HALT]      | `HALT`          | 99     | `exit()`                   |
+///
+/// Each parameter consists of an optional [mode specifier], followed by a single [expression].
+/// Parameters marked in parentheses cannot be in [immediate mode].
+///
+/// [ADD]: Instr::Add  
+/// [MUL]: Instr::Mul  
+/// [IN]: Instr::In    
+/// [OUT]: Instr::Out  
+/// [JNZ]: Instr::Jnz  
+/// [JZ]: Instr::Jz    
+/// [SLT]: Instr::Slt  
+/// [SEQ]: Instr::Seq  
+/// [INCB]: Instr::Incb
+/// [HALT]: Instr::Halt
+/// [expression]: Expr
+/// [mode specifier]: ParamMode
+/// [immediate mode]: ParamMode::Immediate
+///
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 #[repr(u8)]
 pub enum Instr<'a> {
+    /// `ADD a, b, c`: store `a + b` in `c`
+    ///
+    /// If `c` is in [immediate mode] at time of execution, instruction will trap
+    ///
+    /// [immediate mode]: ParamMode::Immediate
     Add(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 1,
+    /// `MUL a, b, c`: store `a * b` in `c`
+    ///
+    /// If `c` is in [immediate mode] at time of execution, instruction will trap
+    ///
+    /// [immediate mode]: ParamMode::Immediate
     Mul(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 2,
+    /// `IN a`: store the next input number in `a`
+    ///
+    /// If no input is available, machine will wait.
+    /// If `a` is in [immediate mode] at time of execution, instruction will trap
+    ///
+    /// [immediate mode]: ParamMode::Immediate
     In(Parameter<'a>) = 3,
+    /// `OUT a`: output `a`
     Out(Parameter<'a>) = 4,
+    /// `JNZ a, b`: jump to `a` if `b` is nonzero
     Jnz(Parameter<'a>, Parameter<'a>) = 5,
+    /// `JZ a, b`: jump to `a` if `b` is zero
     Jz(Parameter<'a>, Parameter<'a>) = 6,
+    /// `LT a, b`: store `(a < b) as i64` in `c`
+    ///
+    /// If `c` is in [immediate mode] at time of execution, instruction will trap
+    ///
+    /// [immediate mode]: ParamMode::Immediate
+    #[doc(alias("SLT", "LT", "CMP"))]
     Slt(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 7,
+    /// `EQ a, b`: store `(a == b) as i64` in `c`
+    ///
+    /// If `c` is in [immediate mode] at time of execution, instruction will trap
+    ///
+    /// [immediate mode]: ParamMode::Immediate
+    #[doc(alias("SEQ", "EQ", "CMP"))]
     Seq(Parameter<'a>, Parameter<'a>, Parameter<'a>) = 8,
+    /// `INCB a`: add `a` to Relative Base
     Incb(Parameter<'a>) = 9,
+    /// `HALT`: exit program
     Halt = 99,
 }
 
 impl Instr<'_> {
+    /// Return the number of integers the instruction will resolve to
     pub const fn size(&self) -> i64 {
         match self {
             Instr::Halt => 1,
@@ -146,6 +290,9 @@ impl Iterator for InstrIter {
 }
 
 impl<'a> Instr<'a> {
+    /// try to encode the instructions into an opaque [iterator] of [`i64`]s
+    ///
+    /// [iterator]: Iterator
     pub fn resolve(
         self,
         labels: &HashMap<&'a str, i64>,
@@ -211,16 +358,27 @@ impl<'a> Instr<'a> {
 #[cfg_attr(test, derive(PartialEq))]
 #[non_exhaustive]
 #[derive(Debug)]
+/// The directive of a line
+///
+/// This is what actually gets output into the program
 pub enum LineInner<'a> {
+    /// An arbitrary sequence of comma-separated assembler expressions
     DataDirective(Vec<Spanned<Expr<'a>>>),
+    /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
+    /// Interface" [specification](https://adventofcode.com/2019/day/17)
     Ascii(Spanned<Vec<u8>>),
+    /// An [instruction](Instr)
     Instruction(Box<Instr<'a>>),
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
+/// A single line of assembly, containing an optional label, an optional directive, and an optional
+/// comment - the last of which is not stored.
 pub struct Line<'a> {
+    /// the label for the line, if applicable
     pub label: Option<&'a str>,
+    /// the directive for the line, if applicable
     pub inner: Option<Spanned<LineInner<'a>>>,
 }
 
@@ -357,6 +515,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
 }
 
 impl LineInner<'_> {
+    /// return the number of integers that this LineInner will resolve to
     pub fn size(&self) -> i64 {
         match self {
             LineInner::DataDirective(exprs) => exprs
@@ -373,6 +532,8 @@ impl LineInner<'_> {
 }
 
 impl<'a> Line<'a> {
+    /// Consume the line, appending the bytes to `v`. If any expressions fail to resolve, bubble up
+    /// the error.
     pub fn encode_into(
         self,
         v: &mut Vec<i64>,
@@ -475,11 +636,14 @@ fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     parse_line().separated_by(just("\n")).collect()
 }
 
-/// Parse the assembly code into a [Vec<Line<'a>>], or a [Vec<Rich<char>>] on failure.
+/// Parse the assembly code into a [`Vec<Line<'a>>`], or a [`Vec<Rich<char>>`] on failure.
 pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>> {
     grammar().parse(code).into_result()
 }
 
+/// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]
+///
+/// On failure, returns an [`AssemblyError`].
 pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'a>> {
     let mut labels: HashMap<&'a str, i64> = HashMap::new();
     let mut index = 0;
@@ -501,6 +665,27 @@ pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'
     }
 
     Ok(v)
+}
+
+/// An error that indicates where in the assembly process a failure occured, and wraps around the
+/// error type for that part of the process
+#[derive(Debug)]
+pub enum AsmError<'a> {
+    /// Failure to build the AST
+    BuildAst(Vec<Rich<'a, char>>),
+    /// Failure to assemble the parsed AST
+    Assemble(AssemblyError<'a>),
+}
+
+/// Try to assemble the code into a [`Vec<i64>`]
+///
+/// This is a wrapper around [`build_ast`] and [`assemble_ast`].
+/// ```no_run
+/// assemble_ast(build_ast(code).map_err(Error::Parse)?).map_err(Error::Assemble)
+/// ```
+#[inline]
+pub fn assemble<'a>(code: &'a str) -> Result<Vec<i64>, AsmError<'a>> {
+    assemble_ast(build_ast(code).map_err(AsmError::BuildAst)?).map_err(AsmError::Assemble)
 }
 
 mod fmt_impls;
