@@ -4,7 +4,7 @@
 
 use chumsky::span::Spanned;
 
-use super::{BinOperator, Expr, Instr, Line, Directive, Parameter};
+use super::{BinOperator, Directive, Expr, Instr, Line, Parameter};
 
 use std::fmt::{self, Display};
 
@@ -36,7 +36,7 @@ impl Display for Expr<'_> {
 
 impl Display for Parameter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.0.inner, self.1.inner)
+        write!(f, "{}{}", self.0, self.1.inner)
     }
 }
 
@@ -80,8 +80,8 @@ impl Display for Directive<'_> {
 
 impl Display for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(label) = self.label {
-            write!(f, "{label:<12}")?
+        if let Some(Spanned { inner, .. }) = self.label {
+            write!(f, "{inner:<12}")?
         }
         if let Some(Spanned { inner, .. }) = &self.inner {
             write!(f, "{inner}")?;

@@ -228,33 +228,26 @@ pub mod ast_util {
     macro_rules! param {
         (@ <$e: expr;>[$span: expr]) => {{
             $crate::asm::Parameter(
-                $crate::asm::ast_util::span(
-                    $crate::ParamMode::Relative,
-                    ($span.start)..($span.start + 1)
-                ),
+                $crate::ParamMode::Relative,
                 ::std::boxed::Box::new($crate::asm::ast_util::span(
-                    $e, ($span.start + 1)..($span.end)
-                ))
+                    $e,
+                    ($span.start + 1)..($span.end),
+                )),
             )
         }};
         (# <$e: expr;>[$span: expr]) => {{
             $crate::asm::Parameter(
-                $crate::asm::ast_util::span(
-                    $crate::ParamMode::Immediate,
-                    ($span.start)..($span.start + 1)
-                ),
+                $crate::ParamMode::Immediate,
                 ::std::boxed::Box::new($crate::asm::ast_util::span(
-                    $e, ($span.start + 1)..($span.end)
-                ))
+                    $e,
+                    ($span.start + 1)..($span.end),
+                )),
             )
         }};
         (<$e: expr;>[$span: expr]) => {{
             $crate::asm::Parameter(
-                $crate::asm::ast_util::span(
-                    $crate::ParamMode::Positional,
-                    ($span.start)..($span.start)
-                ),
-                ::std::boxed::Box::new($crate::asm::ast_util::span($e, $span))
+                $crate::ParamMode::Positional,
+                ::std::boxed::Box::new($crate::asm::ast_util::span($e, $span)),
             )
         }};
     }
@@ -425,7 +418,20 @@ impl<'a> Expr<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 /// A simple tuple struct containing the parameter mode and the expression for the parameter
-pub struct Parameter<'a>(pub Spanned<ParamMode>, pub Box<Spanned<Expr<'a>>>);
+pub struct Parameter<'a>(pub ParamMode, pub Box<Spanned<Expr<'a>>>);
+
+impl Parameter<'_> {
+    /// Return the [span](SimpleSpan)` of the parameter
+    pub const fn span(&self) -> SimpleSpan {
+        match self.0 {
+            ParamMode::Positional => self.1.span,
+            ParamMode::Immediate | ParamMode::Relative => SimpleSpan {
+                start: self.1.span.start,
+                ..self.1.span
+            },
+        }
+    }
+}
 
 fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
     inner
@@ -582,7 +588,7 @@ impl<'a> Instr<'a> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, expr) = $param;
-                $instr += mode.inner as i64 * $multiplier;
+                $instr += mode as i64 * $multiplier;
                 unspan(*expr).resolve(labels)?
             }};
         }
@@ -644,7 +650,7 @@ pub enum Directive<'a> {
 /// comment - the last of which is not stored.
 pub struct Line<'a> {
     /// the label for the line, if applicable
-    pub label: Option<&'a str>,
+    pub label: Option<Spanned<&'a str>>,
     /// the directive for the line, if applicable
     pub inner: Option<Spanned<Directive<'a>>>,
 }
@@ -666,7 +672,6 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
             just('@').to(ParamMode::Relative),
             empty().to(ParamMode::Positional),
         ))
-        .spanned()
         .then(expr())
     )
     .map(|(mode, expr)| Parameter(mode, Box::new(expr)))
@@ -893,7 +898,7 @@ fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, 
 
 fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
     padded!(
-        (text::ident().then_ignore(just(":")))
+        (text::ident().then_ignore(just(":")).spanned())
             .or_not()
             .then(line_inner())
             .map(|(label, inner)| Line { label, inner })
@@ -951,7 +956,7 @@ pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'
     let mut labels: HashMap<&'a str, i64> = HashMap::new();
     let mut index = 0;
     for line in code.iter() {
-        if let Some(label) = line.label
+        if let Some(Spanned { inner: label, .. }) = line.label
             && labels.insert(label, index).is_some()
         {
             return Err(AssemblyError::DuplicateLabel(label));
