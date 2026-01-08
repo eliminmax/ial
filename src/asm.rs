@@ -118,8 +118,7 @@
 //! [Rust]: <https://doc.rust-lang.org/reference/identifiers.html>
 
 use ast_prelude::*;
-use chumsky::prelude::*;
-use chumsky::text::Char;
+use chumsky::error::Rich;
 use std::collections::HashMap;
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
@@ -510,149 +509,6 @@ pub struct Line<'a> {
     /// the directive for the line, if applicable
     pub inner: Option<Spanned<Directive<'a>>>,
 }
-
-macro_rules! padded {
-    ($inner: expr) => {{ $inner.padded_by(text::inline_whitespace()) }};
-}
-
-macro_rules! with_sep {
-    ($inner: expr) => {{ padded!($inner.then_ignore(text::inline_whitespace().at_least(1))) }};
-}
-
-type RichErr<'a> = chumsky::extra::Err<Rich<'a, char>>;
-
-fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
-    padded!(
-        choice((
-            just('#').to(ParamMode::Immediate),
-            just('@').to(ParamMode::Relative),
-            empty().to(ParamMode::Positional),
-        ))
-        .then(expr())
-    )
-    .map(|(mode, expr)| Parameter(mode, Box::new(expr)))
-}
-
-fn mnemonic<'a>(kw: &'static str) -> impl Parser<'a, &'a str, (), RichErr<'a>> {
-    text::ascii::ident().try_map(move |s: &'a str, span| {
-        if s.eq_ignore_ascii_case(kw) {
-            Ok(())
-        } else {
-            Err(Rich::custom(span, format!("failed to match keyword {kw}")))
-        }
-    })
-}
-
-fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
-    macro_rules! params {
-        ($n: literal) => {{
-            param()
-                .separated_by(padded!(just(',')))
-                .exactly($n)
-                .collect::<Vec<_>>()
-                .map(|v| <[Parameter; $n]>::try_from(v).expect("sized"))
-        }};
-    }
-    macro_rules! op {
-        ($name: literal, $variant: ident::<1>) => {
-            with_sep!(mnemonic($name)).ignore_then(param().map(Instr::$variant))
-        };
-        ($name: literal, $variant: ident::<2>) => {
-            with_sep!(mnemonic($name)).ignore_then((params!(2)).map(|[a, b]| Instr::$variant(a, b)))
-        };
-        ($name: literal, $variant: ident::<3>) => {
-            with_sep!(mnemonic($name))
-                .ignore_then((params!(3)).map(|[a, b, c]| Instr::$variant(a, b, c)))
-        };
-    }
-
-    padded!(choice((
-        op!("ADD", Add::<3>),
-        op!("MUL", Mul::<3>),
-        op!("IN", In::<1>),
-        op!("OUT", Out::<1>),
-        op!("JNZ", Jnz::<2>),
-        op!("JZ", Jz::<2>),
-        op!("LT", Lt::<3>),
-        op!("SLT", Lt::<3>),
-        op!("EQ", Eq::<3>),
-        op!("SEQ", Eq::<3>),
-        op!("RBO", Rbo::<1>),
-        op!("INCB", Rbo::<1>),
-        just("HALT").to(Instr::Halt),
-    )))
-}
-
-fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clone {
-    recursive(|expr| {
-        let int = text::int(10).try_map(|s: &str, span| {
-            s.parse::<i64>()
-                .map(Expr::Number)
-                .map_err(|e| Rich::custom(span, format!("error parsing {s} as i64: {e}")))
-        });
-        let ident = text::ident().map(|s: &str| Expr::Ident(s));
-        let bracketed = expr
-            .delimited_by(just('('), just(')'))
-            .map(|e| Expr::Parenthesized(Box::new(e)));
-        let atom = int.or(ident).or(bracketed).spanned();
-        let unary = padded!(one_of("-+").spanned()).repeated().foldr(
-            atom,
-            |Spanned { inner, mut span }: Spanned<char>, rhs: Spanned<Expr<'a>>| {
-                span.end = rhs.span.end;
-                Spanned {
-                    inner: match inner {
-                        '+' => Expr::UnaryAdd(Box::new(rhs)),
-                        '-' => Expr::Negate(Box::new(rhs)),
-                        _ => unreachable!(),
-                    },
-                    span,
-                }
-            },
-        );
-
-        let folder = |lhs: Spanned<Expr<'a>>,
-                      (op, rhs): (Spanned<BinOperator>, Spanned<Expr<'a>>)| {
-            let span = SimpleSpan {
-                start: lhs.span.start,
-                end: rhs.span.end,
-                context: (),
-            };
-            let inner = Expr::BinOp {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
-            };
-            Spanned { span, inner }
-        };
-
-        let prod = unary.clone().foldl(
-            padded!(
-                choice((
-                    just('*').to(BinOperator::Mul),
-                    just('/').to(BinOperator::Div),
-                ))
-                .spanned()
-            )
-            .then(unary)
-            .repeated(),
-            folder,
-        );
-
-        prod.clone().foldl(
-            padded!(
-                choice((
-                    just('+').to(BinOperator::Add),
-                    just('-').to(BinOperator::Sub),
-                ))
-                .spanned()
-            )
-            .then(prod)
-            .repeated(),
-            folder,
-        )
-    })
-}
-
 impl Directive<'_> {
     /// return the number of integers that this [`Directive`] will resolve to.
     pub fn size(&self) -> Result<i64, usize> {
@@ -689,85 +545,7 @@ impl<'a> Line<'a> {
     }
 }
 
-fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
-    const HEX_DIGITS: &str = "0123456789ABCDEFabcdef";
-    const OCT_DIGITS: &str = "01234567";
-
-    fn strict_hex_val(c: char) -> u8 {
-        assert!(c.is_ascii());
-        #[expect(
-            non_contiguous_range_endpoints,
-            reason = "mask leaves 1 byte value before b'a' possible"
-        )]
-        match c as u8 | 0x20 {
-            d @ b'0'..=b'9' => d - b'0',
-            l @ b'a'..=b'f' => l - b'a' + 10,
-            ..32 | 64..96 => unreachable!("masked out"),
-            128 => unreachable!("known ascii"),
-            c => panic!("invalid hex digit: {}", c.escape_ascii()),
-        }
-    }
-    just('"')
-        .ignore_then(
-            choice((
-                none_of("\"\\")
-                    .filter(|c: &char| c.is_ascii())
-                    .map(|c| c as u8),
-                just('\\').ignore_then(choice((
-                    just('\\').to(b'\\'),
-                    just('\'').to(b'\''),
-                    just('\"').to(b'\"'),
-                    just('n').to(b'\n'),
-                    just('t').to(b'\t'),
-                    just('r').to(b'\r'),
-                    just('e').to(b'\x1b'),
-                    just('3')
-                        .ignore_then(one_of(OCT_DIGITS).then(one_of(OCT_DIGITS)))
-                        .map(|(a, b)| 0o300 + ((a as u8 - b'0') * 8) + (b as u8 - b'0')),
-                    (one_of(OCT_DIGITS).repeated().at_least(1).at_most(2))
-                        .fold(0, |acc, x| acc * 8 + (x as u8 - b'0')),
-                    just('x')
-                        .ignore_then(one_of(HEX_DIGITS).then(one_of(HEX_DIGITS)))
-                        .map(|(a, b)| (strict_hex_val(a) << 4) | strict_hex_val(b)),
-                ))),
-            ))
-            .repeated()
-            .collect(),
-        )
-        .then_ignore(just('"'))
-        .spanned()
-}
-
-fn line_inner<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, RichErr<'a>> {
-    choice((
-        (with_sep!(just("DATA"))
-            .ignore_then(expr().separated_by(padded!(just(","))).collect())
-            .map(Directive::DataDirective)),
-        with_sep!(just("ASCII"))
-            .ignore_then(ascii_parse())
-            .map(Directive::Ascii),
-        instr().map(Box::new).map(Directive::Instruction),
-    ))
-    .spanned()
-    .or_not()
-}
-
-fn parse_line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    padded!(
-        (text::ident().then_ignore(just(":")).spanned())
-            .or_not()
-            .then(line_inner())
-            .map(|(label, inner)| Line { label, inner })
-            .then_ignore(
-                (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
-                    .or_not(),
-            )
-    )
-}
-
-fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
-    parse_line().separated_by(just("\n")).collect()
-}
+mod parsers;
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
@@ -787,7 +565,8 @@ fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
 /// "#).is_ok());
 /// ```
 pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>> {
-    grammar().parse(code).into_result()
+    use chumsky::Parser;
+    parsers::grammar().parse(code).into_result()
 }
 
 /// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]
@@ -850,6 +629,3 @@ pub fn assemble<'a>(code: &'a str) -> Result<Vec<i64>, AsmError<'a>> {
 }
 
 mod fmt_impls;
-
-#[cfg(test)]
-mod ast_tests;
