@@ -59,25 +59,22 @@
 //!
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     label: Some("idle_loop"),
+//!     label: Some(Spanned {
+//!         inner: "idle_loop",
+//!         span: SimpleSpan { start: 0, end: 10, context: () },
+//!     }),
 //!     inner: Some(Spanned {
 //!         span: SimpleSpan { start: 10, end: 28, context: () },
 //!         inner: Directive::Instruction(Box::new(Instr::Jz(
 //!             Parameter (
-//!                 Spanned {
-//!                     inner: ParamMode::Immediate,
-//!                     span: SimpleSpan { start: 14, end: 15, context: () },
-//!                 },
+//!                 ParamMode::Immediate,
 //!                 Box::new(Spanned {
 //!                     inner: Expr::Number(0),
 //!                     span: SimpleSpan { start: 15, end: 16, context: () },
 //!                 }),
 //!             ),
 //!             Parameter (
-//!                 Spanned {
-//!                     inner: ParamMode::Immediate,
-//!                     span: SimpleSpan { start: 18, end: 19, context: () },
-//!                 },
+//!                 ParamMode::Immediate,
 //!                 Box::new(Spanned {
 //!                     inner: Expr::Ident("idle_loop"),
 //!                     span: SimpleSpan { start: 19, end: 28, context: () },
@@ -99,7 +96,7 @@
 //! use intcode::asm::ast_util::*;
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     label: Some("idle_loop"),
+//!     label: Some(span("idle_loop", 0..10)),
 //!     inner: Some(span(
 //!         Directive::Instruction(Box::new(Instr::Jz(
 //!             param!(#<expr!(0);>[14..16]),

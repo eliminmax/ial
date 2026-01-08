@@ -90,7 +90,7 @@ macro_rules! expr {
 /// use intcode::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(
 ///     param!(@<expr!(0);>[0..2]),
-///     Parameter(span(ParamMode::Relative, 0..1), boxed(span(Expr::Number(0), 1..2)))
+///     Parameter(ParamMode::Relative, boxed(span(Expr::Number(0), 1..2)))
 /// );
 /// ```
 #[macro_export]
