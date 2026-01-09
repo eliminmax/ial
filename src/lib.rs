@@ -217,8 +217,8 @@ impl Display for ParamMode {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ParamMode::Positional => Ok(()),
-            ParamMode::Relative => write!(fmt, "#"),
-            ParamMode::Immediate => write!(fmt, "@"),
+            ParamMode::Immediate => write!(fmt, "#"),
+            ParamMode::Relative => write!(fmt, "@"),
         }
     }
 }
