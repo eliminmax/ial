@@ -503,9 +503,45 @@ impl<'a> Instr<'a> {
 /// This is what actually gets output into the program
 pub enum Directive<'a> {
     /// An arbitrary sequence of comma-separated assembler expressions
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// const ASM_SRC: &str = "data: DATA 1, 2, data + 3, 4 * 4 / 4, 5";
+    /// let assembled = intcode::asm::assemble(ASM_SRC).unwrap();
+    /// assert_eq!(assembled[..], [1, 2, 3, 4, 5][..]);
+    /// ```
     Data(Vec<Spanned<Expr<'a>>>),
     /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
-    /// Interface" [specification](https://adventofcode.com/2019/day/17)
+    /// Interface" [specification](https://adventofcode.com/2019/day/17), surrounded by
+    /// double-quotes.
+    ///
+    /// Each character in the string can be either:
+    /// * an ASCII character other than `'\'` or `'"'`
+    /// * an escape sequence
+    ///
+    /// The following escape sequences are supported:
+    ///
+    /// | sequence | meaning                                                             |
+    /// |----------|---------------------------------------------------------------------|
+    /// | `\\`     | a literal backslash                                                 |
+    /// | `\'`     | a literal single quote                                              |
+    /// | `\"`     | a literal double-quote                                              |
+    /// | `\n`     | a line-feed                                                         |
+    /// | `\t`     | a horizontal tab                                                    |
+    /// | `\r`     | a carriage-return                                                   |
+    /// | `\e`     | an escape character                                                 |
+    /// | `\O`     | a byte with the value O, where O is a 1, 2, or 3 digit octal number |
+    /// | `\xHH`   | a byte with the value HH, where HH is a 2-digit hexadecimal number  |
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// const ASM_SRC: &str = r#"ASCII "Hello, world!\n""#;
+    /// let assembled = intcode::asm::assemble(ASM_SRC).unwrap();
+    /// let expected: [i64; 14] = core::array::from_fn(|i| i64::from(b"Hello, world!\n"[i] ));
+    /// assert_eq!(assembled[..], expected[..]);
+    /// ```
     Ascii(Spanned<Vec<u8>>),
     /// An [instruction](Instr)
     Instruction(Box<Instr<'a>>),
