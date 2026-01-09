@@ -11,7 +11,7 @@ edition = "2024"
 name = "intcode_ascii"
 
 [[bin]]
-name = "intcode_as"
+name = "ial-as"
 required-features = [ "asm" ]
 
 [dependencies]
