@@ -503,7 +503,7 @@ impl<'a> Instr<'a> {
 /// This is what actually gets output into the program
 pub enum Directive<'a> {
     /// An arbitrary sequence of comma-separated assembler expressions
-    DataDirective(Vec<Spanned<Expr<'a>>>),
+    Data(Vec<Spanned<Expr<'a>>>),
     /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
     /// Interface" [specification](https://adventofcode.com/2019/day/17)
     Ascii(Spanned<Vec<u8>>),
@@ -524,7 +524,7 @@ impl Directive<'_> {
     /// return the number of integers that this [`Directive`] will resolve to.
     pub fn size(&self) -> Result<i64, usize> {
         match self {
-            Directive::DataDirective(exprs) => exprs.len().try_into().map_err(|_| exprs.len()),
+            Directive::Data(exprs) => exprs.len().try_into().map_err(|_| exprs.len()),
             Directive::Ascii(text) => text.len().try_into().map_err(|_| text.len()),
             Directive::Instruction(instr) => Ok(instr.size()),
         }
@@ -541,7 +541,7 @@ impl<'a> Line<'a> {
     ) -> Result<(), AssemblyError<'a>> {
         if let Some(Spanned { inner, .. }) = self.inner {
             match inner {
-                Directive::DataDirective(exprs) => {
+                Directive::Data(exprs) => {
                     for expr in exprs {
                         let Spanned { inner: expr, span } = expr;
                         v.push(

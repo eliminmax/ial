@@ -60,7 +60,7 @@ impl Display for Instr<'_> {
 impl Display for Directive<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Directive::DataDirective(exprs) => {
+            Directive::Data(exprs) => {
                 write!(f, "DATA ")?;
                 if let Some(expr) = exprs.first() {
                     write!(f, "{}", expr.inner)?;

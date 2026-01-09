@@ -239,7 +239,7 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
         choice((
             with_sep!(just("DATA"))
                 .ignore_then(expr().separated_by(comma_delimiter()).collect())
-                .map(Directive::DataDirective)
+                .map(Directive::Data)
                 .labelled("data directive")
                 .as_context(),
             with_sep!(just("ASCII"))
@@ -301,7 +301,7 @@ mod ast_tests {
         assert_eq!(
             directive().parse("DATA 1, 1, 1").unwrap(),
             Some(span(
-                Directive::DataDirective(vec![
+                Directive::Data(vec![
                     span(expr!(1), 5..6),
                     span(expr!(1), 8..9),
                     span(expr!(1), 11..12),
