@@ -21,30 +21,8 @@
 //! ```
 //!
 //! Additionally, if the `asm` feature is enabled, tools to work with a minimal assembly language
-//! for Intcode are provided in the [asm] module:
-//!
-//! # Example
-//!
-//! ```rust
-//! use intcode::{prelude::*, asm::assemble};
-//! const ASM: &str = r#"
-//! OUT #1024
-//! HALT
-//! "#;
-//!
-//!
-//! let assembled = assemble(ASM).unwrap();
-//! assert_eq!(assembled, vec![104, 1024, 99]);
-//!
-//! let mut interpreter = Interpreter::new(assembled);
-//! assert_eq!(
-//!     interpreter.run_through_inputs(std::iter::empty()).unwrap(),
-//!     (vec![1024], State::Halted)
-//! );
-//!
-//! ```
-//!
-//! See the docs for the [asm] module for more complex examples.
+//! for Intcode are provided in the [asm] module, and if the `disasm` feature is enabled, then a
+//! minimal [dissasemble][disasm::disassemble] function is provided.
 //!
 //! [Opcodes]: https://esolangs.org/wiki/Intcode#Opcodes
 //! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
@@ -60,7 +38,7 @@ use std::iter::empty;
 use std::num::TryFromIntError;
 use std::ops::{Index, IndexMut};
 
-/// A small module that re-exports items needed when working with the Intcode interpreter
+/// A small module that re-exports items useful when working with the Intcode interpreter
 pub mod prelude {
     pub use crate::{Interpreter, State, StepOutcome};
     pub use std::iter::empty;
@@ -68,6 +46,10 @@ pub mod prelude {
 
 #[cfg(feature = "asm")]
 pub mod asm;
+
+mod disasm;
+#[cfg(feature = "disasm")]
+pub use disasm::disassemble;
 
 use mmu::IntcodeMem;
 
