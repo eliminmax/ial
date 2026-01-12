@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+use itertools::Itertools;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 
@@ -45,22 +46,23 @@ impl std::iter::FromIterator<i64> for IntcodeMem {
     fn from_iter<I: IntoIterator<Item = i64>>(iter: I) -> Self {
         let iter = iter.into_iter();
 
-        let mut chunk = [0; 512];
-        let mut i = 0;
-        let mut current_segment = 0;
         let mut segments = HashMap::with_capacity(iter.size_hint().0.div_ceil(512));
 
-        for n in iter {
-            chunk[i] = n;
-            i += 1;
-            if i == chunk.len() {
-                i = 0;
-                segments.insert(current_segment, Box::new(chunk));
-                chunk = [0; 512];
-                current_segment += 512;
-            }
+        let mut current_segment = 0;
+
+        for chunk in iter.chunks(512).into_iter() {
+            segments.insert(
+                current_segment,
+                Box::new(
+                    chunk
+                        .chain([0].into_iter().cycle())
+                        .take(512)
+                        .collect_array::<512>()
+                        .expect("always 512 long"),
+                ),
+            );
+            current_segment += 512;
         }
-        segments.insert(current_segment, Box::new(chunk));
 
         Self { segments }
     }
@@ -151,7 +153,7 @@ impl fmt::Debug for IntcodeMem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtstruct = fmt.debug_map();
         // collect into an ordered set
-        for sn in self.segments.keys().collect::<BTreeSet<_>>() {
+        for sn in self.segments.keys().sorted_unstable() {
             if self.segments[sn].as_ref() != &[0; 512] {
                 fmtstruct.entry(
                     &format_args!("{{ segment 0x{sn:04x} }}"),
