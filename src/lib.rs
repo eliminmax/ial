@@ -39,7 +39,7 @@ use std::ops::{Index, IndexMut};
 
 /// A small module that re-exports items useful when working with the Intcode interpreter
 pub mod prelude {
-    pub use crate::{Interpreter, State, StepOutcome};
+    pub use crate::{IntcodeAddress, Interpreter, State, StepOutcome};
     pub use std::iter::empty;
 }
 
@@ -100,6 +100,29 @@ impl Display for ErrorState {
 
 impl Error for ErrorState {}
 
+// store IntcodeAddress within its own module so that visibility rules prevent accidentally
+// creating an IntcodeAddress with a negative value
+mod address {
+    #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Clone, Copy)]
+    /// A non-negative i64, usable as an index into Intcode memory
+    pub struct IntcodeAddress(i64);
+    impl IntcodeAddress {
+        /// Create a new [IntcodeAddress]. If `n` is negative, returns [None]
+        #[inline]
+        pub const fn new(n: i64) -> Option<Self> {
+            if n < 0 { None } else { Some(Self(n)) }
+        }
+
+        /// get the inner [i64]
+        #[inline]
+        pub const fn get(&self) -> i64 {
+            self.0
+        }
+    }
+}
+
+pub use address::IntcodeAddress;
+
 #[derive(Clone)]
 /// An intcode interpreter, which provides optional logging of executed instructions.
 pub struct Interpreter {
@@ -129,16 +152,32 @@ impl fmt::Debug for Interpreter {
     }
 }
 
+impl Index<IntcodeAddress> for Interpreter {
+    type Output = i64;
+
+    fn index(&self, i: IntcodeAddress) -> &Self::Output {
+        self.code.index(i.get())
+    }
+}
+
 impl Index<i64> for Interpreter {
     type Output = i64;
 
     fn index(&self, i: i64) -> &Self::Output {
+        assert!(i >= 0, "intcode memory cannot be at a negative index");
         self.code.index(i)
+    }
+}
+
+impl IndexMut<IntcodeAddress> for Interpreter {
+    fn index_mut(&mut self, i: IntcodeAddress) -> &mut Self::Output {
+        self.code.index_mut(i.get())
     }
 }
 
 impl IndexMut<i64> for Interpreter {
     fn index_mut(&mut self, i: i64) -> &mut Self::Output {
+        assert!(i >= 0, "intcode memory cannot be at a negative index");
         self.code.index_mut(i)
     }
 }
@@ -404,7 +443,7 @@ impl Interpreter {
                     (self.code[self.index + 2], $b),
                     (self.code[self.index + 3], dest),
                 ]);
-                self[dest] = val;
+                self.code[i(dest)?] = val;
                 self.index += 4;
                 Ok(StepOutcome::Running)
             }};
@@ -436,7 +475,7 @@ impl Interpreter {
                 };
                 let dest = dest!(1);
                 trace!([(self.code[self.index + 1], input)]);
-                self[dest] = input;
+                self.code[i(dest)?] = input;
                 self.index += 2;
                 Ok(StepOutcome::Running)
             }
@@ -503,7 +542,7 @@ impl Interpreter {
     /// Pre-compute as much as possible - that is, run every up to, but not including, the first
     /// `IN`, `OUT`, or `HALT` instruction, bubbling up any errors that occur.
     pub fn precompute(&mut self) -> Result<(), ErrorState> {
-        while Self::parse_op(self[self.index])
+        while Self::parse_op(self.code[self.index])
             .is_ok_and(|(opcode, _)| !matches!(opcode, OpCode::In | OpCode::Out | OpCode::Halt))
         {
             self.exec_instruction(&mut empty(), &mut Vec::with_capacity(0))?;
