@@ -28,6 +28,8 @@
 //! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
 //! [Day 9]: https://adventofcode.com/2019/day/9
 
+/// A module implementing the internals of the [Interpreter]
+mod internals;
 /// A module providing a sort of logical memory management unit, using a hashmap to split memory
 /// into segments, which are each contiguous in memory.
 mod mmu;
@@ -76,8 +78,10 @@ pub enum ErrorState {
     UnrecognizedOpcode(i64),
     /// An unknown parameter mode was encountered
     UnknownMode(i64),
-    /// A negative memory address was encountered
+    /// A parameter referenced a negative memory address
     NegativeMemAccess(i64),
+    /// A jump resolved to a negative address
+    JumpToNegative(i64),
     /// An instruction tried to write to an immediate destination
     WriteToImmediate(i64),
     /// An interpreter was used after previously erroring out
@@ -92,6 +96,9 @@ impl Display for ErrorState {
             ErrorState::NegativeMemAccess(e) => {
                 write!(f, "could not convert index to unsigned address: {e}")
             }
+            ErrorState::JumpToNegative(n) => {
+                write!(f, "jumpped to negative address {n}")
+            }
             ErrorState::WriteToImmediate(i) => {
                 write!(f, "code attempted to write to immediate {i}")
             }
@@ -101,6 +108,14 @@ impl Display for ErrorState {
 }
 
 impl Error for ErrorState {}
+
+impl Display for NegativeMemAccess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "could not convert index to unsigned address: {}", self.0)
+    }
+}
+
+impl Error for NegativeMemAccess {}
 
 // store IntcodeAddress within its own module so that visibility rules prevent accidentally
 // creating an IntcodeAddress with a negative value
@@ -239,6 +254,7 @@ impl TryFrom<i64> for ParamMode {
         }
     }
 }
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// An Intcode OpCode
 ///
@@ -296,28 +312,6 @@ impl From<NegativeMemAccess> for ErrorState {
 }
 
 impl Interpreter {
-    fn parse_op(op: i64) -> Result<(OpCode, [ParamMode; 3]), ErrorState> {
-        let modes: [ParamMode; 3] = [
-            ((op / 100) % 10).try_into()?,  // C (hundreds place)
-            ((op / 1000) % 10).try_into()?, // B (thousands place)
-            (op / 10000).try_into()?,       // A (ten thousands place)
-        ];
-        match op % 100 {
-            ..-99 | 100.. => unreachable!("modulo makes this impossible"),
-            -99..=0 | 10..99 => Err(ErrorState::UnrecognizedOpcode(op % 100)),
-            1 => Ok((OpCode::Add, modes)),
-            2 => Ok((OpCode::Mul, modes)),
-            3 => Ok((OpCode::In, modes)),
-            4 => Ok((OpCode::Out, modes)),
-            5 => Ok((OpCode::Jnz, modes)),
-            6 => Ok((OpCode::Jz, modes)),
-            7 => Ok((OpCode::Lt, modes)),
-            8 => Ok((OpCode::Eq, modes)),
-            9 => Ok((OpCode::Rbo, modes)),
-            99 => Ok((OpCode::Halt, modes)),
-        }
-    }
-
     /// Manually set a memory location
     #[doc(alias("poke", "write"))]
     #[inline]
@@ -330,7 +324,8 @@ impl Interpreter {
         }
     }
 
-    /// Get the memory at `address`
+    /// Get the memory at `address`.
+    /// If `address` is negative, it will return an [Err] containing a [NegativeMemAccess].
     #[doc(alias = "peek")]
     #[inline]
     pub fn mem_get(&self, address: i64) -> Result<i64, NegativeMemAccess> {
@@ -357,148 +352,51 @@ impl Interpreter {
         input: &mut impl Iterator<Item = i64>,
         output: &mut Vec<i64>,
     ) -> Result<StepOutcome, ErrorState> {
-        debug_assert!(self.index >= 0, "uncaught negative instruction index");
         if self.poisoned {
             return Err(ErrorState::Poisoned);
         }
+
         if self.halted {
             return Ok(StepOutcome::Stopped(State::Halted));
         }
 
-        // Given a 5 digit number, digits ABCDE are used as follows:
-        // DE is the two-digit opcode
-        // C is the 1st parameter's mode
-        // B is the 2nd parameter's mode
-        // A is the 3rd parameter's mode
-        //
-        // So *0*1202 would be parsed as follows:
-        //
-        // Opcode 02 is multiply
-        // C=2: 1st parameter is in relative mode
-        // B=1: 2nd parameter is in immediate mode
-        // A=0: 3rd parameter is in positional mode
+        debug_assert!(self.index >= 0, "uncaught negative instruction index");
 
-        let instruction = self.code[self.index];
-
-        let (opcode, modes) = Self::parse_op(instruction)?;
-
-        #[inline(always)]
-        const fn i(n: i64) -> Result<i64, NegativeMemAccess> {
-            if n >= 0 {
-                Ok(n)
-            } else {
-                Err(NegativeMemAccess(n))
-            }
-        }
-
-        macro_rules! trace {
-            ($resolved: expr) => {
-                if let Some(trace) = self.trace.as_mut() {
-                    trace.push(instruction, self.index, self.rel_offset, &$resolved);
-                }
-            };
-        }
-
-        /// Shorthand to get the `$n`th parameter's value
-        macro_rules! arg {
-            ($n: literal) => {{
-                const { assert!($n > 0) };
-                match modes[$n - 1] {
-                    ParamMode::Positional => {
-                        let index = i(self.code[i(self.index + $n)?])?;
-                        self.code[i(index)?]
-                    }
-                    ParamMode::Immediate => self.code[i(self.index + $n)?],
-                    ParamMode::Relative => {
-                        let index = i(self.code[i(self.index + $n)?] + self.rel_offset)?;
-                        self.code[i(index)?]
-                    }
-                }
-            }};
-        }
-
-        /// Resolves to the destination address pointed to by the `$n`th parameter
-        macro_rules! dest {
-            ($n: literal) => {{
-                match modes[$n - 1] {
-                    ParamMode::Positional => self.code[i(self.index + $n)?],
-                    ParamMode::Immediate => {
-                        self.poisoned = true;
-                        return Err(ErrorState::WriteToImmediate(self.code[i(self.index + $n)?]));
-                    }
-                    ParamMode::Relative => self.rel_offset + self.code[i(self.index + $n)?],
-                }
-            }};
-        }
-
-        /// using a fake closure to pass in the expression that determines the value, this can
-        /// implement all 4 instructions that take 2 inputs and an output
-        macro_rules! a_b_out {
-            (|$a: ident, $b: ident| $val: expr) => {{
-                let $a = arg!(1);
-                let $b = arg!(2);
-                let (dest, val) = { (dest!(3), $val) };
-                trace!([
-                    (self.code[self.index + 1], $a),
-                    (self.code[self.index + 2], $b),
-                    (self.code[self.index + 3], dest),
-                ]);
-                self.code[i(dest)?] = val;
-                self.index += 4;
-                Ok(StepOutcome::Running)
-            }};
-        }
-
-        macro_rules! jump_if {
-            (|$n: ident| $expr: expr) => {{
-                let $n = arg!(1);
-                let dest = arg!(2);
-                trace!([
-                    (self.code[self.index + 1], $n),
-                    (self.code[self.index + 2], dest),
-                ]);
-                if $expr {
-                    self.index = i(dest)?;
-                } else {
-                    self.index += 3;
-                }
-                Ok(StepOutcome::Running)
-            }};
-        }
+        let (opcode, modes) = Self::parse_op(self.code[self.index])?;
 
         match opcode {
-            OpCode::Add => a_b_out!(|a, b| a + b),
-            OpCode::Mul => a_b_out!(|a, b| a * b),
+            OpCode::Add => self.op3(modes, |a, b| a + b),
+            OpCode::Mul => self.op3(modes, |a, b| a * b),
             OpCode::In => {
                 let Some(input) = input.next() else {
                     return Ok(StepOutcome::Stopped(State::Awaiting));
                 };
-                let dest = dest!(1);
-                trace!([(self.code[self.index + 1], input)]);
-                self.code[i(dest)?] = input;
+                let dest = self.resolve_dest(modes[0], 1)?;
+                self.trace([(self.code[self.index + 1], input)]);
+                self.code[dest] = input;
                 self.index += 2;
                 Ok(StepOutcome::Running)
             }
             OpCode::Out => {
-                let out_val = arg!(1);
-                trace!([(self.code[self.index + 1], out_val)]);
+                let out_val = self.resolve_param(modes[0], 1)?;
+                self.trace([(self.code[self.index + 1], out_val)]);
                 output.push(out_val);
                 self.index += 2;
                 Ok(StepOutcome::Running)
             }
-            OpCode::Jnz => jump_if!(|i| i != 0),
-            OpCode::Jz => jump_if!(|i| i == 0),
-            OpCode::Lt => a_b_out!(|a, b| if a < b { 1 } else { 0 }),
-            OpCode::Eq => a_b_out!(|a, b| if a == b { 1 } else { 0 }),
+            OpCode::Jnz => self.jump(modes, |i| i != 0),
+            OpCode::Jz => self.jump(modes, |i| i == 0),
+            OpCode::Lt => self.op3(modes, |a, b| if a < b { 1 } else { 0 }),
+            OpCode::Eq => self.op3(modes, |a, b| if a == b { 1 } else { 0 }),
             OpCode::Rbo => {
-                let offset = arg!(1);
-                trace!([(self.code[self.index + 1], offset)]);
-                self.rel_offset += arg!(1);
+                let offset = self.resolve_param(modes[0], 1)?;
+                self.trace([(self.code[self.index + 1], offset)]);
+                self.rel_offset += offset;
                 self.index += 2;
                 Ok(StepOutcome::Running)
             }
             OpCode::Halt => {
-                trace!([]);
+                self.trace([]);
                 self.halted = true;
                 Ok(StepOutcome::Stopped(State::Halted))
             }
@@ -557,14 +455,14 @@ mod tests {
     /// Example program from day 9, which takes no input and outputs its own code
     #[test]
     fn quine() {
-        let quine_code = vec![
+        let quine_code = [
             109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
         ];
-        let mut interpreter = Interpreter::new(quine_code.clone());
+        let mut interpreter = Interpreter::new(quine_code);
         let (outputs, State::Halted) = interpreter.run_through_inputs(empty()).unwrap() else {
             panic!("Did not halt");
         };
-        assert_eq!(quine_code, outputs);
+        assert_eq!(quine_code[..], outputs[..]);
     }
 
     /// Example program from day 9, which "should output a 16-digit number"
@@ -574,8 +472,8 @@ mod tests {
         let (outputs, State::Halted) = interpreter.run_through_inputs(empty()).unwrap() else {
             panic!("Did not halt");
         };
-        assert_eq!(outputs.len(), 1);
-        assert_eq!(outputs[0].to_string().len(), 16);
+        assert_eq!(outputs.len(), 1, "{outputs:?}");
+        assert_eq!(outputs[0].to_string().len(), 16, "{outputs:?}");
     }
 
     /// Example program from day 9, which "should output the large number in the middle"

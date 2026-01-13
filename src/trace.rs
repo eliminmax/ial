@@ -163,6 +163,18 @@ impl Interpreter {
     pub fn show_trace(&self) -> Option<&Trace> {
         self.trace.as_ref()
     }
+
+    #[inline]
+    pub(crate) fn trace<const N: usize>(&mut self, resolved_params: [(i64, i64); N]) {
+        if let Some(trace) = self.trace.as_mut() {
+            trace.push(
+                self.code[self.index],
+                self.index,
+                self.rel_offset,
+                &resolved_params,
+            );
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
