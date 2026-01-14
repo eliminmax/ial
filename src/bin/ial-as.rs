@@ -57,20 +57,22 @@ const VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION")
 );
 
+const INPUT_HELP: &str = "Input file containing the assembly\nuses stdin if unset or set to '-'";
+const OUTPUT_HELP: &str =
+    "Output file for the assembled intcode\nuses stdout if unset or set to '-'";
+
 #[derive(Parser)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(long_version = VERSION)]
 #[command(about = "IAC Assembler", long_about = None)]
 struct Args {
-    /// Input file containing the assembly
-    #[arg(short, long)]
-    #[arg(long_help = "uses stdin if unset or set to '-'")]
+    #[arg(help = INPUT_HELP.split_at(34).0)]
+    #[arg(long_help = INPUT_HELP)]
     input: Option<PathBuf>,
-    /// Output file for the assembled intcode
-    #[arg(short, long)]
-    #[arg(long_help = "uses stdout if unset or set to '-'")]
+    #[arg(help = OUTPUT_HELP.split_at(37).0)]
+    #[arg(long_help = OUTPUT_HELP)]
     output: Option<PathBuf>,
-    /// Output format for the assembled intcode
+    #[arg(help = "Output format for the assembled intcode")]
     #[arg(short, long)]
     #[arg(default_value = "ascii")]
     format: OutputFormat,
