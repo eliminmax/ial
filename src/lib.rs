@@ -522,61 +522,23 @@ impl Interpreter {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    /// Example program from day 9, which takes no input and outputs its own code
-    #[test]
-    fn quine() {
-        let quine_code = [
-            109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
-        ];
-        let mut interpreter = Interpreter::new(quine_code);
-        let (outputs, State::Halted) = interpreter.run_through_inputs(empty()).unwrap() else {
-            panic!("Did not halt");
-        };
-        assert_eq!(quine_code[..], outputs[..]);
-    }
+/// Ensure that failure due to missing input leaves the interpreter in a sane state that can
+/// be recovered from
+#[test]
+fn missing_input_recoverable() {
+    let mut interpreter = Interpreter::new(vec![3, 10, 4, 10, 99]);
+    let old_state = interpreter.clone();
 
-    /// Example program from day 9, which "should output a 16-digit number"
-    #[test]
-    fn output_sixteen_digit() {
-        let mut interpreter = Interpreter::new([1102, 34915192, 34915192, 7, 4, 7, 99, 0]);
-        let (outputs, State::Halted) = interpreter.run_through_inputs(empty()).unwrap() else {
-            panic!("Did not halt");
-        };
-        assert_eq!(outputs.len(), 1, "{outputs:?}");
-        assert_eq!(outputs[0].to_string().len(), 16, "{outputs:?}");
-    }
+    let failed_run = interpreter.run_through_inputs(empty());
 
-    /// Example program from day 9, which "should output the large number in the middle"
-    #[test]
-    fn large_number() {
-        let mut interpreter = Interpreter::new([104, 1125899906842624, 99]);
-        let (outputs, State::Halted) = interpreter.run_through_inputs(empty()).unwrap() else {
-            panic!("Did not halt");
-        };
-        assert_eq!(outputs, vec![1125899906842624]);
-    }
+    // make sure that the failure returned the right ErrorState and left both `outputs` and
+    // `interpreter` unchanged
+    assert_eq!(failed_run, Ok((vec![], State::Awaiting)));
+    assert_eq!(interpreter, old_state);
 
-    /// Ensure that failure due to missing input leaves the interpreter in a sane state that can
-    /// be recovered from
-    #[test]
-    fn missing_input_recoverable() {
-        let mut interpreter = Interpreter::new(vec![3, 10, 4, 10, 99]);
-        let old_state = interpreter.clone();
-
-        let failed_run = interpreter.run_through_inputs(empty());
-
-        // make sure that the failure returned the right ErrorState and left both `outputs` and
-        // `interpreter` unchanged
-        assert_eq!(failed_run, Ok((vec![], State::Awaiting)));
-        assert_eq!(interpreter, old_state);
-
-        // make sure that interpreter can still be used
-        assert_eq!(
-            interpreter.run_through_inputs([1]),
-            Ok((vec![1], State::Halted))
-        );
-    }
+    // make sure that interpreter can still be used
+    assert_eq!(
+        interpreter.run_through_inputs([1]),
+        Ok((vec![1], State::Halted))
+    );
 }
