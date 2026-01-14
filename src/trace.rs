@@ -79,7 +79,14 @@ impl TracedInstr {
 
     /// If the instruction stored a value, return that value
     pub fn stored_val(&self) -> Option<i64> {
-        None
+        match self.op {
+            TracedOp::Add(_, _, (_, stored))
+            | TracedOp::Mul(_, _, (_, stored))
+            | TracedOp::Lt(_, _, (_, stored))
+            | TracedOp::Eq(_, _, (_, stored))
+            | TracedOp::In((_, stored)) => Some(stored),
+            _ => None,
+        }
     }
 
     /// Return an array of the parameter modes of the traced instruction
