@@ -4,15 +4,15 @@ SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
 SPDX-License-Identifier: 0BSD
 -->
 
-# intcode
+# Intcode Assembly Language
 
-A library built around my Intcode module from Advent of Code 2019, cleaned up and reorganized, with additions to support an Intcode assembly language I've dubbed IAL.
+A library built around my Intcode module from Advent of Code 2019, cleaned up and reorganized, as well as an assembly language that can assemble into it.
 
 **It is in a state of active tweaking with regular breaking changes, and does not yet follow SemVer**
 
 See [ASM.md](./ASM) for documentation of IAL's syntax and semantics.
 
-It's organized as a library which provides the `intcode::Interpreter` struct as a way to interact with intcode, an optional `intcode::asm` module which provides an implementation of the assembly language from the Esolang wiki, and a few small binaries that make use of those: `intcode_as` is an assembler, and `intcode_ascii` provides an interactive interface using [Aft Scaffolding Control and Information Interface](https://adventofcode.com/2019/day/17) *(not to be confused with the [American Standard Code for Information Interchange](https://en.wikipedia.org/wiki/ASCII))*.
+It's organized as a library which provides the `intcode::Interpreter` struct as a way to interpret and debug intcode, an `intcode::asm` module which provides an extended version of a [proposed assembly language from the Esolang wiki](https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax), and a few small binaries that make use of those: `ial-as` is an assembler, `ial-dis` is a disassembler, and `intcode` acts as an interpreter.
 
 The interpreter is fully functional, with all of the [opcodes](https://esolangs.org/wiki/Intcode#Opcodes) and [parameter modes](https://esolangs.org/wiki/Intcode#Parameter_Modes) defined in the completed Intcode computer for [Advent of Code 2019 Day 9](https://adventofcode.com/2019/day/9).
 
@@ -27,9 +27,6 @@ assert_eq!(
     (vec![1024], State::Halted)
 );
 ```
-
-Additionally, if the `asm` feature is enabled, tools to work with a minimal assembly language
-for Intcode are provided in the `asm`.
 
 ```rust
 use intcode::{prelude::*, asm::assemble};
