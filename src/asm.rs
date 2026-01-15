@@ -120,6 +120,7 @@ use std::collections::HashMap;
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod ast_prelude {
+    pub use super::ast_util;
     pub use crate::{ParamMode, asm};
     pub use asm::{
         BinOperator, Directive, Expr, Instr, Line, Parameter, assemble, assemble_ast, build_ast,
