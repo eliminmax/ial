@@ -1,0 +1,12 @@
+; SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
+;
+; SPDX-License-Identifier: 0BSD
+
+RBO #hello
+
+loop: OUT @0
+      RBO #1
+      JNZ @0, #loop
+HALT
+
+hello: ASCII "Hello, world!\n\0"
