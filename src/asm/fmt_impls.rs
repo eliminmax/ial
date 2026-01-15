@@ -80,8 +80,8 @@ impl Display for Directive<'_> {
 
 impl Display for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(Spanned { inner, .. }) = self.label {
-            write!(f, "{inner:<12}")?
+        for Spanned { inner, .. } in self.labels.iter() {
+            write!(f, "{inner}:\t")?
         }
         if let Some(Spanned { inner, .. }) = &self.inner {
             write!(f, "{inner}")?;

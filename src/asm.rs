@@ -59,10 +59,10 @@
 //!
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     label: Some(Spanned {
+//!     labels: vec![Spanned {
 //!         inner: "idle_loop",
 //!         span: SimpleSpan { start: 0, end: 9, context: () },
-//!     }),
+//!     }],
 //!     inner: Some(Spanned {
 //!         span: SimpleSpan { start: 11, end: 28, context: () },
 //!         inner: Directive::Instruction(Box::new(Instr::Jz(
@@ -96,7 +96,7 @@
 //! use intcode::asm::ast_util::*;
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     label: Some(span("idle_loop", 0..9)),
+//!     labels: vec![span("idle_loop", 0..9)],
 //!     inner: Some(span(
 //!         Directive::Instruction(Box::new(Instr::Jz(
 //!             param!(#<expr!(0);>[14..16]),
@@ -601,8 +601,8 @@ pub enum Directive<'a> {
 /// A single line of assembly, containing an optional label, an optional directive, and an optional
 /// comment - the last of which is not stored.
 pub struct Line<'a> {
-    /// the label for the line, if applicable
-    pub label: Option<Spanned<&'a str>>,
+    /// the labels for the line
+    pub labels: Vec<Spanned<&'a str>>,
     /// the directive for the line, if applicable
     pub inner: Option<Spanned<Directive<'a>>>,
 }
@@ -688,13 +688,13 @@ fn assemble_inner<'a, const DEBUG: bool>(
     let mut index = 0;
     let mut directives = Vec::new();
     for line in code.iter() {
-        if let Some(Spanned { inner: label, span }) = line.label
-            && let Some((_, old_span)) = labels.insert(label, (index, span))
-        {
-            return Err(AssemblyError::DuplicateLabel {
-                label,
-                spans: [old_span, span],
-            });
+        for Spanned {inner: label, span} in line.labels.iter() {
+                if let Some((_, old_span)) = labels.insert(*label, (index, *span)) {
+                return Err(AssemblyError::DuplicateLabel {
+                    label,
+                    spans: [old_span, *span],
+                });
+            }
         }
         if let Some(inner) = line.inner.as_ref() {
             index += inner
@@ -771,7 +771,7 @@ pub fn assemble_with_debug<'a>(
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));
 ///
 /// let ast = vec![
-///     Line { label: None, inner: Some(Spanned { inner, span: SimpleSpan::default() }) }
+///     Line { labels: vec![], inner: Some(Spanned { inner, span: SimpleSpan::default() }) }
 /// ];
 ///
 /// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);

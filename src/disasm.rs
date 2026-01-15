@@ -184,7 +184,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 OpCode::Halt => Instr::Halt,
             };
             lines.push(Line {
-                label: None,
+                labels: vec![],
                 inner: Some(span(Directive::Instruction(boxed(instr)), 0..0)),
             });
         } else {
@@ -196,7 +196,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 data.push(span(Expr::Number(mem_iter.next().unwrap()), 0..0));
             }
             lines.push(Line {
-                label: None,
+                labels: vec![],
                 inner: Some(span(Directive::Data(data), 0..0)),
             });
         }

@@ -257,17 +257,26 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
 }
 
 fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    padded!(text::ident().spanned().then_ignore(just(":")).or_not())
-        .labelled("label")
-        .as_context()
-        .then(directive())
-        .map(|(label, inner)| Line { label, inner })
-        .then_ignore(
-            (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
-                .labelled("comment")
-                .or_not(),
-        )
-        .labelled("line")
+    padded!(
+        text::ident()
+            .spanned()
+            .then_ignore(just(":"))
+            .labelled("label")
+            .as_context()
+            .repeated()
+            .collect()
+    )
+    .then(directive())
+    .map(|(label, inner)| Line {
+        labels: label,
+        inner,
+    })
+    .then_ignore(
+        (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
+            .labelled("comment")
+            .or_not(),
+    )
+    .labelled("line")
 }
 
 pub(super) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
@@ -290,7 +299,7 @@ mod ast_tests {
         assert_eq!(
             line().parse("").unwrap(),
             Line {
-                label: None,
+                labels: vec![],
                 inner: None
             }
         )
@@ -308,6 +317,17 @@ mod ast_tests {
                 ]),
                 0..12
             ))
+        );
+    }
+
+    #[test]
+    fn multiple_labels() {
+        assert_eq!(
+            line().parse("foo:bar:baz:DATA 0").unwrap(),
+            Line {
+                labels: vec![span("foo", 0..3), span("bar", 4..7), span("baz", 8..11)],
+                inner: Some(span(Directive::Data(vec![span(expr!(0), 17..18)]), 12..18)),
+            }
         );
     }
 
