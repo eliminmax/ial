@@ -12,14 +12,14 @@ pub use crate::param;
 /// If passed a literal, it will resolve to an [Expr::Number] with that literal value
 ///
 /// ```
-/// use intcode::asm::{ast_prelude::*, ast_util::*};
+/// use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(expr!(10), Expr::Number(10));
 /// ```
 ///
 /// If passed an identifier, it will resolve to an `[Expr::Ident]` with that identifer
 /// (stringified with [`stringify`]).
 /// ```
-///# use intcode::asm::{ast_prelude::*, ast_util::*};
+///# use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(expr!(e), Expr::Ident("e"));
 /// ```
 ///
@@ -28,7 +28,7 @@ pub use crate::param;
 /// provided, and is overall still far more concise than fully writing it out:
 ///
 /// ```
-///# use intcode::asm::{ast_prelude::*, ast_util::*};
+///# use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(
 ///     expr!( (expr!(e);[1..2]) ),
 ///     Expr::Parenthesized(boxed(span(Expr::Ident("e"), 1..2)))
@@ -87,7 +87,7 @@ macro_rules! expr {
 /// either blank for parameter mode, `#` for immediate mode, or `@` for relative mode
 ///
 /// ```
-/// use intcode::asm::{ast_prelude::*, ast_util::*};
+/// use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(
 ///     param!(@<expr!(0);>[0..2]),
 ///     Parameter(ParamMode::Relative, boxed(span(Expr::Number(0), 1..2)))

@@ -11,7 +11,7 @@
 //! # Example
 //!
 //! ```rust
-//! use intcode::prelude::*;
+//! use ial::prelude::*;
 //! let mut interpreter = Interpreter::new(vec![104, 1024, 99]);
 //!
 //! assert_eq!(
@@ -384,7 +384,7 @@ impl Interpreter {
     /// # Example
     ///
     /// ```
-    /// use intcode::prelude::*;
+    /// use ial::prelude::*;
     /// let mut interp = Interpreter::new([1101, 90, 9, 8, 3, 7, 4, -1]);
     /// let mut out = Vec::new();
     ///

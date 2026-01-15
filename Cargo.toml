@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: 0BSD
 
 [package]
-name = "intcode"
+name = "ial"
 version = "0.1.0-pre-alpha"
 edition = "2024"
 

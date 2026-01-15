@@ -4,7 +4,7 @@
 
 //! A solution to Advent of Code 2019 Day 11 built using the `intcode` library.
 
-use intcode::prelude::*;
+use ial::prelude::*;
 
 use std::collections::HashMap;
 

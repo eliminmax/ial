@@ -5,7 +5,7 @@
 //! Run interactively in Aft Scaffolding Control and Information Interface mode, using stdin and
 //! stdout for I/O
 
-use intcode::Interpreter;
+use ial::Interpreter;
 use std::env::args_os;
 use std::error::Error;
 use std::fmt::{self, Display};
@@ -42,7 +42,7 @@ fn print_ascii(intcode_output: Vec<i64>) -> Result<(), AsciiError> {
 fn interactive_run(mut interp: Interpreter) -> Result<(), AsciiError> {
     let (output, mut state) = interp.run_through_inputs(std::iter::empty())?;
     print_ascii(output)?;
-    while state != intcode::State::Halted {
+    while state != ial::State::Halted {
         let (output, new_state) = interp.run_through_inputs(get_line()?)?;
         print_ascii(output)?;
         state = new_state;
@@ -61,7 +61,7 @@ pub enum AsciiError {
     IoError(std::io::Error),
     InvalidAsciiChar(char),
     InvalidAsciiInt(i64),
-    InterpreterError(intcode::ErrorState),
+    InterpreterError(ial::ErrorState),
 }
 
 impl Error for AsciiError {}
@@ -76,8 +76,8 @@ impl Display for AsciiError {
     }
 }
 
-impl From<intcode::ErrorState> for AsciiError {
-    fn from(e: intcode::ErrorState) -> Self {
+impl From<ial::ErrorState> for AsciiError {
+    fn from(e: ial::ErrorState) -> Self {
         Self::InterpreterError(e)
     }
 }

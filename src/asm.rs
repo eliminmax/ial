@@ -28,8 +28,8 @@
 //! # Example
 //!
 //! ```
-//! use intcode::prelude::*;
-//! use intcode::asm::assemble;
+//! use ial::prelude::*;
+//! use ial::asm::assemble;
 //! const HELLO_ASM: &str = r#"
 //! ; A simple Hello World program
 //! RBO #hello      ; set relative base to address of hello text
@@ -55,7 +55,7 @@
 //! # Example
 //!
 //! ```
-//! use intcode::{prelude::*, asm::ast_prelude::*};
+//! use ial::{prelude::*, asm::ast_prelude::*};
 //!
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
@@ -92,8 +92,8 @@
 //! concicely:
 //!
 //! ```
-//! use intcode::{prelude::*, asm::ast_prelude::*};
-//! use intcode::asm::ast_util::*;
+//! use ial::{prelude::*, asm::ast_prelude::*};
+//! use ial::asm::ast_util::*;
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
 //!     labels: vec![span("idle_loop", 0..9)],
@@ -559,7 +559,7 @@ pub enum Directive<'a> {
     ///
     /// ```
     /// const ASM_SRC: &str = "data: DATA 1, 2, data + 3, 4 * 4 / 4, 5";
-    /// let assembled = intcode::asm::assemble(ASM_SRC).unwrap();
+    /// let assembled = ial::asm::assemble(ASM_SRC).unwrap();
     /// assert_eq!(assembled[..], [1, 2, 3, 4, 5][..]);
     /// ```
     Data(Vec<Spanned<Expr<'a>>>),
@@ -589,7 +589,7 @@ pub enum Directive<'a> {
     ///
     /// ```
     /// const ASM_SRC: &str = r#"ASCII "Hello, world!\n""#;
-    /// let assembled = intcode::asm::assemble(ASM_SRC).unwrap();
+    /// let assembled = ial::asm::assemble(ASM_SRC).unwrap();
     /// let expected: [i64; 14] = core::array::from_fn(|i| i64::from(b"Hello, world!\n"[i] ));
     /// assert_eq!(assembled[..], expected[..]);
     /// ```
@@ -662,8 +662,8 @@ mod parsers;
 /// # Example
 ///
 /// ```
-/// use intcode::asm::build_ast;
-/// use intcode::Interpreter;
+/// use ial::asm::build_ast;
+/// use ial::Interpreter;
 ///
 /// assert!(build_ast(r#"
 /// RBO #hello
@@ -766,7 +766,7 @@ pub fn assemble_with_debug<'a>(
 /// # Example
 ///
 /// ```
-/// use intcode::asm::{assemble_ast, Line, Directive, Instr, Parameter};
+/// use ial::asm::{assemble_ast, Line, Directive, Instr, Parameter};
 /// use chumsky::prelude::{Spanned, SimpleSpan};
 ///
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));

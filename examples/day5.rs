@@ -4,7 +4,7 @@
 
 //! A solution to Advent of Code 2019 Day 5 built using the `intcode` library.
 
-use intcode::prelude::*;
+use ial::prelude::*;
 
 fn part1(mut i: Interpreter) -> i64 {
     let (mut outputs, State::Halted) = i.run_through_inputs([1]).unwrap() else {

@@ -15,7 +15,7 @@ use super::{Interpreter, OpCode};
 /// # Example
 ///
 /// ```
-/// use intcode::{prelude::*, asm::assemble, disassemble};
+/// use ial::{prelude::*, asm::assemble, disasm::disassemble};
 /// const HELLO_ASM: &str = r#"
 /// ; A simple Hello World program
 /// RBO #hello      ; set relative base to address of hello text
@@ -53,7 +53,7 @@ use super::{Interpreter, OpCode};
 /// ### Example
 ///
 /// ```
-/// use intcode::{asm::assemble, disassemble};
+/// use ial::{asm::assemble, disasm::disassemble};
 /// // the following both produce the same output:
 ///
 /// // how it's actually run
@@ -89,7 +89,7 @@ use super::{Interpreter, OpCode};
 /// ### Example
 ///
 /// ```
-/// use intcode::{prelude::*, disassemble};
+/// use ial::{prelude::*, disasm::disassemble};
 /// const HALT_WITH_MODES: i64 = 21299; // a HALT instruction with ignored parameter modes
 /// let mut interp = Interpreter::new([HALT_WITH_MODES]);
 /// assert_eq!(interp.run_through_inputs(empty()).unwrap(), (vec![], State::Halted));
@@ -103,7 +103,7 @@ use super::{Interpreter, OpCode};
 /// at the time it's executed:
 ///
 /// ```
-/// use intcode::{prelude::*, disassemble, asm::assemble};
+/// use ial::{prelude::*, disasm::disassemble, asm::assemble};
 ///
 /// const CODE: &str = r#"
 /// ADD #99, #0, halt

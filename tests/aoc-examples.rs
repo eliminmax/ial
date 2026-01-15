@@ -4,9 +4,9 @@
 // SPDX-License-Identifier: 0BSD
 
 use either::Either;
-use intcode::prelude::*;
-use intcode::trace::{Trace, TracedInstr};
-use intcode::{OpCode, ParamMode};
+use ial::prelude::*;
+use ial::trace::{Trace, TracedInstr};
+use ial::{OpCode, ParamMode};
 use itertools::Itertools;
 
 // first, some groundwork for common elements of different tests
@@ -23,7 +23,7 @@ macro_rules! interp {
 fn run_to_end(
     interp: &mut Interpreter,
     inputs: impl IntoIterator<Item = i64>,
-) -> Result<Vec<i64>, Either<intcode::ErrorState, Awaiting>> {
+) -> Result<Vec<i64>, Either<ial::ErrorState, Awaiting>> {
     let (output, state) = interp.run_through_inputs(inputs).map_err(Either::Left)?;
     if state == State::Halted {
         Ok(output)

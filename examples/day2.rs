@@ -4,7 +4,7 @@
 
 //! A solution to Advent of Code 2019 Day 2 built using the `intcode` library.
 
-use intcode::prelude::*;
+use ial::prelude::*;
 
 fn part1(mut i: Interpreter) -> i64 {
     i[1] = 12;

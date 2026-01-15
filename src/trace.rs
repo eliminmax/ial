@@ -152,8 +152,8 @@ impl Interpreter {
     ///
     /// # Example
     /// ```
-    /// use intcode::prelude::*;
-    /// use intcode::OpCode;
+    /// use ial::prelude::*;
+    /// use ial::OpCode;
     /// let mut interp = Interpreter::new([1101, 90, 9, 4]);
     /// let prev_trace = interp.start_trace();
     /// assert!(prev_trace.is_none());
