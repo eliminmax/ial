@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+use super::ast_util::span;
 use super::{DebugInfo, DirectiveDebug, DirectiveKind};
 use chumsky::span::SimpleSpan;
 use either::Either;
@@ -19,8 +20,7 @@ impl DebugInfo {
         use flate2::write::ZlibEncoder;
         let DebugInfo { labels, directives } = self;
 
-        let output_len = MAGIC.len() + 17 + labels.len() * 24 + directives.len() * 33;
-        let mut buffer = Vec::with_capacity(output_len);
+        let mut buffer = Vec::new();
 
         macro_rules! write_usize {
             ($val: expr) => {
@@ -37,8 +37,10 @@ impl DebugInfo {
         write_usize!(labels.len());
 
         for (label, addr) in labels {
-            write_usize!(label.start);
-            write_usize!(label.end);
+            write_usize!(label.inner.len());
+            buffer.extend(label.inner.as_bytes());
+            write_usize!(label.span.start);
+            write_usize!(label.span.end);
             buffer.extend(addr.to_le_bytes());
         }
 
@@ -51,7 +53,6 @@ impl DebugInfo {
             write_usize!(dir.output_span.start);
             write_usize!(dir.output_span.end);
         }
-        debug_assert_eq!(buffer.len(), output_len);
         ZlibEncoder::new(f, flate2::Compression::best())
             .write_all(&buffer)
             .map_err(Either::Left)
@@ -94,17 +95,22 @@ impl DebugInfo {
         let nlabels = read_usize!();
         let mut labels = Vec::with_capacity(nlabels);
         for _ in 0..nlabels {
+            let len = read_usize!();
+            let mut raw_label_text = vec![0; len];
+            read(raw_label_text.as_mut_slice())?;
+            let label_text = if str::from_utf8(&raw_label_text).is_ok() {
+                unsafe { String::from_utf8_unchecked(raw_label_text) }.into_boxed_str()
+            } else {
+                return Err(Error::NonUtf8Label(raw_label_text.into_boxed_slice()));
+            };
+
             let start = read_usize!();
             let end = read_usize!();
             let addr = read_i64!();
             if start > end {
                 return Err(Error::BackwardsLabelSpan { start, end });
             }
-            let label = SimpleSpan {
-                start,
-                end,
-                context: (),
-            };
+            let label = span(label_text, start..end);
             labels.push((label, addr));
         }
         let labels = labels.into_boxed_slice();
@@ -182,4 +188,6 @@ pub enum DebugInfoReadError {
         /// The would-be end of the directive's output span
         end: usize,
     },
+    /// A label's text data wasn't UTF-8-encoded
+    NonUtf8Label(Box<[u8]>),
 }

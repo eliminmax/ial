@@ -176,7 +176,7 @@ pub struct DirectiveDebug {
 /// The debug data is designed to work on spans of source and output, not on
 pub struct DebugInfo {
     /// Mapping of labels' spans in the source code to their resolved addresses in the output
-    pub labels: Box<[(SimpleSpan, i64)]>,
+    pub labels: Box<[(Spanned<Box<str>>, i64)]>,
     /// Boxed slice of debug info about each directive
     pub directives: Box<[DirectiveDebug]>,
 }
@@ -679,12 +679,12 @@ pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>
     parsers::grammar().parse(code).into_result()
 }
 
-type AssembleInnerRet = (Vec<i64>, Vec<(SimpleSpan, i64)>, Vec<DirectiveDebug>);
+type AssembleInnerRet<'a> = (Vec<i64>, Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
 
 /// common implementation of [assemble_ast] and [assemble_with_debug].
 fn assemble_inner<'a, const DEBUG: bool>(
     code: Vec<Line<'a>>,
-) -> Result<AssembleInnerRet, AssemblyError<'a>> {
+) -> Result<AssembleInnerRet<'a>, AssemblyError<'a>> {
     let mut labels: HashMap<&'a str, (i64, SimpleSpan)> = HashMap::new();
     let mut index = 0;
     let mut directives = Vec::new();
@@ -709,8 +709,8 @@ fn assemble_inner<'a, const DEBUG: bool>(
 
     let label_spans = if DEBUG {
         labels
-            .values()
-            .map(|&(index, span)| (span, index))
+            .iter()
+            .map(|(&inner, &(index, span))| (Spanned { inner, span }, index))
             .collect()
     } else {
         Vec::new()
@@ -753,7 +753,20 @@ pub fn assemble_with_debug<'a>(
     code: Vec<Line<'a>>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'a>> {
     assemble_inner::<true>(code).map(|(output, labels, directives)| {
-        let labels = labels.into_boxed_slice();
+        let labels = labels
+            .into_iter()
+            .map(|(Spanned { inner, span }, index)| {
+                (
+                    Spanned {
+                        inner: Box::from(inner),
+                        span,
+                    },
+                    index,
+                )
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
         let directives = directives.into_boxed_slice();
         (output, DebugInfo { labels, directives })
     })
