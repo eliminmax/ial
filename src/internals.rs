@@ -56,7 +56,11 @@ impl Interpreter {
     /// Processes turns `address` into a concrete index according to `mode`.
     /// If that would involve accessing memory at a negative index, or if `mode` is
     /// [ParamMode::Immediate], it instead marks `self` as poisoned and returns the error
-    pub(crate) fn resolve_dest(&mut self, mode: ParamMode, offset: i64) -> Result<i64, InterpreterError> {
+    pub(crate) fn resolve_dest(
+        &mut self,
+        mode: ParamMode,
+        offset: i64,
+    ) -> Result<i64, InterpreterError> {
         match (mode, self.code[self.index + offset]) {
             (ParamMode::Positional, n @ ..=-1) => {
                 self.poisoned = true;

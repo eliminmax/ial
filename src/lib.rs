@@ -87,8 +87,12 @@ pub enum InterpreterError {
 impl Display for InterpreterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            InterpreterError::UnrecognizedOpcode(n) => write!(f, "encountered unrecognized opcode {n}"),
-            InterpreterError::UnknownMode(mode) => write!(f, "encountered unknown parameter mode {mode}"),
+            InterpreterError::UnrecognizedOpcode(n) => {
+                write!(f, "encountered unrecognized opcode {n}")
+            }
+            InterpreterError::UnknownMode(mode) => {
+                write!(f, "encountered unknown parameter mode {mode}")
+            }
             InterpreterError::NegativeMemAccess(e) => {
                 write!(f, "could not convert index to unsigned address: {e}")
             }
@@ -98,7 +102,9 @@ impl Display for InterpreterError {
             InterpreterError::WriteToImmediate(i) => {
                 write!(f, "code attempted to write to immediate {i}")
             }
-            InterpreterError::Poisoned => write!(f, "tried to reuse an interpreter after a fatal error"),
+            InterpreterError::Poisoned => {
+                write!(f, "tried to reuse an interpreter after a fatal error")
+            }
         }
     }
 }
