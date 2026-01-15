@@ -689,8 +689,8 @@ fn assemble_inner<'a, const DEBUG: bool>(
     let mut index = 0;
     let mut directives = Vec::new();
     for line in code.iter() {
-        for Spanned {inner: label, span} in line.labels.iter() {
-                if let Some((_, old_span)) = labels.insert(*label, (index, *span)) {
+        for Spanned { inner: label, span } in line.labels.iter() {
+            if let Some((_, old_span)) = labels.insert(*label, (index, *span)) {
                 return Err(AssemblyError::DuplicateLabel {
                     label,
                     spans: [old_span, *span],

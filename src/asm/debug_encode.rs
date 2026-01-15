@@ -52,13 +52,15 @@ impl DebugInfo {
             write_usize!(dir.output_span.end);
         }
         debug_assert_eq!(buffer.len(), output_len);
-        ZlibEncoder::new(f, flate2::Compression::best()).write_all(&buffer).map_err(Either::Left)
+        ZlibEncoder::new(f, flate2::Compression::best())
+            .write_all(&buffer)
+            .map_err(Either::Left)
     }
 
     /// Read the debug info from an opaque on-disk format
     pub fn read(f: impl Read) -> Result<Self, DebugInfoReadError> {
-        use flate2::read::ZlibDecoder;
         use DebugInfoReadError as Error;
+        use flate2::read::ZlibDecoder;
         let mut reader = ZlibDecoder::new(f);
         let mut buf: [u8; 8] = [0; 8];
 
