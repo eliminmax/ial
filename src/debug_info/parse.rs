@@ -101,12 +101,13 @@ impl DebugInfo {
         let mut labels = Vec::with_capacity(nlabels);
         for _ in 0..nlabels {
             let len = read_usize!();
-            let mut raw_label_text = vec![0; len];
-            read(raw_label_text.as_mut_slice())?;
+
+            // SAFETY: `0` is a valid u8 value
+            let mut raw_label_text = unsafe { Box::new_zeroed_slice(len).assume_init() };
+            read(&mut raw_label_text)?;
             // because there's no str::from_boxed_utf8 that validates, but there is an unsafe
             // unchecked `std::str::from_boxed_utf8_unchecked`, first validate, then convert within
             // an unsafe block
-            let raw_label_text = raw_label_text.into_boxed_slice();
             let label_text = if str::from_utf8(&raw_label_text).is_ok() {
                 // SAFETY: Already validated
                 unsafe { std::str::from_boxed_utf8_unchecked(raw_label_text) }
