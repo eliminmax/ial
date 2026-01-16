@@ -172,8 +172,6 @@ pub struct DirectiveDebug {
 
 #[non_exhaustive]
 /// Debug info generated when assembling source code with [assemble_with_debug]
-///
-/// The debug data is designed to work on spans of source and output, not on
 pub struct DebugInfo {
     /// Mapping of labels' spans in the source code to their resolved addresses in the output
     pub labels: Box<[(Spanned<Box<str>>, i64)]>,
