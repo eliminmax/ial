@@ -4,7 +4,6 @@
 
 use chumsky::span::Spanned;
 
-use super::debug_encode::DebugInfoReadError;
 use super::{AssemblyError, BinOperator, Directive, Expr, Instr, Line, Parameter};
 
 use std::error::Error;
@@ -111,50 +110,3 @@ impl Display for AssemblyError<'_> {
 }
 
 impl Error for AssemblyError<'_> {}
-
-impl Display for DebugInfoReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        macro_rules! backwards_span {
-            ($span_type: literal, $start: ident, $end: ident) => {{
-                write!(
-                    f,
-                    "backwards {} span from {} to {}",
-                    $span_type, $start, $end
-                )
-            }};
-        }
-        match self {
-            DebugInfoReadError::BadMagic(magic) => write!(
-                f,
-                "bad magic bytes after decompression: {}",
-                magic.escape_ascii()
-            ),
-            DebugInfoReadError::VersionMismatch(version) => {
-                write!(f, "unsupported version: {version}")
-            }
-            DebugInfoReadError::IoError(error) => Display::fmt(error, f),
-            DebugInfoReadError::IntSize(try_from_int_error) => Display::fmt(try_from_int_error, f),
-            DebugInfoReadError::BadDirectiveByte(byte) => {
-                write!(f, "Bad directive byte: 0x{byte:02x}")
-            }
-            DebugInfoReadError::BackwardsLabelSpan { start, end } => {
-                backwards_span!("label", start, end)
-            }
-            DebugInfoReadError::BackwardsSrcSpan { start, end } => {
-                backwards_span!("source", start, end)
-            }
-            DebugInfoReadError::BackwardsOutSpan { start, end } => {
-                backwards_span!("output", start, end)
-            }
-            DebugInfoReadError::NonUtf8Label(label) => {
-                write!(
-                    f,
-                    "tried to decode a non-utf8 label: {}",
-                    label.escape_ascii()
-                )
-            }
-        }
-    }
-}
-
-impl Error for DebugInfoReadError {}

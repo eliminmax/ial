@@ -2,12 +2,42 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use super::ast_util::span;
-use super::{DebugInfo, DirectiveDebug, DirectiveKind};
-use chumsky::span::SimpleSpan;
+//! Module for [DebugInfo] and its related functionality
+
+use chumsky::span::{SimpleSpan, Spanned};
+use crate::asm::ast_util::span;
 use either::Either;
 use std::io::{self, Read, Write};
 use std::num::TryFromIntError;
+#[derive(Debug, PartialEq, Clone, Copy)]
+/// Debug info about a given directive
+pub struct DirectiveDebug {
+    /// Type of the directive
+    pub kind: DirectiveKind,
+    /// span within the source code of the directive
+    pub src_span: SimpleSpan,
+    /// span within the output of the directive
+    pub output_span: SimpleSpan,
+}
+
+#[non_exhaustive]
+#[derive(Debug)]
+/// Debug info generated when assembling source code with [assemble_with_debug]
+pub struct DebugInfo {
+    /// Mapping of labels' spans in the source code to their resolved addresses in the output
+    pub labels: Box<[(Spanned<Box<str>>, i64)]>,
+    /// Boxed slice of debug info about each directive
+    pub directives: Box<[DirectiveDebug]>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+/// The type of a [Directive]
+#[allow(missing_docs, reason = "trivial")]
+pub enum DirectiveKind {
+    Instruction = 0,
+    Data = 1,
+    Ascii = 2,
+}
 
 /// the magic bytes for on-disk debug data.
 const MAGIC: [u8; 8] = *b"\0IALDBG\0";
@@ -191,3 +221,67 @@ pub enum DebugInfoReadError {
     /// A label's text data wasn't UTF-8-encoded
     NonUtf8Label(Box<[u8]>),
 }
+
+use std::error::Error;
+use std::fmt::{self, Display};
+
+impl Display for DebugInfoReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        macro_rules! backwards_span {
+            ($span_type: literal, $start: ident, $end: ident) => {{
+                write!(
+                    f,
+                    "backwards {} span from {} to {}",
+                    $span_type, $start, $end
+                )
+            }};
+        }
+        match self {
+            DebugInfoReadError::BadMagic(magic) => write!(
+                f,
+                "bad magic bytes after decompression: {}",
+                magic.escape_ascii()
+            ),
+            DebugInfoReadError::VersionMismatch(version) => {
+                write!(f, "unsupported version: {version}")
+            }
+            DebugInfoReadError::IoError(error) => Display::fmt(error, f),
+            DebugInfoReadError::IntSize(try_from_int_error) => Display::fmt(try_from_int_error, f),
+            DebugInfoReadError::BadDirectiveByte(byte) => {
+                write!(f, "Bad directive byte: 0x{byte:02x}")
+            }
+            DebugInfoReadError::BackwardsLabelSpan { start, end } => {
+                backwards_span!("label", start, end)
+            }
+            DebugInfoReadError::BackwardsSrcSpan { start, end } => {
+                backwards_span!("source", start, end)
+            }
+            DebugInfoReadError::BackwardsOutSpan { start, end } => {
+                backwards_span!("output", start, end)
+            }
+            DebugInfoReadError::NonUtf8Label(label) => {
+                write!(
+                    f,
+                    "tried to decode a non-utf8 label: {}",
+                    label.escape_ascii()
+                )
+            }
+        }
+    }
+}
+
+impl Error for DebugInfoReadError {}
+
+impl TryFrom<u8> for DirectiveKind {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Instruction),
+            1 => Ok(Self::Data),
+            2 => Ok(Self::Ascii),
+            _ => Err(value),
+        }
+    }
+}
+

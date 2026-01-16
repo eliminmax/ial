@@ -117,6 +117,7 @@
 use ast_prelude::*;
 use chumsky::error::Rich;
 use std::collections::HashMap;
+use crate::debug_info::{DirectiveKind, DirectiveDebug, DebugInfo};
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod ast_prelude {
@@ -130,55 +131,6 @@ pub mod ast_prelude {
 
 /// Small utility functions and macros for making it less painful to work with the AST
 pub mod ast_util;
-
-/// Module containing implementations of [DebugInfo::write] and [DebugInfo::read]
-///
-/// This module provides the [write][DebugInfo::write] method and [read][DebugInfo::read] function
-/// to convert [DebugInfo] to and from an opaque (but trivial) on-disk format
-pub mod debug_encode;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-/// The type of a [Directive]
-#[allow(missing_docs, reason = "trivial")]
-pub enum DirectiveKind {
-    Instruction = 0,
-    Data = 1,
-    Ascii = 2,
-}
-
-impl TryFrom<u8> for DirectiveKind {
-    type Error = u8;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Instruction),
-            1 => Ok(Self::Data),
-            2 => Ok(Self::Ascii),
-            _ => Err(value),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-/// Debug info about a given directive
-pub struct DirectiveDebug {
-    /// Type of the directive
-    pub kind: DirectiveKind,
-    /// span within the source code of the directive
-    pub src_span: SimpleSpan,
-    /// span within the output of the directive
-    pub output_span: SimpleSpan,
-}
-
-#[non_exhaustive]
-#[derive(Debug)]
-/// Debug info generated when assembling source code with [assemble_with_debug]
-pub struct DebugInfo {
-    /// Mapping of labels' spans in the source code to their resolved addresses in the output
-    pub labels: Box<[(Spanned<Box<str>>, i64)]>,
-    /// Boxed slice of debug info about each directive
-    pub directives: Box<[DirectiveDebug]>,
-}
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]

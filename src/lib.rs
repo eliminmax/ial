@@ -48,6 +48,7 @@ pub mod prelude {
 
 pub mod asm;
 
+pub mod debug_info;
 pub mod disasm;
 
 use mmu::IntcodeMem;

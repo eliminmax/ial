@@ -5,7 +5,7 @@
 //! Run interactively in Aft Scaffolding Control and Information Interface mode, using stdin and
 //! stdout for I/O
 
-use ial::asm::DebugInfo;
+use ial::debug_info::DebugInfo;
 use ial::prelude::*;
 use std::error::Error;
 use std::fmt::{self, Display};
