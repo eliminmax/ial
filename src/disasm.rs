@@ -6,6 +6,8 @@
 //!
 //! See [disassemble] for documentation
 
+use crate::debug_info::DebugInfo;
+
 use super::asm::ast_prelude::*;
 use super::asm::ast_util::*;
 use super::{Interpreter, OpCode};
@@ -207,7 +209,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().map(|line| format!("{line}\n")).collect()
 }
 
-impl crate::debug_info::DebugInfo {
+impl DebugInfo {
     /// Dissasmble `code`, using [DebugInfo] to avoid some of the limitations of [disassemble]
     pub fn disassemble(&self, code: impl IntoIterator<Item = i64>) -> ! {
         todo!(
