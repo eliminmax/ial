@@ -171,6 +171,7 @@ pub struct DirectiveDebug {
 }
 
 #[non_exhaustive]
+#[derive(Debug)]
 /// Debug info generated when assembling source code with [assemble_with_debug]
 pub struct DebugInfo {
     /// Mapping of labels' spans in the source code to their resolved addresses in the output

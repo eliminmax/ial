@@ -9,6 +9,7 @@ edition = "2024"
 
 [[bin]]
 name = "intcode_ascii"
+required-features = [ "bin_deps" ]
 
 [[bin]]
 name = "ial-dis"
