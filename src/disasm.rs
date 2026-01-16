@@ -206,3 +206,13 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
 
     lines.into_iter().map(|line| format!("{line}\n")).collect()
 }
+
+impl crate::debug_info::DebugInfo {
+    /// Dissasmble `code`, using [DebugInfo] to avoid some of the limitations of [disassemble]
+    pub fn disassemble(&self, code: impl IntoIterator<Item = i64>) -> ! {
+        todo!(
+            "{self:?}.disassemble(code: {})",
+            std::any::type_name_of_val(&code)
+        )
+    }
+}
