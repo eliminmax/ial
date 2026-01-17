@@ -58,7 +58,7 @@
 //!
 //! To read a serialized directive, do the following:
 //!
-//! 1. Read 1 byte as the directive kind. 
+//! 1. Read 1 byte as the directive kind.
 //!    * If it isn't a valid [`DirectiveKind`] discriminant, then you have invalid debug info.
 //! 2. Read the source span, using the same method as steps 3 and 4 of [Reading a Label].
 //! 3. Read the output span, using the same method as steps 3 and 4 of [Reading a Label].
@@ -123,19 +123,14 @@ impl EncodedSize {
     /// If the boxed slice is empty, or doesn't follow the documented structure for
     /// [`EncodedSize`], this function may panic, or it may result in incoherent outcomes.
     fn from_boxed_slice(slice: Box<[u8]>) -> Box<Self> {
+        debug_assert!(slice.last().is_some_and(|v| v & 0x80 == 0), "{slice:?}");
         debug_assert!(
-            slice.last().is_some_and(|v| v & 0x80 == 0),
-            "{slice:?}"
-        );
-        debug_assert!(
-            (slice.get(..slice.len() - 1))
-                .is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
+            (slice.get(..slice.len() - 1)).is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
             "{slice:?}"
         );
         // SAFETY: this is accepted by Miri, and the same pattern is used in the (unstable)
         // `impl From<Box<[u8]>> for Box<ByteStr>` as of Rust 1.92.0.
         unsafe { Box::from_raw(Box::into_raw(slice) as _) }
-
     }
     fn read(r: &mut impl Read) -> io::Result<Box<Self>> {
         let mut v = Vec::with_capacity(usize::BITS as usize * 7 / 8);
@@ -234,7 +229,7 @@ impl DebugInfo {
             ($span: expr) => {
                 write_usize!($span.start);
                 write_usize!($span.end - $span.start);
-            }
+            };
         }
         buffer.extend(MAGIC);
         buffer.push(VERSION);

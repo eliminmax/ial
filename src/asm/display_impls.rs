@@ -6,7 +6,6 @@ use chumsky::span::Spanned;
 
 use super::{AssemblyError, BinOperator, Directive, Expr, Instr, Line, Parameter};
 
-use std::error::Error;
 use std::fmt::{self, Display};
 
 impl Display for BinOperator {
@@ -108,5 +107,3 @@ impl Display for AssemblyError<'_> {
         }
     }
 }
-
-impl Error for AssemblyError<'_> {}

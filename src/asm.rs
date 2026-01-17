@@ -119,6 +119,9 @@ use ast_prelude::*;
 use chumsky::error::Rich;
 use std::collections::HashMap;
 
+mod display_impls;
+mod parsers;
+
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod ast_prelude {
     pub use super::ast_util;
@@ -131,6 +134,7 @@ pub mod ast_prelude {
 
 /// Small utility functions and macros for making it less painful to work with the AST
 pub mod ast_util;
+use ast_util::unspan;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
@@ -297,10 +301,6 @@ impl Parameter<'_> {
             },
         }
     }
-}
-
-fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
-    inner
 }
 
 /// An Intcode machine instruction
@@ -606,8 +606,6 @@ impl<'a> Line<'a> {
     }
 }
 
-mod parsers;
-
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
 /// # Example
@@ -630,12 +628,13 @@ pub fn build_ast<'a>(code: &'a str) -> Result<Vec<Line<'a>>, Vec<Rich<'a, char>>
     parsers::grammar().parse(code).into_result()
 }
 
-type AssembleInnerRet<'a> = (Vec<i64>, Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
+type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
 
-/// common implementation of [assemble_ast] and [assemble_with_debug].
+/// Common implementation of [assemble_ast] and [assemble_with_debug].
+/// If `DEBUG` is false, then both vecs in the returned [`RawDebugInfo`] will be empty
 fn assemble_inner<'a, const DEBUG: bool>(
     code: Vec<Line<'a>>,
-) -> Result<AssembleInnerRet<'a>, AssemblyError<'a>> {
+) -> Result<(Vec<i64>, RawDebugInfo<'a>), AssemblyError<'a>> {
     let mut labels: HashMap<&'a str, (i64, SimpleSpan)> = HashMap::new();
     let mut index = 0;
     let mut directives = Vec::new();
@@ -696,14 +695,17 @@ fn assemble_inner<'a, const DEBUG: bool>(
         }
     }
 
-    Ok((v, label_spans, directives))
+    Ok((v, (label_spans, directives)))
 }
 
-/// Assemble the AST, the same as [assemble_ast], but return debug info
+/// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`], preserving debug info
+///
+/// On success, returns `Ok((code, debug))`, where `code` is a [`Vec<i64>`] and `debug` is a
+/// [`DebugInfo`].
 pub fn assemble_with_debug<'a>(
     code: Vec<Line<'a>>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'a>> {
-    assemble_inner::<true>(code).map(|(output, labels, directives)| {
+    assemble_inner::<true>(code).map(|(output, (labels, directives))| {
         let labels = labels
             .into_iter()
             .map(|(Spanned { inner, span }, index)| {
@@ -725,7 +727,7 @@ pub fn assemble_with_debug<'a>(
 
 /// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]
 ///
-/// On failure, returns an [`AssemblyError`].
+/// On success, returns the assembled code as a [`Vec<i64>`].
 ///
 /// # Example
 ///
@@ -742,7 +744,7 @@ pub fn assemble_with_debug<'a>(
 /// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);
 /// ```
 pub fn assemble_ast<'a>(code: Vec<Line<'a>>) -> Result<Vec<i64>, AssemblyError<'a>> {
-    assemble_inner::<false>(code).map(|(output, _, _)| output)
+    assemble_inner::<false>(code).map(|(output, _)| output)
 }
 
 /// An error that indicates where in the assembly process a failure occured, and wraps around the
@@ -764,4 +766,4 @@ pub fn assemble<'a>(code: &'a str) -> Result<Vec<i64>, GeneralAsmError<'a>> {
         .map_err(GeneralAsmError::Assemble)
 }
 
-mod fmt_impls;
+impl std::error::Error for AssemblyError<'_> {}
