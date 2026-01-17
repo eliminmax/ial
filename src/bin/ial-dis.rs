@@ -117,7 +117,7 @@ fn main() -> Result<(), DisplayedError> {
     let code = args.format.parse(&input)?;
 
     let dissassembly = if let Some(debug_info) = args.debug_info.as_ref() {
-        DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?.disassemble(code)
+        DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?.disassemble(code)?
     } else {
         disassemble(code)
     };
