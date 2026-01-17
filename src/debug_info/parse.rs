@@ -173,15 +173,22 @@ impl From<usize> for Box<EncodedSize> {
     }
 }
 
-// I don't know why core::num uses u32 over usize for bit counts, but that's the way it is, I
-// suppose.
-//
-// This type alias is used to make sure that the larger of the two types is always used, while
-// preferring to stick with u32 if they're the same size
+// To allow a single docstring for `pub type BitCounter`, define it to be an alias for _BitCounter,
+// and define _BitCounter using cfg_if.
+
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-type BitCounter = u32;
+type _BitCounter = u32;
 #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32")))]
-type BitCounter = usize;
+type _BitCounter = usize;
+
+/// Unsigned integer type for dealing with bit widths
+///
+/// [core::num] uses [u32] for bit counts, but the bit count of an [EncodedSize] is dependent on
+/// its [`len`][slice::len], which is a [usize].
+///
+/// This type alias is used to make sure that the larger of the two types is always used, by
+/// resolving to [u32] for 16-bit and 32-bit targets, but [usize] for all other targets.
+pub type BitCounter = _BitCounter;
 
 /// The minimum bit length needed for [usize] to be able to store an [EncodedSize] that was too
 /// large to fit.
