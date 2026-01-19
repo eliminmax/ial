@@ -151,7 +151,6 @@ impl IntoIterator for IntcodeMem {
 impl fmt::Debug for IntcodeMem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtstruct = fmt.debug_map();
-        // collect into an ordered set
         for sn in self.segments.keys().sorted_unstable() {
             if self.segments[sn].as_ref() != &[0; 512] {
                 fmtstruct.entry(
