@@ -169,6 +169,8 @@ impl fmt::Debug for Interpreter {
             .field("code", &self.code)
             .field("rbo", &self.rel_offset)
             .field("ip", &self.index)
+            .field("poisoned", &self.poisoned)
+            .field("halted", &self.halted)
             .field("tracing", &self.trace.is_some())
             .finish()
     }
@@ -240,7 +242,41 @@ pub enum ParamMode {
 
 impl ParamMode {
     /// Extract the parameter modes from the provided opcode [i64]
+    ///
+    /// Digits are read from the absolute value of `op_int`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///# use ial::{ParamMode, UnknownMode};
+    /// assert_eq!(
+    ///     ParamMode::extract(21001).unwrap(),
+    ///     [
+    ///         ParamMode::Positional,
+    ///         ParamMode::Immediate,
+    ///         ParamMode::Relative,
+    ///     ],
+    /// );
+    /// assert_eq!(
+    ///     ParamMode::extract(-21001).unwrap(),
+    ///     [
+    ///         ParamMode::Positional,
+    ///         ParamMode::Immediate,
+    ///         ParamMode::Relative,
+    ///     ],
+    /// );
+    /// assert!(ParamMode::extract(31001).is_err());
+    /// ```
+    /// # Errors
+    ///
+    /// If any of the hundred's, thousand's, or ten thousand's digits are not a valid mode defined
+    /// in ether Advent Of Code day [5] or [9], returns an [`UnknownMode`] containing the mode
+    /// digit.
+    ///
+    /// [5]: https://adventofcode.com/2019/day/5
+    /// [9]: https://adventofcode.com/2019/day/9
     pub fn extract(op_int: i64) -> Result<[Self; 3], UnknownMode> {
+        let op_int = op_int.abs();
         Ok([
             ((op_int / 100) % 10).try_into()?,
             ((op_int / 1000) % 10).try_into()?,
@@ -361,7 +397,11 @@ impl From<NegativeMemAccess> for InterpreterError {
 }
 
 impl Interpreter {
-    /// Manually set a memory location
+    /// Manually set a memory location to a provided value
+    ///
+    /// # Errors
+    ///
+    /// if `location` is negative, returns a [`NegativeMemAccess`] error
     #[doc(alias("poke", "write"))]
     #[inline]
     pub fn mem_override(&mut self, location: i64, value: i64) -> Result<(), NegativeMemAccess> {
@@ -374,7 +414,10 @@ impl Interpreter {
     }
 
     /// Get the memory at `address`.
-    /// If `address` is negative, it will return an [Err] containing a [`NegativeMemAccess`].
+    ///
+    /// # Errors
+    ///
+    /// if `address` is negative, returns a [`NegativeMemAccess`] error
     #[doc(alias = "peek")]
     #[inline]
     pub fn mem_get(&self, address: i64) -> Result<i64, NegativeMemAccess> {
@@ -424,6 +467,29 @@ impl Interpreter {
     ///     Ok(StepOutcome::Stopped(State::Halted))
     /// );
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the interpreter has previously marked itself as poisoned, returns
+    /// [`InterpreterError::Poisoned`] before attempting to do anything.
+    ///
+    /// Otherwise, if any of the following conditions occur, it marks itself as poisoned and
+    /// returns the listed [`InterpreterError`] variant:
+    ///
+    ///
+    /// | Condition                                           | Error type             |
+    /// |-----------------------------------------------------|------------------------|
+    /// | Opcode is unrecognized                              | [`UnrecognizedOpcode`] |
+    /// | Mode digit is unrecognized                          | [`UnknownMode`]        |
+    /// | Instruction accesses a negative index               | [`NegativeMemAccess`]  |
+    /// | Jump instruction would jump to negative index       | [`JumpToNegative`]     |
+    /// | Add, Mul, In, Lt, or Eq output is in immediate mode | [`WriteToImmediate`]   |
+    ///
+    /// [`UnrecognizedOpcode`]: InterpreterError::UnrecognizedOpcode
+    /// [`UnknownMode`]: InterpreterError::UnknownMode
+    /// [`NegativeMemAccess`]: InterpreterError::NegativeMemAccess
+    /// [`JumpToNegative`]: InterpreterError::JumpToNegative
+    /// [`WriteToImmediate`]: InterpreterError::WriteToImmediate
     #[doc(alias("step", "run"))]
     pub fn exec_instruction(
         &mut self,
@@ -499,7 +565,10 @@ impl Interpreter {
     /// If the interpreter halted, returns `Ok((v, s))`, where `v` is a [`Vec<i64>`] containing all
     /// outputs that it found, and `s` is the [`State`] at the time it stopped.
     ///
-    /// On error, it will return an [`InterpreterError`] that reflects the error.
+    /// # Errors
+    ///
+    /// If an internal call to [`self.exec_instruction`][Interpreter::exec_instruction] fails,
+    /// returns the resulting [`InterpreterError`] unchanged.
     pub fn run_through_inputs(
         &mut self,
         inputs: impl IntoIterator<Item = i64>,
@@ -517,6 +586,11 @@ impl Interpreter {
 
     /// Pre-compute as much as possible - that is, run every up to, but not including, the first
     /// `IN`, `OUT`, or `HALT` instruction, bubbling up any errors that occur.
+    ///
+    /// # Errors
+    ///
+    /// If an internal call to [`self.exec_instruction`][Interpreter::exec_instruction] fails,
+    /// returns the resulting [`InterpreterError`] unchanged.
     pub fn precompute(&mut self) -> Result<(), InterpreterError> {
         while Self::parse_op(self.code[self.index])
             .is_ok_and(|(opcode, _)| !matches!(opcode, OpCode::In | OpCode::Out | OpCode::Halt))

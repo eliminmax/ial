@@ -9,6 +9,7 @@
 use super::asm::ast_prelude::*;
 use super::asm::ast_util::{boxed, span};
 use super::{Interpreter, OpCode};
+use itertools::Itertools;
 
 /// Create disassembly from the memory
 ///
@@ -195,7 +196,14 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 .peek()
                 .is_some_and(|n| parse_op_strict(*n).is_none())
             {
-                data.push(span(Expr::Number(mem_iter.next().unwrap()), 0..0));
+                data.push(span(
+                    Expr::Number(
+                        mem_iter
+                            .next()
+                            .unwrap_or_else(|| unreachable!("already confirmed `Some`")),
+                    ),
+                    0..0,
+                ));
             }
             lines.push(Line {
                 labels: vec![],
@@ -204,7 +212,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
         }
     }
 
-    lines.into_iter().map(|line| format!("{line}\n")).collect()
+    lines.into_iter().format("\n").to_string() + "\n"
 }
 
 use crate::debug_info::{DebugInfo, DirectiveKind};
@@ -213,7 +221,7 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 /// An error that occured when attempting to use [`DebugInfo`] to disassemble code
-pub enum DebugInfoMismatch {
+pub enum DebugInfoError {
     /// Debug info included at least this many ints beyond the end of the input
     MissingInts(usize),
     /// The listed label resolved to the middle of a directive
@@ -223,66 +231,88 @@ pub enum DebugInfoMismatch {
     /// [instruction directive]: crate::debug_info::DirectiveKind::Instruction
     /// [output_span]: crate::debug_info::DirectiveDebug::output_span
     CorruptDirectiveSize,
+    /// A [directive] from the [`DebugInfo`]
+    ///
+    /// [directive]: crate::asm::Directive
+    DirectiveTooLarge(usize),
 }
 
-impl Display for DebugInfoMismatch {
+impl Display for DebugInfoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DebugInfoMismatch::MissingInts(i) => write!(f, "expected at least {i} more ints"),
-            DebugInfoMismatch::MisalignedLabel(label, n) => {
+            DebugInfoError::MissingInts(i) => write!(f, "expected at least {i} more ints"),
+            DebugInfoError::MisalignedLabel(label, n) => {
                 write!(
                     f,
                     "label {label} ({n}) resolved to the middle of an instruction"
                 )
             }
-            DebugInfoMismatch::CorruptDirectiveSize => {
+            DebugInfoError::CorruptDirectiveSize => {
                 write!(f, "debug info has an invalid instruction directive size")
+            }
+            DebugInfoError::DirectiveTooLarge(size) => {
+                write!(
+                    f,
+                    "debug info has a directive {size} long, which is longer than i64::MAX"
+                )
             }
         }
     }
 }
-impl std::error::Error for DebugInfoMismatch {}
+impl std::error::Error for DebugInfoError {}
 
 impl DebugInfo {
     /// Dissasmble `code`, using [`DebugInfo`] to avoid some of the limitations of [disassemble]
+    ///
+    /// # Errors
+    ///
+    /// * If `code` is shorter than expected for [`self.directives`], returns
+    ///   [`DebugInfoError::MissingInts`].
+    /// * If a label within the [`self.labels`] resolves to the middle of a directive, returns
+    ///   [`DebugInfoError::MisalignedLabel`].
+    /// * If an instruction directive's span is out of the range `1..=4`, returns a
+    ///   [`DebugInfoError::CorruptDirectiveSize`].
+    /// * If a directive's size exceeds [`usize::MAX`], returns a
+    ///   [`DebugInfoError::DirectiveTooLarge`].
+    ///
+    /// [`self.directives`]: DebugInfo::directives
     pub fn disassemble(
         &self,
         code: impl IntoIterator<Item = i64>,
-    ) -> Result<String, DebugInfoMismatch> {
+    ) -> Result<String, DebugInfoError> {
         use itertools::Itertools;
         use std::collections::{BTreeMap, VecDeque};
         use std::fmt::Write;
 
         let mut code = code.into_iter();
-        let mut labels = VecDeque::from_iter(
-            self.labels
-                .iter()
-                .map(|(label, addr)| (label.inner.as_ref(), *addr)),
-        );
-        let label_lookups = BTreeMap::from_iter(
-            self.labels
-                .iter()
-                .map(|(label, addr)| (*addr, label.inner.as_ref())),
-        );
+        let mut labels: VecDeque<(&str, i64)> = self
+            .labels
+            .iter()
+            .map(|(label, addr)| (label.inner.as_ref(), *addr))
+            .collect();
+        let label_lookups: BTreeMap<i64, &str> = self
+            .labels
+            .iter()
+            .map(|(label, addr)| (*addr, label.inner.as_ref()))
+            .collect();
 
         macro_rules! writeln_string {
             ($($tok: tt)*) => {
-                writeln!($($tok)*).expect("write!(&mut String, ...) can't fail");
+                writeln!($($tok)*).expect("write!(&mut String, ...) can't fail")
             }
         }
 
         let mut check_labels = |disasm: &mut String, addr| {
             while let Some((label, label_addr)) = labels.pop_front() {
-                if label_addr < addr {
-                    labels.push_front((label, label_addr));
-                    return Ok(());
-                } else if label_addr == addr {
-                    writeln_string!(disasm, "{label}:");
-                } else {
-                    return Err(DebugInfoMismatch::MisalignedLabel(
-                        Box::from(label),
-                        label_addr,
-                    ));
+                match label_addr {
+                    i if i < addr => labels.push_front((label, label_addr)),
+                    i if i == addr => writeln_string!(disasm, "{label}:"),
+                    _ => {
+                        return Err(DebugInfoError::MisalignedLabel(
+                            Box::from(label),
+                            label_addr,
+                        ));
+                    }
                 }
             }
             Ok(())
@@ -301,7 +331,7 @@ impl DebugInfo {
                     .map(|d| d.output_span.end - d.output_span.start)
                     .sum::<usize>();
 
-                return Err(DebugInfoMismatch::MissingInts(needed));
+                return Err(DebugInfoError::MissingInts(needed));
             }
 
             check_labels(&mut disasm, addr)?;
@@ -320,7 +350,7 @@ impl DebugInfo {
             match dir.kind {
                 DirectiveKind::Instruction => {
                     if ints.is_empty() || ints.len() > 4 {
-                        return Err(DebugInfoMismatch::CorruptDirectiveSize);
+                        return Err(DebugInfoError::CorruptDirectiveSize);
                     }
 
                     let Ok((op, modes)) = crate::Interpreter::parse_op(ints[0]) else {
@@ -382,6 +412,11 @@ impl DebugInfo {
                     if ints.iter().all(|i| (0..=255).contains(i)) {
                         disasm.push_str("ASCII \"");
                         for i in ints {
+                            #[allow(
+                                clippy::cast_possible_truncation,
+                                clippy::cast_sign_loss,
+                                reason = "already known to be in range 0..=255"
+                            )]
                             match i as u8 {
                                 b'\x1b' => disasm.push_str("\\e"),
                                 b => write!(&mut disasm, "{}", b.escape_ascii())
@@ -398,7 +433,8 @@ impl DebugInfo {
                     }
                 }
             }
-            addr += i64::try_from(directive_size).expect("directive smaller than i64::MAX");
+            addr += i64::try_from(directive_size)
+                .map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size))?;
         }
 
         check_labels(&mut disasm, addr)?;
