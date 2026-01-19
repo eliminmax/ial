@@ -15,9 +15,7 @@ impl IntcodeMem {
     fn active_segments(&self) -> BTreeSet<i64> {
         self.segments
             .iter()
-            .filter_map(|(&k, v)| {
-                (v.as_ref() == &[0; 512]).then_some(k)
-            })
+            .filter_map(|(&k, v)| (v.as_ref() == &[0; 512]).then_some(k))
             .collect()
     }
 
@@ -64,12 +62,21 @@ impl std::iter::FromIterator<i64> for IntcodeMem {
     }
 }
 
+macro_rules! page_index {
+    ($i: expr) => {
+        #[allow(clippy::cast_sign_loss, reason = "masked down anyway")]
+        {
+            ($i & 0x1ff) as usize
+        }
+    };
+}
+
 impl std::ops::Index<i64> for IntcodeMem {
     type Output = i64;
     fn index(&self, i: i64) -> &i64 {
         self.segments
             .get(&(i & !0x1ff))
-            .map_or(&0, |s| s.index((i & 0x1ff) as usize))
+            .map_or(&0, |s| s.index(page_index!(i)))
     }
 }
 
@@ -78,7 +85,7 @@ impl std::ops::IndexMut<i64> for IntcodeMem {
         self.segments
             .entry(i & !0x1ff)
             .or_insert(Box::new([0; 512]))
-            .index_mut((i & 0x1ff) as usize)
+            .index_mut(page_index!(i))
     }
 }
 
@@ -88,7 +95,8 @@ impl Clone for IntcodeMem {
         let segments = self
             .segments
             .iter()
-            .filter(|&(&_index, mem)| mem.as_ref() != &[0_i64; 512]).map(|(&index, mem)| (index, mem.clone()))
+            .filter(|&(&_index, mem)| mem.as_ref() != &[0_i64; 512])
+            .map(|(&index, mem)| (index, mem.clone()))
             .collect();
         Self { segments }
     }

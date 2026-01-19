@@ -186,7 +186,10 @@ fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> 
     const OCT_DIGITS: &str = "01234567";
 
     fn strict_hex_val(c: char) -> u8 {
-        assert!(c.is_ascii());
+        assert!(
+            c.is_ascii(),
+            "non ascii should've been caught before calling strict_hex_val"
+        );
         #[expect(
             non_contiguous_range_endpoints,
             reason = "mask leaves 1 byte value before b'a' possible"
@@ -298,7 +301,7 @@ mod ast_tests {
                 labels: vec![],
                 inner: None
             }
-        )
+        );
     }
 
     #[test]

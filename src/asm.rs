@@ -269,7 +269,10 @@ pub enum AssemblyError<'a> {
 
 impl<'a> Expr<'a> {
     /// Given a mapping of labels to indexes, try to resolve into a concrete value.
-    /// If a label can't be resolved, it will return that label
+    ///
+    /// # Errors
+    ///
+    /// If a label can't be found within `labels`, it will return that label as an Err value
     pub fn resolve(self, labels: &HashMap<&'a str, i64>) -> Result<i64, &'a str> {
         macro_rules! inner {
             ($i: ident) => {
@@ -291,7 +294,7 @@ impl<'a> Expr<'a> {
 pub struct Parameter<'a>(pub ParamMode, pub Box<Spanned<Expr<'a>>>);
 
 impl Parameter<'_> {
-    /// Return the [span](SimpleSpan)` of the parameter
+    /// Return the [span](SimpleSpan) of the parameter
     #[must_use]
     pub const fn span(&self) -> SimpleSpan {
         match self.0 {
@@ -449,6 +452,12 @@ impl<T: Copy> Iterator for StackIter<T> {
 impl<'a> Instr<'a> {
     /// try to encode the instructions into an opaque [Iterator] of [`i64`]s, using the label
     /// resolution provided
+    ///
+    /// # Errors
+    ///
+    /// If a parameter depends on a label that isn't defined in labels, returns an
+    /// [`AssemblyError::UnresolvedLabel`] with the label in question, along with its span within
+    /// the source.
     pub fn resolve(
         self,
         labels: &HashMap<&'a str, i64>,
@@ -562,7 +571,12 @@ pub struct Line<'a> {
 }
 
 impl Directive<'_> {
-    /// return the number of integers that this [`Directive`] will resolve to.
+    /// Return the number of integers that this [`Directive`] will resolve to.
+    ///
+    /// # Errors
+    ///
+    /// If called with an [`Data`][Directive::Data] or [`Ascii`][Directive::Ascii] variant longer
+    /// than [`i64::MAX`], returns the length as an [`Err`] value.
     pub fn size(&self) -> Result<i64, usize> {
         match self {
             Directive::Data(exprs) => exprs.len().try_into().map_err(|_| exprs.len()),
@@ -580,8 +594,14 @@ impl Directive<'_> {
 }
 
 impl<'a> Line<'a> {
-    /// Consume the line, appending the bytes to `v`. If any expressions fail to resolve, bubble up
-    /// the error.
+    /// Consume the line, appending the bytes to `v`.
+    ///
+    /// # Errors
+    ///
+    /// If [`self.inner`][Line::inner] is either an [`Instruction`][Directive::Instruction] or a
+    /// [`Data`][Directive::Data] directive, and an expression fails to [resolve][Expr::resolve]
+    /// due to a missing label, returns an [`AssemblyError::UnresolvedLabel`] pointing to the
+    /// source of the missing label.
     pub fn encode_into(
         self,
         v: &mut Vec<i64>,
@@ -609,6 +629,10 @@ impl<'a> Line<'a> {
 }
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
+///
+/// # Errors
+///
+/// If the provided code fails to parse, the parser error/s are returned.
 ///
 /// # Example
 ///
@@ -704,6 +728,14 @@ fn assemble_inner<'a, const DEBUG: bool>(
 ///
 /// On success, returns `Ok((code, debug))`, where `code` is a [`Vec<i64>`] and `debug` is a
 /// [`DebugInfo`].
+///
+/// # Errors
+///
+/// * If a directive would exceed [`usize::MAX`] in length, returns
+///   [`AssemblyError::DirectiveTooLarge`].
+/// * If there are duplicate labels within the source, returns [`AssemblyError::DuplicateLabel`].
+/// * If an expression fails to resolve due to a missing label, returns
+///   [`AssemblyError::UnresolvedLabel`].
 pub fn assemble_with_debug(
     code: Vec<Line<'_>>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
@@ -730,6 +762,14 @@ pub fn assemble_with_debug(
 /// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]
 ///
 /// On success, returns the assembled code as a [`Vec<i64>`].
+///
+/// # Errors
+///
+/// * If a directive would exceed [`usize::MAX`] in length, returns
+///   [`AssemblyError::DirectiveTooLarge`].
+/// * If there are duplicate labels within the source, returns [`AssemblyError::DuplicateLabel`].
+/// * If an expression fails to resolve due to a missing label, returns
+///   [`AssemblyError::UnresolvedLabel`].
 ///
 /// # Example
 ///
@@ -762,6 +802,14 @@ pub enum GeneralAsmError<'a> {
 /// Try to assemble the code into a [`Vec<i64>`]
 ///
 /// This is a thin convenience wrapper around [`build_ast`] and [`assemble_ast`].
+///
+/// # Errors
+///
+/// If the internal call to [`build_ast`] returns any errors, returns them within a
+/// [`GeneralAsmError::BuildAst`].
+///
+/// If the internal call to [`assemble_ast`] returns any errors, returns them within a
+/// [`GeneralAsmError::Assemble`].
 #[inline]
 pub fn assemble(code: &str) -> Result<Vec<i64>, GeneralAsmError<'_>> {
     assemble_ast(build_ast(code).map_err(GeneralAsmError::BuildAst)?)

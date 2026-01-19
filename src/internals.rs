@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use super::{Interpreter, OpCode, ParamMode, InterpreterError, NegativeMemAccess, Index, StepOutcome};
+use super::{Interpreter, InterpreterError, NegativeMemAccess, OpCode, ParamMode, StepOutcome};
 
 impl Interpreter {
     // Given a 5 digit number, digits ABCDE are used as follows:

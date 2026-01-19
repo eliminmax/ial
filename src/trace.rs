@@ -25,7 +25,7 @@ impl PackedModes {
         [
             unpack_bit_pair(self.0 & 0b11),
             unpack_bit_pair((self.0 & 0b1100) >> 2),
-            unpack_bit_pair((self.0 & 0b110000) >> 4),
+            unpack_bit_pair((self.0 & 0b11_0000) >> 4),
         ]
     }
 }

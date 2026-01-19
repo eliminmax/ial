@@ -69,7 +69,7 @@
 //! [`as`]: <https://doc.rust-lang.org/stable/reference/expressions/operator-expr.html#r-expr.as.enum>
 //! [Reading a Label]: <#reading-a-label>
 
-use super::{DebugInfo, DirectiveKind, SimpleSpan, DirectiveDebug};
+use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
 use crate::asm::ast_util::span;
 use chumsky::text::Char;
 use std::io::{self, Read, Write};
@@ -158,6 +158,10 @@ impl std::ops::Deref for EncodedSize {
 }
 
 impl From<usize> for Box<EncodedSize> {
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "designed to split a usize into a [u8]"
+    )]
     fn from(mut value: usize) -> Self {
         let mut bytes = Vec::new();
         while value > 0x7f {
@@ -198,7 +202,8 @@ const _: () = assert!(
             u32::BITS
         } else {
             usize::BITS
-        }
+        },
+    "wrong BitCounter type selected"
 );
 
 const HEADER: [u8; 8] = const {
@@ -214,6 +219,10 @@ const HEADER: [u8; 8] = const {
 
 impl DebugInfo {
     /// Write the debug info into the format described in [`crate::debug_info::parse`]
+    ///
+    /// # Errors
+    ///
+    /// If writing to `f` fails, bubbles up the [`Error`][io::Error].
     pub fn write(self, mut f: impl Write) -> io::Result<()> {
         use flate2::write::ZlibEncoder;
         let DebugInfo { labels, directives } = self;
@@ -265,6 +274,11 @@ impl DebugInfo {
     }
 
     /// Read the debug info from the format described in [`crate::debug_info::parse`]
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DebugInfoReadError`] on failure - see the [`DebugInfoReadError`] docs for
+    /// details on possible errors and their meanings.
     pub fn read(mut f: impl Read) -> Result<Self, DebugInfoReadError> {
         use DebugInfoReadError as Error;
         use flate2::read::ZlibDecoder;
@@ -480,7 +494,7 @@ mod tests {
     #[test]
     fn encoded_size_test() {
         let encoded_0xff = EncodedSize::from_boxed_slice(Box::from([0b1111_1111, 0b0000_0001]));
-        assert_eq!(Box::<EncodedSize>::from(0xffusize), encoded_0xff);
+        assert_eq!(Box::<EncodedSize>::from(0xff_usize), encoded_0xff);
         assert_eq!(
             usize::try_from(&*encoded_0xff).unwrap(),
             0xff,
@@ -517,7 +531,7 @@ mod tests {
                     let expected_byte_width = expected_bit_width.div_ceil(7);
                     let encoded = Box::<EncodedSize>::from(i);
                     assert_eq!(usize::try_from(&*encoded), Ok(i), "{i}, {encoded:?}");
-                    assert_eq!(encoded.len() as BitCounter, expected_byte_width)
+                    assert_eq!(encoded.len() as BitCounter, expected_byte_width);
                 }
             }
         }

@@ -58,7 +58,13 @@ impl TryFrom<u8> for DirectiveKind {
 }
 
 impl crate::Interpreter {
-    /// Diagnose the error state with `debug_info`
+    /// Write diagnostic information about the interpreter's state to `writer`
+    ///
+    /// Uses [`debug_info.labels`][DebugInfo::labels] to determine points of interest
+    ///
+    /// # Errors
+    ///
+    /// If writing to `writer` fails, returns the resulting [`io::Error`]
     pub fn diagnose<W: Write>(&self, debug_info: &DebugInfo, writer: &mut W) -> io::Result<()> {
         todo!(
             "Interpreter::diagnose({}, writer: {})",
