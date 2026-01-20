@@ -48,10 +48,18 @@ impl ExpectedOp {
         }
     }
 
-    fn validate(self, traced: TracedInstr) {
-        assert_eq!(self.op_int, traced.op_int());
-        assert_eq!(self.instr_ptr, traced.instr_ptr());
-        assert_eq!(self.stored_val, traced.stored_val());
+    fn validate(self, traced: &TracedInstr) {
+        assert_eq!(self.op_int, traced.op_int(), "mismatched op int");
+        assert_eq!(
+            self.instr_ptr,
+            traced.instr_ptr(),
+            "mismatched instruction pointer"
+        );
+        assert_eq!(
+            self.stored_val,
+            traced.stored_val(),
+            "mismatched stored_val"
+        );
     }
 }
 
@@ -59,7 +67,7 @@ fn validate_trace(expected: impl IntoIterator<Item = ExpectedOp>, Trace(trace): 
     expected
         .into_iter()
         .zip_eq(trace)
-        .for_each(|(op, instr)| op.validate(instr))
+        .for_each(|(op, instr)| op.validate(&instr));
 }
 
 mod day2_examples {
@@ -69,15 +77,15 @@ mod day2_examples {
         /// the extended example used to help illustrate the basics
         #[test]
         fn extended_example() {
-            let mut interp = interp![1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50];
-            interp.start_trace();
-            let output = run_to_end(&mut interp, empty()).unwrap();
-            assert!(output.is_empty());
             const EXPECTED: [ExpectedOp; 3] = [
                 ExpectedOp::new(1, 0, Some(70)),
                 ExpectedOp::new(2, 4, Some(3500)),
                 ExpectedOp::new(99, 8, None),
             ];
+            let mut interp = interp![1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50];
+            interp.start_trace();
+            let output = run_to_end(&mut interp, empty()).unwrap();
+            assert!(output.is_empty());
             validate_trace(EXPECTED, interp.end_trace().unwrap());
         }
 
@@ -89,7 +97,7 @@ mod day2_examples {
                 let mut interp = interp![$($code),*];
                 run_to_end(&mut interp, []).unwrap();
                 for (i, val) in [$($output),+].into_iter().enumerate() {
-                    assert_eq!(interp[i as i64], val);
+                    assert_eq!(interp[i64::try_from(i).unwrap()], val);
                 }
             }}
         }
@@ -115,14 +123,14 @@ mod day5_examples {
 
         #[test]
         fn immediate_mode_example() {
-            let mut interp = interp![1002, 4, 3, 4, 33];
-            interp.start_trace();
-            let output = run_to_end(&mut interp, []).unwrap();
-            assert!(output.is_empty());
             const EXPECTED: [ExpectedOp; 2] = [
                 ExpectedOp::new(1002, 0, Some(99)),
                 ExpectedOp::new(99, 4, None),
             ];
+            let mut interp = interp![1002, 4, 3, 4, 33];
+            interp.start_trace();
+            let output = run_to_end(&mut interp, []).unwrap();
+            assert!(output.is_empty());
             let trace = interp.end_trace().unwrap();
             assert_eq!(
                 trace.0[0].param_modes(),
@@ -148,11 +156,11 @@ mod day5_examples {
             ];
 
             let expected_builder = |mode, cmp_op, input| {
-                let val = if cmp_op == OpCode::Lt {
+                let val = i64::from(if cmp_op == OpCode::Lt {
                     input < 8
                 } else {
                     input == 8
-                } as i64;
+                });
                 let expected = [
                     ExpectedOp::new(OpCode::In as i64, 0, Some(input)),
                     ExpectedOp::new(cmp_op as i64 + (mode as i64 * 1100), 2, Some(val)),
@@ -193,7 +201,7 @@ mod day5_examples {
             for i in [0, 1] {
                 let mut interps = templates.clone();
                 let mut v = vec![];
-                for interp in interps.iter_mut() {
+                for interp in &mut interps {
                     interp
                         .exec_instruction(&mut std::iter::once(i), &mut v)
                         .unwrap();
@@ -227,6 +235,7 @@ mod day5_examples {
 
 mod day9_examples {
     mod part1 {
+        #![allow(clippy::unreadable_literal, reason = "verbatim from example programs")]
         use crate::*;
         /// > takes no input and produces a copy of itself as output.
         #[test]
