@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-//! A solution to Advent of Code 2019 Day 11 built using the `intcode` library.
+//! A solution to Advent of Code 2019 Day 11 built using the `ial` library.
 
 use ial::prelude::*;
 
