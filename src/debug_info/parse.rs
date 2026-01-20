@@ -270,7 +270,7 @@ impl DebugInfo {
                 FLATE_UPPER_THRESHOLD.. => Compression::best(),
             }
         };
-        ZlibEncoder::new(f, compression_level).write_all(&buffer[2..])
+        ZlibEncoder::new(f, compression_level).write_all(&buffer)
     }
 
     /// Read the debug info from the format described in [`crate::debug_info::parse`]
@@ -285,7 +285,7 @@ impl DebugInfo {
         let mut header = HEADER;
         f.read_exact(&mut header)?;
 
-        if header[..7] != HEADER[..] {
+        if header[..7] != MAGIC {
             return Err(Error::BadMagic(core::array::from_fn(|i| header[i])));
         }
 
