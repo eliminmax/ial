@@ -66,7 +66,7 @@ impl Interpreter {
             }
             (ParamMode::Relative, n) if n + self.rel_offset < 0 => {
                 self.poisoned = true;
-                Err(InterpreterError::NegativeMemAccess(n))
+                Err(InterpreterError::NegativeMemAccess(n + self.rel_offset))
             }
             (ParamMode::Immediate, n) => {
                 self.poisoned = true;
