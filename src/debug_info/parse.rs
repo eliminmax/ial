@@ -305,7 +305,6 @@ impl DebugInfo {
             }};
         }
 
-        reader.read_exact(&mut buf)?;
         let nlabels = read_usize!();
         let mut labels = Vec::with_capacity(nlabels);
         for _ in 0..nlabels {
