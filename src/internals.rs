@@ -43,13 +43,11 @@ impl Interpreter {
         offset: i64,
     ) -> Result<i64, NegativeMemAccess> {
         match mode {
-            ParamMode::Positional => self
-                .checked_access(self.index + offset)
-                .map(|i| self.code[i]),
+            ParamMode::Positional => self.checked_access(self.code[self.index + offset]),
             ParamMode::Immediate => Ok(self.code[self.index + offset]),
-            ParamMode::Relative => self
-                .checked_access(self.index + offset)
-                .map(|i| self.code[i + self.rel_offset]),
+            ParamMode::Relative => {
+                self.checked_access(self.rel_offset + self.code[self.index + offset])
+            }
         }
     }
 
