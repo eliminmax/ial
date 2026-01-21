@@ -72,7 +72,7 @@
 use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
 use crate::asm::ast_util::span;
 use chumsky::text::Char;
-use std::io::{self, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 
 /// the magic bytes for on-disk debug data.
 pub const MAGIC: [u8; 7] = *b"\0IALDBG";
@@ -81,9 +81,9 @@ pub const MAGIC: [u8; 7] = *b"\0IALDBG";
 /// [module docs]: self
 pub const VERSION: u8 = 0;
 
-/// if written debug info would be at least this big, compress it.
 const FLATE_LOWER_THRESHOLD: usize = 4096;
-const FLATE_UPPER_THRESHOLD: usize = FLATE_LOWER_THRESHOLD * 4;
+const FLATE_MIDDLE_THRESHOLD: usize = FLATE_LOWER_THRESHOLD * 4;
+const FLATE_UPPER_THRESHOLD: usize = FLATE_MIDDLE_THRESHOLD * 4;
 
 /// Check if `text` is a valid identifier
 #[must_use]
@@ -119,11 +119,12 @@ pub fn valid_ident(text: &str) -> bool {
 pub struct EncodedSize([u8]);
 
 impl EncodedSize {
-    /// Converts a [`Box<[u8]>`][Box] into a [`Box<EncodedSize>`]
+    /// Converts a [`Box<[u8]>`][Box] into a [`Box<EncodedSize>`][EncodedSize]
     ///
     /// If the boxed slice is empty, or doesn't follow the documented structure for
     /// [`EncodedSize`], this function may panic, or it may result in incoherent outcomes.
-    fn from_boxed_slice(slice: Box<[u8]>) -> Box<Self> {
+    #[must_use]
+    pub fn from_boxed_slice(slice: Box<[u8]>) -> Box<Self> {
         debug_assert!(slice.last().is_some_and(|v| v & 0x80 == 0), "{slice:?}");
         debug_assert!(
             (slice.get(..slice.len() - 1)).is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
@@ -134,19 +135,34 @@ impl EncodedSize {
         unsafe { Box::from_raw(Box::into_raw(slice) as _) }
     }
 
-    fn read(r: &mut impl Read) -> io::Result<Box<Self>> {
-        let mut v = Vec::with_capacity(usize::BITS as usize * 7 / 8);
+    /// Converts an [`&[u8]`][slice] into an [`&EncodedSize`][EncodedSize]
+    ///
+    /// If the slice is empty, or doesn't follow the documented structure for
+    /// [`EncodedSize`], this function may panic, or it may result in incoherent outcomes.
+    #[allow(clippy::must_use_candidate, reason = "used within encoded_into_vec")]
+    pub fn from_slice(slice: &[u8]) -> &Self {
+        debug_assert!(slice.last().is_some_and(|v| v & 0x80 == 0), "{slice:?}");
+        debug_assert!(
+            (slice.get(..slice.len() - 1)).is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
+            "{slice:?}"
+        );
 
-        loop {
-            let mut read_buf = [0];
-            r.read_exact(&mut read_buf)?;
-            v.extend(read_buf);
-            if read_buf[0] & 0x80 != 0x80 {
-                break;
-            }
+        #[allow(clippy::ref_as_ptr, reason = "match precedent cited in SAFETY comment")]
+        // SAFETY: given the fact that EncodedSize is #[repr(transparent)], and that this construct
+        // is used in the (unstable) `core::bstr::ByteStr::from_bytes` as of Rust 1.92.0, this
+        // should be safe.
+        unsafe {
+            &*(slice as *const [u8] as *const EncodedSize)
         }
+    }
 
-        Ok(Self::from_boxed_slice(v.into_boxed_slice()))
+    /// Create an [`EncodedSize`] inline within `buffer`
+    ///
+    /// Returns a reference to the [`EncodedSize`]
+    pub fn encode_into_vec(buffer: &mut Vec<u8>, size: usize) -> &Self {
+        let start = buffer.len();
+        encode_size(buffer, size);
+        Self::from_slice(&buffer[start..])
     }
 }
 
@@ -158,18 +174,49 @@ impl std::ops::Deref for EncodedSize {
     }
 }
 
-impl From<usize> for Box<EncodedSize> {
-    #[allow(
-        clippy::cast_possible_truncation,
-        reason = "designed to split a usize into a [u8]"
-    )]
-    fn from(mut value: usize) -> Self {
-        let mut bytes = Vec::new();
-        while value > 0x7f {
-            bytes.push((value & 0x7f) as u8 | 0x80);
-            value >>= 7;
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "designed to split a usize into a [u8]"
+)]
+fn encode_size(vec: &mut Vec<u8>, mut size: usize) {
+    while size > 0x7f {
+        vec.push((size & 0x7f) as u8 | 0x80);
+        size >>= 7;
+    }
+    vec.push(size as u8);
+}
+
+fn read_size<R: BufRead>(reader: &mut R) -> Result<usize, DebugInfoReadError> {
+    let mut val = 0;
+    let mut shift: u32 = 0;
+    let mut bytes = reader.by_ref().bytes();
+
+    loop {
+        let b = bytes
+            .next()
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "unexpected end of file reading encoded size",
+                )
+            })
+            .flatten()?;
+        val |= ((b as usize) & 0x7f)
+            .checked_shl(shift)
+            .ok_or(DebugInfoReadError::IntSize)?;
+        if b & 0x80 == 0x80 {
+            shift += 7;
+        } else {
+            break;
         }
-        bytes.push(value as u8);
+    }
+    Ok(val)
+}
+
+impl From<usize> for Box<EncodedSize> {
+    fn from(value: usize) -> Self {
+        let mut bytes = Vec::new();
+        encode_size(&mut bytes, value);
         EncodedSize::from_boxed_slice(bytes.into_boxed_slice())
     }
 }
@@ -178,6 +225,7 @@ impl From<usize> for Box<EncodedSize> {
 // and define _BitCounter using cfg_if.
 
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+
 type _BitCounter = u32;
 #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32")))]
 type _BitCounter = usize;
@@ -232,29 +280,23 @@ impl DebugInfo {
 
         let mut buffer = Vec::new();
 
-        macro_rules! write_usize {
-            ($val: expr) => {
-                buffer.extend_from_slice(&<Box<EncodedSize> as From<usize>>::from($val));
-            };
-        }
-
         macro_rules! write_span {
             ($span: expr) => {
-                write_usize!($span.start);
-                write_usize!($span.end - $span.start);
+                encode_size(&mut buffer, $span.start);
+                encode_size(&mut buffer, $span.end - $span.start);
             };
         }
 
-        write_usize!(labels.len());
+        encode_size(&mut buffer, labels.len());
 
         for (label, addr) in labels {
-            write_usize!(label.inner.len());
+            encode_size(&mut buffer, label.inner.len());
             buffer.extend(label.inner.as_bytes());
             write_span!(label.span);
             buffer.extend(addr.to_le_bytes());
         }
 
-        write_usize!(directives.len());
+        encode_size(&mut buffer, directives.len());
 
         for dir in directives {
             buffer.push(dir.kind as u8);
@@ -265,7 +307,8 @@ impl DebugInfo {
             use flate2::Compression;
             match buffer.len().saturating_sub(HEADER.len()) {
                 ..FLATE_LOWER_THRESHOLD => Compression::none(),
-                FLATE_LOWER_THRESHOLD..FLATE_UPPER_THRESHOLD => Compression::fast(),
+                FLATE_LOWER_THRESHOLD..FLATE_MIDDLE_THRESHOLD => Compression::fast(),
+                FLATE_MIDDLE_THRESHOLD..FLATE_UPPER_THRESHOLD => Compression::default(),
                 FLATE_UPPER_THRESHOLD.. => Compression::best(),
             }
         };
@@ -295,9 +338,6 @@ impl DebugInfo {
         let mut reader = io::BufReader::new(ZlibDecoder::new(f));
         let mut buf: [u8; 8] = [0; 8];
 
-        macro_rules! read_usize {
-            () => {{ usize::try_from(&*EncodedSize::read(&mut reader)?)? }};
-        }
         macro_rules! read_i64 {
             () => {{
                 reader.read_exact(&mut buf)?;
@@ -305,10 +345,10 @@ impl DebugInfo {
             }};
         }
 
-        let nlabels = read_usize!();
+        let nlabels = read_size(&mut reader)?;
         let mut labels = Vec::with_capacity(nlabels);
         for _ in 0..nlabels {
-            let len = read_usize!();
+            let len = read_size(&mut reader)?;
 
             // SAFETY: `0` is a valid u8 value
             let mut raw_label_text = unsafe { Box::new_zeroed_slice(len).assume_init() };
@@ -327,28 +367,28 @@ impl DebugInfo {
                 return Err(Error::InvalidLabel(label_text));
             }
 
-            let start = read_usize!();
-            let end = start + read_usize!();
+            let start = read_size(&mut reader)?;
+            let end = start + read_size(&mut reader)?;
             let addr = read_i64!();
             let label = span(label_text, start..end);
             labels.push((label, addr));
         }
         let labels = labels.into_boxed_slice();
 
-        let ndirectives = read_usize!();
+        let ndirectives = read_size(&mut reader)?;
         let mut directives = Vec::with_capacity(ndirectives);
         for _ in 0..ndirectives {
             reader.read_exact(&mut buf[..1])?;
             let kind = DirectiveKind::try_from(buf[0]).map_err(Error::BadDirectiveByte)?;
-            let start = read_usize!();
-            let end = start + read_usize!();
+            let start = read_size(&mut reader)?;
+            let end = start + read_size(&mut reader)?;
             let src_span = SimpleSpan {
                 start,
                 end,
                 context: (),
             };
-            let start = read_usize!();
-            let end = start + read_usize!();
+            let start = read_size(&mut reader)?;
+            let end = start + read_size(&mut reader)?;
             let output_span = SimpleSpan {
                 start,
                 end,
@@ -377,9 +417,8 @@ pub enum DebugInfoReadError {
     VersionMismatch(u8),
     /// While reading, the contained [`io::Error`] occored
     IoError(io::Error),
-    /// [usize] too small to encode a given error type, and would need to be at least this many
-    /// bits
-    IntSize(NeededBits),
+    /// [usize] too small to store a given size
+    IntSize,
     /// The provided byte didn't match any [`DirectiveKind`]
     BadDirectiveByte(u8),
     /// A [label][DebugInfo::labels]'s [span][SimpleSpan] is backwards
@@ -417,11 +456,8 @@ impl Display for DebugInfoReadError {
                 write!(f, "unsupported version: {version}")
             }
             DebugInfoReadError::IoError(error) => Display::fmt(error, f),
-            DebugInfoReadError::IntSize(NeededBits(bits)) => {
-                write!(
-                    f,
-                    "loading value would require a usize of at least {bits} bits"
-                )
+            DebugInfoReadError::IntSize => {
+                write!(f, "usize too small to load value")
             }
             DebugInfoReadError::BadDirectiveByte(byte) => {
                 write!(f, "bad directive byte: 0x{byte:02x}")
@@ -442,18 +478,17 @@ impl Display for DebugInfoReadError {
 
 impl Error for DebugInfoReadError {}
 
-macro_rules! error_to_variant {
-    ($variant: ident($err: ty)) => {
-        impl From<$err> for DebugInfoReadError {
-            fn from(err: $err) -> Self {
-                Self::$variant(err)
-            }
-        }
-    };
+impl From<io::Error> for DebugInfoReadError {
+    fn from(err: io::Error) -> Self {
+        Self::IoError(err)
+    }
 }
 
-error_to_variant! {IoError(io::Error)}
-error_to_variant! {IntSize(NeededBits)}
+impl From<NeededBits> for DebugInfoReadError {
+    fn from(_: NeededBits) -> Self {
+        Self::IntSize
+    }
+}
 
 impl TryFrom<&EncodedSize> for usize {
     type Error = NeededBits;
@@ -511,7 +546,7 @@ mod tests {
         // If no values are handled, and the leading token is a literal, put it into the handled
         // tokens
         [{} ~ $current: literal, $($terms: tt),+] => {{ encoded![{ $current } ~ $($terms),*] }};
-        // If the next unhandled value is a literal, append it 
+        // If the next unhandled value is a literal, append it
         [{$($handled: tt),+} ~ $current: literal, $($terms: tt),+] => {{
             encoded![{$($handled),+, $current } ~ $($terms),+]
         }};
@@ -625,10 +660,10 @@ mod tests {
 
     #[test]
     fn encoded_size_test() {
-        let encoded_0xff = EncodedSize::from_boxed_slice(Box::from([0b1111_1111, 0b0000_0001]));
-        assert_eq!(Box::<EncodedSize>::from(0xff_usize), encoded_0xff);
+        let encoded_0xff = EncodedSize::from_slice(&[0b1111_1111, 0b0000_0001]);
+        assert_eq!(Box::<EncodedSize>::from(0xff_usize).as_ref(), encoded_0xff);
         assert_eq!(
-            usize::try_from(&*encoded_0xff).unwrap(),
+            usize::try_from(encoded_0xff).unwrap(),
             0xff,
             "{encoded_0xff:?}"
         );
@@ -650,7 +685,7 @@ mod tests {
 
         let encoded_usize_overflow = EncodedSize::from_boxed_slice(v.into_boxed_slice());
         assert_eq!(
-            usize::try_from(&*encoded_usize_overflow),
+            usize::try_from(encoded_usize_overflow.as_ref()),
             Err(NeededBits(usize::BITS as BitCounter + 1)),
             "{encoded_usize_overflow:?}"
         );
