@@ -97,6 +97,7 @@ impl Interpreter {
         Ok(StepOutcome::Running)
     }
 
+    /// common logic of both jump instructions
     pub(crate) fn jump(
         &mut self,
         modes: [ParamMode; 3],
