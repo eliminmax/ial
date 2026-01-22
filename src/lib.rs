@@ -34,7 +34,7 @@ mod internals;
 mod mmu;
 
 use std::error::Error;
-use std::fmt::{self, Display};
+use std::fmt::{self, Debug, Display};
 use std::iter::empty;
 use std::ops::{Index, IndexMut};
 
@@ -163,7 +163,7 @@ impl PartialEq for Interpreter {
     }
 }
 
-impl fmt::Debug for Interpreter {
+impl Debug for Interpreter {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Interpreter")
             .field("code", &self.code)

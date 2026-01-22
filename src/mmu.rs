@@ -6,22 +6,32 @@ use itertools::Itertools;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 
+macro_rules! page_index {
+    ($i: expr) => {{
+        #[allow(clippy::cast_sign_loss, reason = "masked down anyway")]
+        {
+            ($i & 0x1ff) as usize
+        }
+    }};
+}
 /// a virtual memory management unit
 pub(super) struct IntcodeMem {
     segments: HashMap<i64, Box<[i64; 512]>>,
 }
 
+static EMPTY: [i64; 512] = [0; 512];
+
 impl IntcodeMem {
     fn active_segments(&self) -> BTreeSet<i64> {
         self.segments
             .iter()
-            .filter_map(|(&k, v)| (v.as_ref() == &[0; 512]).then_some(k))
+            .filter_map(|(&k, v)| (v.as_ref() == &EMPTY).then_some(k))
             .collect()
     }
 
     /// remove all segments that are filled with zeroes, and shrink `self.segments`'s allocation
     pub(super) fn prune(&mut self) {
-        self.segments.retain(|_, s| s[..] != [0; 512]);
+        self.segments.retain(|_, s| s[..] != EMPTY);
         self.segments.shrink_to_fit();
     }
 }
@@ -62,15 +72,6 @@ impl std::iter::FromIterator<i64> for IntcodeMem {
     }
 }
 
-macro_rules! page_index {
-    ($i: expr) => {
-        #[allow(clippy::cast_sign_loss, reason = "masked down anyway")]
-        {
-            ($i & 0x1ff) as usize
-        }
-    };
-}
-
 impl std::ops::Index<i64> for IntcodeMem {
     type Output = i64;
     fn index(&self, i: i64) -> &i64 {
@@ -95,7 +96,7 @@ impl Clone for IntcodeMem {
         let segments = self
             .segments
             .iter()
-            .filter(|&(&_index, mem)| mem.as_ref() != &[0_i64; 512])
+            .filter(|&(&_index, mem)| mem.as_ref() != &EMPTY)
             .map(|(&index, mem)| (index, mem.clone()))
             .collect();
         Self { segments }
@@ -149,7 +150,7 @@ impl fmt::Debug for IntcodeMem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtstruct = fmt.debug_map();
         for sn in self.segments.keys().sorted_unstable() {
-            if self.segments[sn].as_ref() != &[0; 512] {
+            if self.segments[sn].as_ref() != &EMPTY {
                 fmtstruct.entry(
                     &format_args!("{{ segment 0x{sn:04x} }}"),
                     &format_args!("{:?}", self.segments[sn]),
