@@ -4,7 +4,7 @@
 
 [package]
 name = "ial"
-version = "0.1.0-pre-alpha"
+version = "0.1.0"
 edition = "2024"
 
 [[bin]]
