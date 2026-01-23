@@ -32,7 +32,7 @@ impl OutputFormat {
         match self {
             OutputFormat::Ascii => {
                 use itertools::Itertools;
-                write!(&mut writer, "{}", intcode.into_iter().format(","))
+                writeln!(&mut writer, "{}", intcode.into_iter().format(","))
             }
             OutputFormat::LittleEndian => {
                 for i in intcode {
