@@ -10,7 +10,7 @@ A library built around my Intcode module from Advent of Code 2019, cleaned up an
 
 **It is in a state of active tweaking with regular breaking changes, and does not yet follow SemVer**
 
-See [IAL.md](./IAL) for documentation of IAL's syntax and semantics.
+See [IAL.md](./IAL.md) for documentation of IAL's syntax and semantics.
 
 It's organized as a library which provides the `ial::Interpreter` struct as a way to interpret and debug intcode, an `ial::asm` module which provides an extended version of a [proposed assembly language from the Esolang wiki](https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax), and a few small binaries that make use of those: `ial-as` is an assembler, `ial-dis` is a disassembler, and `intcode` acts as an interpreter.
 
