@@ -230,7 +230,7 @@ pub enum DebugInfoError {
     /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
     ///
     /// [instruction directive]: crate::debug_info::DirectiveKind::Instruction
-    /// [output_span]: crate::debug_info::DirectiveDebug::output_span
+    /// [`output_span`]: crate::debug_info::DirectiveDebug::output_span
     CorruptDirectiveSize,
     /// A [directive] from the [`DebugInfo`]
     ///
@@ -412,6 +412,7 @@ impl DebugInfo {
     /// * If a directive's size exceeds [`usize::MAX`], returns a
     ///   [`DebugInfoError::DirectiveTooLarge`].
     ///
+    /// [`self.labels`]: DebugInfo::labels
     /// [`self.directives`]: DebugInfo::directives
     pub fn disassemble(
         &self,
