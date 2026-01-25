@@ -136,7 +136,7 @@ If you're wondering why a semicolon is used, it's because it's otherwise unused,
 
 Expressions are evaluated when assembling the source, so must not depend on the contents within the intcode memory.
 
-Expressions can be numbers, [labels](#labels), or basic arithmetic operations on other subexpressions. For example, `32 + LABEL / (-1 * 20 - 5)`. The order of operations is pretty standard:
+Expressions can be numbers, character literals, [labels](#labels), or basic arithmetic operations on other subexpressions. For example, `32 + LABEL / (-1 * 20 - 5)`. The order of operations is pretty standard:
 
 1. subexpressions in parentheses are evaluated
 2. negative signs[^neg-sub] are evaluated
@@ -148,6 +148,7 @@ Expressions are by far the most complex part of the IAL definition. The simpler 
 <details><summary>pedantry</summary>
 
 * A **number** is any non-negative 64-bit signed integer, written in its decimal form.
+* A **character literal** is either an ASCII character other than `\` or `'`, or an escape sequence. The same list of escape sequences is supported as [ASCII Strings](#ascii-directives).
 * A **label** is an identifier as explained [above](#labels)
 </details>
 
