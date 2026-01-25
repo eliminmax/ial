@@ -112,7 +112,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
             .delimited_by(just('('), just(')'))
             .map(|e| Expr::Parenthesized(Box::new(e)))
             .labelled("bracketed expression");
-        let atom = int.or(ident).or(bracketed).spanned();
+        let atom = int.or(ident).or(ascii_char()).or(bracketed).spanned();
         let unary = padded!(one_of("-+").spanned())
             .repeated()
             .foldr(
@@ -181,7 +181,7 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
     .as_context()
 }
 
-fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
+fn ascii_escape<'a>() -> impl Parser<'a, &'a str, u8, RichErr<'a>> + Clone {
     const HEX_DIGITS: &str = "0123456789ABCDEFabcdef";
     const OCT_DIGITS: &str = "01234567";
 
@@ -202,6 +202,40 @@ fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> 
             c => panic!("invalid hex digit: {}", c.escape_ascii()),
         }
     }
+
+    just('\\').ignore_then(choice((
+        just('\\').to(b'\\'),
+        just('\'').to(b'\''),
+        just('\"').to(b'\"'),
+        just('n').to(b'\n'),
+        just('t').to(b'\t'),
+        just('r').to(b'\r'),
+        just('e').to(b'\x1b'),
+        just('3')
+            .ignore_then(one_of(OCT_DIGITS).then(one_of(OCT_DIGITS)))
+            .map(|(a, b)| 0o300 + ((a as u8 - b'0') * 8) + (b as u8 - b'0')),
+        (one_of(OCT_DIGITS).repeated().at_least(1).at_most(2))
+            .fold(0, |acc, x| acc * 8 + (x as u8 - b'0')),
+        just('x')
+            .ignore_then(one_of(HEX_DIGITS).then(one_of(HEX_DIGITS)))
+            .map(|(a, b)| (strict_hex_val(a) << 4) | strict_hex_val(b)),
+    )))
+}
+
+fn ascii_char<'a>() -> impl Parser<'a, &'a str, Expr<'a>, RichErr<'a>> + Clone {
+    just('\'')
+        .ignore_then(choice((
+            none_of("'\\")
+                .filter(|c: &char| c.is_ascii())
+                .map(|c| c as u8),
+            ascii_escape(),
+        )))
+        .then_ignore(just('\''))
+        .map(Expr::AsciiChar)
+        .labelled("character literal")
+}
+
+fn ascii_string<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
     padded!(
         just('"')
             .ignore_then(
@@ -209,23 +243,7 @@ fn ascii_parse<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> 
                     none_of("\"\\")
                         .filter(|c: &char| c.is_ascii())
                         .map(|c| c as u8),
-                    just('\\').ignore_then(choice((
-                        just('\\').to(b'\\'),
-                        just('\'').to(b'\''),
-                        just('\"').to(b'\"'),
-                        just('n').to(b'\n'),
-                        just('t').to(b'\t'),
-                        just('r').to(b'\r'),
-                        just('e').to(b'\x1b'),
-                        just('3')
-                            .ignore_then(one_of(OCT_DIGITS).then(one_of(OCT_DIGITS)))
-                            .map(|(a, b)| 0o300 + ((a as u8 - b'0') * 8) + (b as u8 - b'0')),
-                        (one_of(OCT_DIGITS).repeated().at_least(1).at_most(2))
-                            .fold(0, |acc, x| acc * 8 + (x as u8 - b'0')),
-                        just('x')
-                            .ignore_then(one_of(HEX_DIGITS).then(one_of(HEX_DIGITS)))
-                            .map(|(a, b)| (strict_hex_val(a) << 4) | strict_hex_val(b)),
-                    ))),
+                    ascii_escape(),
                 ))
                 .repeated()
                 .collect(),
@@ -246,7 +264,7 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
                 .labelled("data directive")
                 .as_context(),
             with_sep!(just("ASCII"))
-                .ignore_then(ascii_parse())
+                .ignore_then(ascii_string())
                 .map(Directive::Ascii)
                 .labelled("ASCII directive")
                 .as_context(),
@@ -301,6 +319,14 @@ mod ast_tests {
                 labels: vec![],
                 inner: None
             }
+        );
+    }
+
+    #[test]
+    fn parse_char_literal() {
+        assert_eq!(
+            expr().parse("'0'").unwrap(),
+            span(Expr::AsciiChar(b'0'), 0..3),
         );
     }
 

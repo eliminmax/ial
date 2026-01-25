@@ -172,8 +172,10 @@ impl BinOperator {
 ///
 /// Expressions must be fully resolvable when assembling, and cannot depend on the assembled code.
 ///
-/// There are two types of expression that stand on their own:
+/// There are three types of expression that stand on their own:
 /// * [A literal number] - an integer from `0` through [`i64::MAX`], written in decimal.
+/// * [A character literal] - either a single ASCII character other than `'` or `\`, or an escape
+///   sequence[^escape], enclosed within single quotes
 /// * [A label] - a text identifier accepted by [`chumsky::text::ident`]. Evaluates to the
 ///   beginning index of the first directive appearing in or after a [line] with the same label.
 ///
@@ -208,15 +210,18 @@ impl BinOperator {
 /// 3. Addition and Subtraction, from Left to Right
 ///
 /// [A literal number]: Expr::Number
+/// [A character literal]: Expr::AsciiChar
 /// [A label]: Expr::Ident
 /// [line]: Line
 /// [wrapped in parentheses]: Expr::Parenthesized
 /// [negated with `-`]: Expr::Negate
 /// [basic arithmetic operations]: Expr::BinOp
-///
+/// [^escape]: see [`Directive::Ascii`] for a list of supported escapes
 pub enum Expr<'a> {
     /// a 64-bit integer
     Number(i64),
+    /// An ASCII character literal
+    AsciiChar(u8),
     /// a label
     Ident(&'a str),
     /// a binary operation
@@ -282,6 +287,7 @@ impl<'a> Expr<'a> {
         }
         match self {
             Expr::Number(n) => Ok(n),
+            Expr::AsciiChar(c) => Ok(i64::from(c)),
             Expr::Ident(s) => labels.get(s).copied().ok_or(s),
             Expr::BinOp { lhs, op, rhs } => Ok(op.inner.apply(inner!(lhs), inner!(rhs))),
             Expr::Negate(expr) => Ok(-inner!(expr)),

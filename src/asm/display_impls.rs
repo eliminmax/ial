@@ -23,6 +23,7 @@ impl Display for Expr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Number(n) => write!(f, "{n}"),
+            Expr::AsciiChar(c) => write!(f, "'{}'", c.escape_ascii()),
             Expr::Ident(id) => write!(f, "{id}"),
             Expr::BinOp { lhs, op, rhs } => {
                 write!(f, "{} {} {}", lhs.inner, op.inner, rhs.inner,)

@@ -16,11 +16,20 @@ pub use crate::param;
 /// assert_eq!(expr!(10), Expr::Number(10));
 /// ```
 ///
-/// If passed an identifier, it will resolve to an `[Expr::Ident]` with that identifer
+/// If passed an identifier, it will resolve to an [`Expr::Ident`] with that identifer
 /// (stringified with [`stringify`]).
 /// ```
 ///# use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(expr!(e), Expr::Ident("e"));
+/// ```
+///
+/// If passed a literal preceded by a colon (`:`), it will resolve to an [`Expr::AsciiChar`] with
+/// the literal cast to a [u8]. This is because there's no way to select based on the type of a
+/// literal within a declarative macro without incurring runtime overhead.
+///
+/// ```
+///# use ial::asm::{ast_prelude::*, ast_util::*};
+/// assert_eq!(expr!(:'a'), Expr::AsciiChar(b'a'));
 /// ```
 ///
 /// Expressions within expressions can be expressed using the syntax `expr;[span]`, which is
@@ -58,6 +67,9 @@ macro_rules! expr {
     }};
     (- $e:expr;[$span: expr]) => {{
         $crate::asm::Expr::Negate(Box::new($crate::asm::ast_util::span($e, $span)))
+    }};
+    (:$a: literal) => {{
+        $crate::asm::Expr::AsciiChar($a as u8)
     }};
     ($i:ident) => {{ $crate::asm::Expr::Ident(stringify!($i)) }};
     ($n:literal) => {{ $crate::asm::Expr::Number($n) }};
