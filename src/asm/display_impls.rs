@@ -50,9 +50,9 @@ impl Display for Instr<'_> {
             Instr::Out(a) => write!(f, "OUT {a}"),
             Instr::Jnz(a, b) => write!(f, "JNZ {a}, {b}"),
             Instr::Jz(a, b) => write!(f, "JZ {a}, {b}"),
-            Instr::Lt(a, b, c) => write!(f, "SLT {a}, {b}, {c}"),
-            Instr::Eq(a, b, c) => write!(f, "SEQ {a}, {b}, {c}"),
-            Instr::Rbo(a) => write!(f, "INCB {a}"),
+            Instr::Lt(a, b, c) => write!(f, "LT {a}, {b}, {c}"),
+            Instr::Eq(a, b, c) => write!(f, "EQ {a}, {b}, {c}"),
+            Instr::Rbo(a) => write!(f, "RBO {a}"),
             Instr::Halt => write!(f, "HALT"),
         }
     }
