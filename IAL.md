@@ -161,6 +161,7 @@ That said, there are a few extensions to that syntax that IAL supports, and whil
 * IAL supports comments, as documented [above](#comments)
 * Instruction mnemonics are parsed in a case-insensitive manner
 * The ASCII directive is defined
+* Character literals are supported
 
 One major difference: In 3 cases, the name for an opcode I'd used in my interpreter implementation and the proposed mnemonics differed - in those cases, both my names ("LT", "EQ", and "RBO") and the proposed names ("SLT", "SEQ", and "INCB") are supported, though my name is treated as the "canonical" representation within the code.
 
