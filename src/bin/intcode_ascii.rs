@@ -49,7 +49,7 @@ struct Args {
     format: CodeFormat,
     #[arg(help = "Error out on invalid ascii")]
     #[arg(short, long)]
-    #[arg(default_value = "true")]
+    #[arg(default_value = "false")]
     strict_ascii: bool,
     #[arg(help = "Disables buffering of output")]
     #[arg(short, long)]
@@ -145,7 +145,9 @@ fn interactive_unbufferred(
             StepOutcome::Stopped(State::Halted) => break,
         }
     }
-    eprintln!("{:?}", interp.start_trace().unwrap());
+    if trace {
+        eprintln!("{:?}", interp.end_trace().unwrap());
+    }
     Ok(())
 }
 
