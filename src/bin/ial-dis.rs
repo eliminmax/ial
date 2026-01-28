@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
+use ial::bin_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
 use ial::disasm::disassemble;
 use std::borrow::Cow;
-use std::error::Error;
 use std::fmt::{self, Debug, Display};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read};
@@ -35,23 +35,7 @@ struct Args {
     #[arg(help = "Format for the written intcode")]
     #[arg(short, long)]
     #[arg(default_value = "ascii")]
-    format: InputFormat,
-}
-
-#[derive(PartialEq, Clone, ValueEnum)]
-enum InputFormat {
-    /// comma-separated ASCII-encoded decimal numbers
-    #[value(alias("text"))]
-    #[value(alias("aoc"))]
-    Ascii,
-    /// little-endian 64-bit integers
-    #[cfg_attr(target_endian = "little", value(alias("binary-native")))]
-    #[value(name("binary-little-endian"), alias("binle"))]
-    LittleEndian,
-    #[cfg_attr(target_endian = "big", value(alias("binary-native")))]
-    #[value(name("binary-big-endian"), alias("binbe"))]
-    /// big-endian 64-bit integers
-    BigEndian,
+    format: BinaryFormat,
 }
 
 #[derive(Debug)]
@@ -64,6 +48,7 @@ impl Display for InputFormatError {
         write!(f, "error parsing input: {}", self.msg)
     }
 }
+
 impl std::error::Error for InputFormatError {}
 
 fn load_bin<F: Fn([u8; 8]) -> i64>(input: &[u8], func: F) -> Result<Vec<i64>, InputFormatError> {
@@ -77,24 +62,22 @@ fn load_bin<F: Fn([u8; 8]) -> i64>(input: &[u8], func: F) -> Result<Vec<i64>, In
     }
 }
 
-impl InputFormat {
-    fn parse(self, input: &[u8]) -> Result<Vec<i64>, InputFormatError> {
-        match self {
-            InputFormat::Ascii => {
-                let input = str::from_utf8(input).map_err(|e| e.to_string())?.trim();
-                if input.is_empty() {
-                    return Ok(Vec::new());
-                }
-                input
-                    .split(',')
-                    .map(str::trim)
-                    .map(str::parse::<i64>)
-                    .collect::<Result<_, _>>()
-                    .map_err(|e| e.to_string().into())
+fn parse_with_format(format: BinaryFormat, input: &[u8]) -> Result<Vec<i64>, InputFormatError> {
+    match format {
+        BinaryFormat::Ascii => {
+            let input = str::from_utf8(input).map_err(|e| e.to_string())?.trim();
+            if input.is_empty() {
+                return Ok(Vec::new());
             }
-            InputFormat::LittleEndian => load_bin(input, i64::from_le_bytes),
-            InputFormat::BigEndian => load_bin(input, i64::from_be_bytes),
+            input
+                .split(',')
+                .map(str::trim)
+                .map(str::parse::<i64>)
+                .collect::<Result<_, _>>()
+                .map_err(|e| e.to_string().into())
         }
+        BinaryFormat::LittleEndian => load_bin(input, i64::from_le_bytes),
+        BinaryFormat::BigEndian => load_bin(input, i64::from_be_bytes),
     }
 }
 
@@ -104,7 +87,7 @@ impl<IntoCow: Into<Cow<'static, str>>> From<IntoCow> for InputFormatError {
     }
 }
 
-fn main() -> Result<(), DisplayedError> {
+fn main() -> Result<(), DisplayedError<'static>> {
     let args = Args::parse();
     let input = if let Some(path) = args.input.as_deref()
         && path != "-"
@@ -116,7 +99,7 @@ fn main() -> Result<(), DisplayedError> {
         v
     };
 
-    let code = args.format.parse(&input)?;
+    let code = parse_with_format(args.format, &input)?;
 
     let dissassembly = if let Some(debug_info) = args.debug_info.as_ref() {
         DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?.disassemble(code)?
@@ -133,19 +116,4 @@ fn main() -> Result<(), DisplayedError> {
     }
 
     Ok(())
-}
-
-/// a wrapper around a [`Box`ed][Box] [dyn Error][Error] that uses its implementation of [Display]
-/// for the [Debug] impl, to display the Error if returned from `main`
-struct DisplayedError(Box<dyn Error>);
-impl<E: Error + 'static> From<E> for DisplayedError {
-    fn from(e: E) -> Self {
-        Self(Box::from(e))
-    }
-}
-
-impl Debug for DisplayedError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
 }

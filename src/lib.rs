@@ -27,8 +27,11 @@
 //! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
 //! [Day 9]: https://adventofcode.com/2019/day/9
 
-/// A module implementing the internals of the [Interpreter]
+/// A module implementing internal logic that doesn't fit cleanly into the module hierarchy
 mod internals;
+#[cfg(feature = "bin_deps")]
+pub use internals::bin_helpers;
+
 /// A module providing a sort of logical memory management unit, using a hashmap to split memory
 /// into segments, which are each contiguous in memory.
 mod mmu;

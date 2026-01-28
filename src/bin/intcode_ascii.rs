@@ -5,6 +5,8 @@
 //! Run interactively in Aft Scaffolding Control and Information Interface mode, using stdin and
 //! stdout for I/O
 
+use clap::Parser;
+use ial::bin_helpers::BinaryFormat;
 use ial::debug_info::DebugInfo;
 use ial::{State, StepOutcome, prelude::*};
 use std::error::Error;
@@ -12,24 +14,6 @@ use std::fmt::{self, Display};
 use std::fs::{self, OpenOptions, read_to_string};
 use std::io::{self, stderr, stdin};
 use std::path::{Path, PathBuf};
-
-use clap::{Parser, ValueEnum};
-
-#[derive(PartialEq, Clone, Copy, ValueEnum)]
-enum CodeFormat {
-    /// comma-separated ASCII-encoded decimal numbers
-    #[value(alias("text"))]
-    #[value(alias("aoc"))]
-    Ascii,
-    /// little-endian 64-bit integers
-    #[cfg_attr(target_endian = "little", value(alias("binary-native")))]
-    #[value(name("binary-little-endian"), alias("binle"))]
-    LittleEndian,
-    #[cfg_attr(target_endian = "big", value(alias("binary-native")))]
-    #[value(name("binary-big-endian"), alias("binbe"))]
-    /// big-endian 64-bit integers
-    BigEndian,
-}
 
 const VERSION: &str = concat!(env!("CARGO_CRATE_NAME"), '-', env!("CARGO_PKG_VERSION"));
 
@@ -46,7 +30,7 @@ struct Args {
     #[arg(help = "Input format for the intcode")]
     #[arg(short, long)]
     #[arg(default_value = "ascii")]
-    format: CodeFormat,
+    format: BinaryFormat,
     #[arg(help = "Error out on invalid ascii")]
     #[arg(short, long)]
     #[arg(default_value = "false")]
@@ -178,13 +162,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     let prog = match args.format {
-        CodeFormat::Ascii => read_to_string(args.source)?
+        BinaryFormat::Ascii => read_to_string(args.source)?
             .split(',')
             .map(str::trim)
             .map(str::parse)
             .collect::<Result<Vec<i64>, _>>()?,
-        CodeFormat::LittleEndian => read_bin_file(&args.source, i64::from_le_bytes)?,
-        CodeFormat::BigEndian => read_bin_file(&args.source, i64::from_be_bytes)?,
+        BinaryFormat::LittleEndian => read_bin_file(&args.source, i64::from_le_bytes)?,
+        BinaryFormat::BigEndian => read_bin_file(&args.source, i64::from_be_bytes)?,
     };
 
     let debug_info = if let Some(path) = args.debug_info.as_deref() {

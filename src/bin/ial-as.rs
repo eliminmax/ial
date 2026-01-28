@@ -6,6 +6,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::{Parser, ValueEnum};
 use ial::asm::{AssemblyError, assemble_ast, assemble_with_debug, build_ast};
+use ial::bin_helpers::BinaryFormat;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -27,25 +28,27 @@ enum OutputFormat {
     BigEndian,
 }
 
-impl OutputFormat {
-    fn output<W: Write>(self, intcode: Vec<i64>, mut writer: W) -> io::Result<()> {
-        match self {
-            OutputFormat::Ascii => {
-                use itertools::Itertools;
-                writeln!(&mut writer, "{}", intcode.into_iter().format(","))
+fn output_with_format<W: Write>(
+    format: BinaryFormat,
+    intcode: Vec<i64>,
+    mut writer: W,
+) -> io::Result<()> {
+    match format {
+        BinaryFormat::Ascii => {
+            use itertools::Itertools;
+            writeln!(&mut writer, "{}", intcode.into_iter().format(","))
+        }
+        BinaryFormat::LittleEndian => {
+            for i in intcode {
+                writer.write_all(&i.to_le_bytes())?;
             }
-            OutputFormat::LittleEndian => {
-                for i in intcode {
-                    writer.write_all(&i.to_le_bytes())?;
-                }
-                Ok(())
+            Ok(())
+        }
+        BinaryFormat::BigEndian => {
+            for i in intcode {
+                writer.write_all(&i.to_be_bytes())?;
             }
-            OutputFormat::BigEndian => {
-                for i in intcode {
-                    writer.write_all(&i.to_be_bytes())?;
-                }
-                Ok(())
-            }
+            Ok(())
         }
     }
 }
@@ -73,12 +76,10 @@ struct Args {
     #[arg(help = "Output format for the assembled intcode")]
     #[arg(short, long)]
     #[arg(default_value = "ascii")]
-    format: OutputFormat,
+    format: BinaryFormat,
 }
 
 fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
-    use std::fmt::Write;
-
     let mut builder = Report::build(ReportKind::Error, (file, err.span().into_range()))
         .with_message(format!("Failed to parse {}", file.fg(Color::Red)));
 
@@ -115,6 +116,7 @@ fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
         pats => {
             let mut note = String::from("Expected one of the following:\n");
             for pat in pats {
+                use std::fmt::Write;
                 writeln!(&mut note, "- {}", pat.fg(Color::Blue)).expect("can write to &mut String");
             }
             builder = builder.with_note(note);
@@ -124,7 +126,7 @@ fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
     builder
         .finish()
         .eprint((file, Source::from(source)))
-        .expect("failed to print to stderr");
+        .unwrap();
 }
 
 fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
@@ -198,9 +200,9 @@ fn main() -> ExitCode {
     };
 
     let input = match input {
-        Ok(s) => s,
+        Ok(i) => i,
         Err(e) => {
-            eprintln!("Failed to read source from {file}: {e}");
+            eprintln!("Error reading input: {e}");
             return ExitCode::FAILURE;
         }
     };
@@ -211,6 +213,7 @@ fn main() -> ExitCode {
             for err in errs {
                 report_ast_build_err(&err, &file, &input);
             }
+
             return ExitCode::FAILURE;
         }
     };
@@ -260,7 +263,7 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        match args.format.output(intcode, writer) {
+        match output_with_format(args.format, intcode, writer) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("Failed to write to {}: {e}.", outfile.display());
@@ -268,7 +271,7 @@ fn main() -> ExitCode {
             }
         }
     } else {
-        match args.format.output(intcode, io::stdout()) {
+        match output_with_format(args.format, intcode, io::stdout()) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("Failed to write to stdout: {e}.");
