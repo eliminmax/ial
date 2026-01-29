@@ -65,11 +65,13 @@ impl Interpreter {
         match (mode, self.code[self.index + offset]) {
             (ParamMode::Positional, n @ ..=-1) => {
                 self.poisoned = true;
-                Err(InterpreterError::NegativeMemAccess(n))
+                Err(InterpreterError::NegativeMemAccess(NegativeMemAccess(n)))
             }
             (ParamMode::Relative, n) if n + self.rel_offset < 0 => {
                 self.poisoned = true;
-                Err(InterpreterError::NegativeMemAccess(n + self.rel_offset))
+                Err(InterpreterError::NegativeMemAccess(NegativeMemAccess(
+                    n + self.rel_offset,
+                )))
             }
             (ParamMode::Immediate, n) => {
                 self.poisoned = true;

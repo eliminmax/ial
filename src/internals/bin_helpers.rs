@@ -43,3 +43,13 @@ impl Debug for DisplayedError<'_> {
         Display::fmt(&self.0, f)
     }
 }
+
+#[derive(Debug)]
+pub struct ErrorMessage(String);
+
+impl Display for ErrorMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+impl Error for ErrorMessage {}

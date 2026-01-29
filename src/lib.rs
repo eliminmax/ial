@@ -80,7 +80,7 @@ pub enum InterpreterError {
     /// An unknown parameter mode was encountered
     UnknownMode(i64),
     /// A parameter referenced a negative memory address
-    NegativeMemAccess(i64),
+    NegativeMemAccess(NegativeMemAccess),
     /// A jump resolved to a negative address
     JumpToNegative(i64),
     /// An instruction tried to write to an immediate destination
@@ -98,9 +98,7 @@ impl Display for InterpreterError {
             InterpreterError::UnknownMode(mode) => {
                 write!(f, "encountered unknown parameter mode {mode}")
             }
-            InterpreterError::NegativeMemAccess(e) => {
-                write!(f, "could not convert index to unsigned address: {e}")
-            }
+            InterpreterError::NegativeMemAccess(err) => Display::fmt(err, f),
             InterpreterError::JumpToNegative(n) => {
                 write!(f, "jumpped to negative address {n}")
             }
@@ -118,7 +116,7 @@ impl Error for InterpreterError {}
 
 impl Display for NegativeMemAccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "could not convert index to unsigned address: {}", self.0)
+        write!(f, "could not convert {} to unsigned index", self.0)
     }
 }
 
@@ -395,7 +393,7 @@ pub enum StepOutcome {
 pub struct NegativeMemAccess(pub i64);
 
 impl From<NegativeMemAccess> for InterpreterError {
-    fn from(NegativeMemAccess(i): NegativeMemAccess) -> Self {
+    fn from(i: NegativeMemAccess) -> Self {
         Self::NegativeMemAccess(i)
     }
 }

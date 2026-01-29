@@ -6,7 +6,7 @@
 //! stdout for I/O
 
 use clap::Parser;
-use ial::bin_helpers::BinaryFormat;
+use ial::bin_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
 use ial::{State, StepOutcome, prelude::*};
 use std::error::Error;
@@ -149,20 +149,24 @@ fn interactive_run(mut interp: Interpreter, strict: bool) -> Result<(), (AsciiEr
     Ok(())
 }
 
-fn read_bin_file<F: Fn([u8; 8]) -> i64>(file: &Path, func: F) -> Result<Vec<i64>, Box<dyn Error>> {
+fn read_bin_file<F: Fn([u8; 8]) -> i64>(
+    file: &Path,
+    func: F,
+) -> Result<Vec<i64>, DisplayedError<'static>> {
     let input = fs::read(file)?;
     let (chunks, remainder) = input.as_chunks::<8>();
     if !remainder.is_empty() {
-        return Err(Box::new(IncompleteI64(Box::from(remainder))));
+        return Err(DisplayedError::from(IncompleteI64(Box::from(remainder))));
     }
     Ok(chunks.iter().map(|c| func(*c)).collect())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), DisplayedError<'static>> {
     let args = Args::parse();
 
     let prog = match args.format {
         BinaryFormat::Ascii => read_to_string(args.source)?
+            .trim()
             .split(',')
             .map(str::trim)
             .map(str::parse)
@@ -172,9 +176,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let debug_info = if let Some(path) = args.debug_info.as_deref() {
-        let f = (OpenOptions::new().read(true).open(path))
-            .map_err(|e| format!("failed to read {}: {e}", path.display()))?;
-        Some(DebugInfo::read(f)?)
+        Some(DebugInfo::read(OpenOptions::new().read(true).open(path)?)?)
     } else {
         None
     };
