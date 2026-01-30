@@ -38,17 +38,19 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
     .as_context()
 }
 
-fn outer_expr<'a>() -> impl Parser<'a, &'a str, Spanned<OuterExpr<'a>>, RichErr<'a>> {
+fn outer_expr<'a>() -> impl Parser<'a, &'a str, OuterExpr<'a>, RichErr<'a>> {
     labels()
         .then(expr())
         .map(|(labels, expr)| OuterExpr { labels, expr })
-        .spanned()
 }
 
 fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
-    padded!(text::ident().spanned().then_ignore(just(":")))
+    text::ident()
+        .spanned()
+        .then_ignore(just(":"))
         .map(Label)
         .labelled("label")
+        .then_ignore(text::inline_whitespace())
         .repeated()
         .collect()
 }
@@ -426,13 +428,10 @@ mod ast_tests {
         let parser = instr();
         let expected_param = Parameter(
             ParamMode::Immediate,
-            boxed(span(
-                OuterExpr {
-                    labels: vec![Label(span("out_val", 5..12))],
-                    expr: span(expr!(0), 14..15),
-                },
-                5..15,
-            )),
+            boxed(OuterExpr {
+                labels: vec![Label(span("out_val", 5..12))],
+                expr: span(expr!(0), 14..15),
+            }),
         );
         let expected = Instr::Out(expected_param);
         assert_eq!(parser.parse("OUT #out_val: 0").unwrap(), expected);

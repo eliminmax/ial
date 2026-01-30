@@ -68,28 +68,22 @@
 //!         inner: Directive::Instruction(Box::new(Instr::Jz(
 //!             Parameter (
 //!                 ParamMode::Immediate,
-//!                 Box::new(Spanned {
-//!                     inner: OuterExpr {
-//!                         expr: Spanned {
-//!                             inner: Expr::Number(0),
-//!                             span: SimpleSpan { start: 15, end: 16, context: () },
-//!                         },
-//!                         labels: Vec::new(),
+//!                 Box::new(OuterExpr {
+//!                     expr: Spanned {
+//!                         inner: Expr::Number(0),
+//!                         span: SimpleSpan { start: 15, end: 16, context: () },
 //!                     },
-//!                     span: SimpleSpan { start: 15, end: 16, context: () },
+//!                     labels: Vec::new(),
 //!                 }),
 //!             ),
 //!             Parameter (
 //!                 ParamMode::Immediate,
-//!                 Box::new(Spanned {
-//!                     inner: OuterExpr {
-//!                         expr: Spanned {
-//!                             inner: Expr::Ident("idle_loop"),
-//!                             span: SimpleSpan { start: 19, end: 28, context: () },
-//!                         },
-//!                         labels: Vec::new(),    
+//!                 Box::new(OuterExpr {
+//!                     expr: Spanned {
+//!                         inner: Expr::Ident("idle_loop"),
+//!                         span: SimpleSpan { start: 19, end: 28, context: () },
 //!                     },
-//!                     span: SimpleSpan { start: 19, end: 28, context: () },
+//!                     labels: Vec::new(),
 //!                 }),
 //!             ),
 //!         )))
@@ -311,17 +305,17 @@ impl<'a> Expr<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 /// A simple tuple struct containing the parameter mode and the expression for the parameter
-pub struct Parameter<'a>(pub ParamMode, pub Box<Spanned<OuterExpr<'a>>>);
+pub struct Parameter<'a>(pub ParamMode, pub Box<OuterExpr<'a>>);
 
 impl Parameter<'_> {
     /// Return the [span](SimpleSpan) of the parameter
     #[must_use]
     pub const fn span(&self) -> SimpleSpan {
         match self.0 {
-            ParamMode::Positional => self.1.span,
+            ParamMode::Positional => self.1.span(),
             ParamMode::Immediate | ParamMode::Relative => SimpleSpan {
-                start: self.1.span.start,
-                ..self.1.span
+                start: self.1.span().start,
+                ..self.1.span()
             },
         }
     }
@@ -444,6 +438,21 @@ pub struct OuterExpr<'a> {
     pub expr: Spanned<Expr<'a>>,
 }
 
+impl OuterExpr<'_> {
+    /// Return the span of the outer expression
+    #[must_use]
+    pub const fn span(&self) -> SimpleSpan {
+        if let Some(spanned) = self.labels.as_slice().first() {
+            SimpleSpan {
+                start: spanned.0.span.start,
+                ..self.expr.span
+            }
+        } else {
+            self.expr.span
+        }
+    }
+}
+
 /// A cheap iterator that uses a fixed amount of stack space for up to four `T`
 enum StackIter<T: Copy> {
     Four(T, T, T, T),
@@ -499,10 +508,7 @@ impl<'a> Instr<'a> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, outer_expr) = $param;
-                let OuterExpr {
-                    expr: Spanned { inner: expr, span },
-                    ..
-                } = outer_expr.inner;
+                let Spanned { inner: expr, span } = outer_expr.expr;
                 $instr += mode as i64 * $multiplier;
                 expr.resolve(labels)
                     .map_err(|label| AssemblyError::UnresolvedLabel { label, span })?

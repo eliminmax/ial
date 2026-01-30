@@ -163,10 +163,10 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 ($mode_i: literal) => {{
                     Parameter(
                         modes[$mode_i],
-                        boxed(span_dis(OuterExpr {
+                        boxed(OuterExpr {
                             expr: span_dis(Expr::Number(mem_iter.next().unwrap_or_default())),
                             labels: vec![],
-                        })),
+                        }),
                     )
                 }};
             }
@@ -278,8 +278,8 @@ impl<'a> OuterExpr<'a> {
         addr: i64,
         value: i64,
         label_lookups: &HashMap<i64, Vec<&'a str>>,
-    ) -> Spanned<Self> {
-        span_dis(Self {
+    ) -> Self {
+        Self {
             labels: label_lookups
                 .get(&addr)
                 .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
@@ -289,7 +289,7 @@ impl<'a> OuterExpr<'a> {
                     .get(&value)
                     .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),
             ),
-        })
+        }
     }
 }
 

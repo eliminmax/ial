@@ -54,7 +54,7 @@ impl Display for OuterExpr<'_> {
 
 impl Display for Parameter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.0, self.1.inner)
+        write!(f, "{}{}", self.0, self.1)
     }
 }
 
