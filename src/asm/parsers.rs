@@ -50,6 +50,7 @@ fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
         .then_ignore(just(":"))
         .map(Label)
         .labelled("label")
+        .as_context()
         .then_ignore(text::inline_whitespace())
         .repeated()
         .collect()
@@ -295,13 +296,7 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
 }
 
 fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    padded!(text::ident().spanned().then_ignore(just(":")))
-        .map(Label)
-        .labelled("label")
-        .as_context()
-        .repeated()
-        .collect()
-        .then(directive())
+    padded!(labels().then(directive()))
         .map(|(labels, directive)| Line { labels, directive })
         .then_ignore(
             (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
