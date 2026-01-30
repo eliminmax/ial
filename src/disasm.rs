@@ -7,10 +7,10 @@
 //! See [disassemble] for documentation
 
 use super::asm::ast_prelude::*;
-use super::asm::ast_util::{boxed, span};
+use super::asm::ast_util::boxed;
 use super::{Interpreter, OpCode};
 use itertools::Itertools;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt::Write;
 
 /// Create disassembly from the memory
@@ -163,10 +163,10 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 ($mode_i: literal) => {{
                     Parameter(
                         modes[$mode_i],
-                        boxed(span(
-                            Expr::Number(mem_iter.next().unwrap_or_default()),
-                            0..0,
-                        )),
+                        boxed(span_dis(OuterExpr {
+                            expr: span_dis(Expr::Number(mem_iter.next().unwrap_or_default())),
+                            labels: vec![],
+                        })),
                     )
                 }};
             }
@@ -190,26 +190,23 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
             };
             lines.push(Line {
                 labels: vec![],
-                directive: Some(span(Directive::Instruction(boxed(instr)), 0..0)),
+                directive: Some(span_dis(Directive::Instruction(boxed(instr)))),
             });
         } else {
-            let mut data = vec![span(Expr::Number(i), 0..0)];
+            let mut data = vec![span_dis(Expr::Number(i))];
             while mem_iter
                 .peek()
                 .is_some_and(|n| parse_op_strict(*n).is_none())
             {
-                data.push(span(
-                    Expr::Number(
-                        mem_iter
-                            .next()
-                            .unwrap_or_else(|| unreachable!("already confirmed `Some`")),
-                    ),
-                    0..0,
-                ));
+                data.push(span_dis(Expr::Number(
+                    mem_iter
+                        .next()
+                        .unwrap_or_else(|| unreachable!("already confirmed `Some`")),
+                )));
             }
             lines.push(Line {
                 labels: vec![],
-                directive: Some(span(Directive::Data(data), 0..0)),
+                directive: Some(span_dis(Directive::Data(data))),
             });
         }
     }
@@ -225,8 +222,6 @@ use std::fmt::{self, Display};
 pub enum DebugInfoError {
     /// Debug info included at least this many ints beyond the end of the input
     MissingInts(usize),
-    /// The listed label resolved to the middle of a directive
-    MisalignedLabel(Box<str>, i64),
     /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
     ///
     /// [instruction directive]: crate::debug_info::DirectiveKind::Instruction
@@ -241,12 +236,6 @@ impl Display for DebugInfoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DebugInfoError::MissingInts(i) => write!(f, "expected at least {i} more ints"),
-            DebugInfoError::MisalignedLabel(label, n) => {
-                write!(
-                    f,
-                    "label {label} ({n}) resolved to the middle of an instruction"
-                )
-            }
             DebugInfoError::CorruptDirectiveSize => {
                 write!(f, "debug info has an invalid instruction directive size")
             }
@@ -261,48 +250,61 @@ impl Display for DebugInfoError {
 }
 impl std::error::Error for DebugInfoError {}
 
-macro_rules! writeln_string {
+macro_rules! write_string {
     ($($tok: tt)*) => {
-        writeln!($($tok)*).expect("write!(&mut String, ...) can't fail")
+        write!($($tok)*).expect("write!(&mut String, ...) can't fail")
     }
 }
 
-fn check_labels(
-    labels: &mut VecDeque<(&str, i64)>,
-    disasm: &mut String,
-    addr: i64,
-) -> Result<(), DebugInfoError> {
-    while let Some((label, label_addr)) = labels.pop_front() {
-        match label_addr {
-            i if i > addr => {
-                labels.push_front((label, label_addr));
-                break;
-            }
-            i if i == addr => writeln_string!(disasm, "{label}:"),
-            _ => {
-                return Err(DebugInfoError::MisalignedLabel(
-                    Box::from(label),
-                    label_addr,
-                ));
-            }
-        }
+macro_rules! writeln_string {
+    ($($tok: tt)*) => {
+        writeln!($($tok)*).expect("writeln!(&mut String, ...) can't fail")
     }
-    Ok(())
+}
+
+fn span_dis<T>(inner: T) -> Spanned<T> {
+    Spanned {
+        inner,
+        span: SimpleSpan {
+            start: 0,
+            end: 0,
+            context: (),
+        },
+    }
+}
+
+impl<'a> OuterExpr<'a> {
+    fn disasm_with_debug(
+        addr: i64,
+        value: i64,
+        label_lookups: &HashMap<i64, Vec<&'a str>>,
+    ) -> Spanned<Self> {
+        span_dis(Self {
+            labels: label_lookups
+                .get(&addr)
+                .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
+                .unwrap_or_default(),
+            expr: span_dis(
+                label_lookups
+                    .get(&value)
+                    .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),
+            ),
+        })
+    }
 }
 
 impl DirectiveDebug {
-    fn disasm<I: Iterator<Item = i64>>(
-        &self,
+    fn disasm<'a, I: Iterator<Item = i64>>(
+        &'a self,
         code: &mut I,
-        label_lookups: &BTreeMap<i64, &str>,
+        start_address: i64,
+        label_lookups: &HashMap<i64, Vec<&'a str>>,
         disasm: &mut String,
     ) -> Result<i64, DebugInfoError> {
         let directive_size = self.output_span.end - self.output_span.start;
         let ints = code.by_ref().take(directive_size).collect_vec();
 
-        if let Some(needed) = directive_size.checked_sub(ints.len())
-            && needed != 0
-        {
+        if let Some(needed @ 1..) = directive_size.checked_sub(ints.len()) {
             return Err(DebugInfoError::MissingInts(needed));
         }
 
@@ -323,23 +325,26 @@ impl DirectiveDebug {
                 let Ok((op, modes)) = crate::Interpreter::parse_op(ints[0]) else {
                     fallback!("expected instruction");
                 };
+
                 macro_rules! param {
                     ($mode_i: literal) => {{
-                        Parameter(
-                            modes[$mode_i],
-                            match label_lookups.get(&ints[$mode_i + 1]) {
-                                Some(label) => boxed(span(Expr::Ident(label), 0..0)),
-                                None => boxed(span(Expr::Number(ints[$mode_i + 1]), 0..0)),
-                            },
-                        )
+                        let int = ints[$mode_i + 1];
+                        let outer_expr = boxed(OuterExpr::disasm_with_debug(
+                            start_address + $mode_i + 1,
+                            int,
+                            label_lookups,
+                        ));
+                        Parameter(modes[$mode_i], outer_expr)
                     }};
                 }
+
                 macro_rules! instr {
                     ($type: ident, 3) => {{ Instr::$type(param!(0), param!(1), param!(2)) }};
                     ($type: ident, 2) => {{ Instr::$type(param!(0), param!(1)) }};
                     ($type: ident, 1) => {{ Instr::$type(param!(0)) }};
                     ($type: ident, 0) => {{ Instr::$type }};
                 }
+
                 macro_rules! write_instr {
                     ($type: ident, $n: tt) => {{
                         if $n + 1 > ints.len() {
@@ -386,8 +391,7 @@ impl DirectiveDebug {
                         )]
                         match i as u8 {
                             b'\x1b' => disasm.push_str("\\e"),
-                            b => write!(disasm, "{}", b.escape_ascii())
-                                .expect("write!(&mut String, ...) can't fail"),
+                            b => write_string!(disasm, "{}", b.escape_ascii()),
                         }
                     }
                     disasm.push_str("\"\n");
@@ -408,8 +412,6 @@ impl DebugInfo {
     ///
     /// * If `code` is shorter than expected for [`self.directives`], returns
     ///   [`DebugInfoError::MissingInts`].
-    /// * If a label within the [`self.labels`] resolves to the middle of a directive, returns
-    ///   [`DebugInfoError::MisalignedLabel`].
     /// * If an instruction directive's span is out of the range `1..=4`, returns a
     ///   [`DebugInfoError::CorruptDirectiveSize`].
     /// * If a directive's size exceeds [`usize::MAX`], returns a
@@ -422,24 +424,23 @@ impl DebugInfo {
         code: impl IntoIterator<Item = i64>,
     ) -> Result<String, DebugInfoError> {
         let mut code = code.into_iter();
-        let mut labels: VecDeque<(&str, i64)> = self
-            .labels
-            .iter()
-            .map(|(label, addr)| (label.inner.as_ref(), *addr))
-            .collect();
-        let label_lookups: BTreeMap<i64, &str> = self
+        let label_lookups: HashMap<i64, Vec<&str>> = self
             .labels
             .iter()
             .map(|(label, addr)| (*addr, label.inner.as_ref()))
-            .collect();
+            .into_group_map();
 
         let mut addr: i64 = 0;
 
         let mut disasm = String::new();
         for (i, dir) in self.directives.iter().enumerate() {
-            check_labels(&mut labels, &mut disasm, addr)?;
+            if let Some(labels) = label_lookups.get(&addr) {
+                for label in &labels[..] {
+                    write_string!(&mut disasm, "{label}:\t");
+                }
+            }
 
-            match dir.disasm(&mut code, &label_lookups, &mut disasm) {
+            match dir.disasm(&mut code, addr, &label_lookups, &mut disasm) {
                 Ok(n) => addr += n,
                 Err(DebugInfoError::MissingInts(mut missing)) => {
                     for dir in &self.directives[i + 1..] {
@@ -452,7 +453,11 @@ impl DebugInfo {
             }
         }
 
-        check_labels(&mut labels, &mut disasm, addr)?;
+        if let Some(labels) = label_lookups.get(&addr) {
+            for label in &labels[..] {
+                write_string!(&mut disasm, "{label}:\t");
+            }
+        }
         Ok(disasm)
     }
 }

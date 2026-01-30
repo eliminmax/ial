@@ -31,11 +31,26 @@ fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
                 .labelled("relative mode prefix ('@')"),
             empty().to(ParamMode::Positional),
         ))
-        .then(expr())
+        .then(outer_expr())
     )
     .map(|(mode, expr)| Parameter(mode, Box::new(expr)))
     .labelled("parameter")
     .as_context()
+}
+
+fn outer_expr<'a>() -> impl Parser<'a, &'a str, Spanned<OuterExpr<'a>>, RichErr<'a>> {
+    labels()
+        .then(expr())
+        .map(|(labels, expr)| OuterExpr { labels, expr })
+        .spanned()
+}
+
+fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
+    padded!(text::ident().spanned().then_ignore(just(":")))
+        .map(Label)
+        .labelled("label")
+        .repeated()
+        .collect()
 }
 
 fn mnemonic<'a>(kw: &'static str) -> impl Parser<'a, &'a str, (), RichErr<'a>> {
@@ -279,15 +294,13 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
 
 fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
     padded!(text::ident().spanned().then_ignore(just(":")))
+        .map(Label)
         .labelled("label")
         .as_context()
         .repeated()
         .collect()
         .then(directive())
-        .map(|(label, directive)| Line {
-            labels: label,
-            directive,
-        })
+        .map(|(labels, directive)| Line { labels, directive })
         .then_ignore(
             (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
                 .labelled("comment")
@@ -344,10 +357,13 @@ mod ast_tests {
 
     #[test]
     fn multiple_labels() {
+        macro_rules! l {
+            ($text: expr, $span: expr) => {{ Label(span($text, $span)) }};
+        }
         assert_eq!(
             line().parse("foo:bar: baz:DATA 0").unwrap(),
             Line {
-                labels: vec![span("foo", 0..3), span("bar", 4..7), span("baz", 9..12)],
+                labels: vec![l!("foo", 0..3), l!("bar", 4..7), l!("baz", 9..12)],
                 directive: Some(span(Directive::Data(vec![span(expr!(0), 18..19)]), 13..19)),
             }
         );
@@ -403,6 +419,23 @@ mod ast_tests {
         );
         assert_eq!(parse!("INCB #hello"), i![Rbo(p!(#hello, 5, 11))]);
         assert_eq!(parse!("HALT"), i![Halt]);
+    }
+
+    #[test]
+    fn parse_param_labels() {
+        let parser = instr();
+        let expected_param = Parameter(
+            ParamMode::Immediate,
+            boxed(span(
+                OuterExpr {
+                    labels: vec![Label(span("out_val", 5..12))],
+                    expr: span(expr!(0), 14..15),
+                },
+                5..15,
+            )),
+        );
+        let expected = Instr::Out(expected_param);
+        assert_eq!(parser.parse("OUT #out_val: 0").unwrap(), expected);
     }
 
     #[test]

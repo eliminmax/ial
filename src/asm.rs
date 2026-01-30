@@ -59,24 +59,36 @@
 //!
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     labels: vec![Spanned {
+//!     labels: vec![Label(Spanned {
 //!         inner: "idle_loop",
 //!         span: SimpleSpan { start: 0, end: 9, context: () },
-//!     }],
-//!     inner: Some(Spanned {
+//!     })],
+//!     directive: Some(Spanned {
 //!         span: SimpleSpan { start: 11, end: 28, context: () },
 //!         inner: Directive::Instruction(Box::new(Instr::Jz(
 //!             Parameter (
 //!                 ParamMode::Immediate,
 //!                 Box::new(Spanned {
-//!                     inner: Expr::Number(0),
+//!                     inner: OuterExpr {
+//!                         expr: Spanned {
+//!                             inner: Expr::Number(0),
+//!                             span: SimpleSpan { start: 15, end: 16, context: () },
+//!                         },
+//!                         labels: Vec::new(),
+//!                     },
 //!                     span: SimpleSpan { start: 15, end: 16, context: () },
 //!                 }),
 //!             ),
 //!             Parameter (
 //!                 ParamMode::Immediate,
 //!                 Box::new(Spanned {
-//!                     inner: Expr::Ident("idle_loop"),
+//!                     inner: OuterExpr {
+//!                         expr: Spanned {
+//!                             inner: Expr::Ident("idle_loop"),
+//!                             span: SimpleSpan { start: 19, end: 28, context: () },
+//!                         },
+//!                         labels: Vec::new(),    
+//!                     },
 //!                     span: SimpleSpan { start: 19, end: 28, context: () },
 //!                 }),
 //!             ),
@@ -96,8 +108,8 @@
 //! use ial::asm::ast_util::*;
 //! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
 //! let expected = vec![Line {
-//!     labels: vec![span("idle_loop", 0..9)],
-//!     inner: Some(span(
+//!     labels: vec![Label(span("idle_loop", 0..9))],
+//!     directive: Some(span(
 //!         Directive::Instruction(Box::new(Instr::Jz(
 //!             param!(#<expr!(0);>[14..16]),
 //!             param!(#<expr!(idle_loop);>[18..28])
@@ -128,7 +140,8 @@ pub mod ast_prelude {
     pub use super::ast_util;
     pub use crate::{ParamMode, asm};
     pub use asm::{
-        BinOperator, Directive, Expr, Instr, Line, Parameter, assemble, assemble_ast, build_ast,
+        BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, assemble,
+        assemble_ast, build_ast,
     };
     pub use chumsky::span::{SimpleSpan, Spanned};
 }
@@ -298,7 +311,7 @@ impl<'a> Expr<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 /// A simple tuple struct containing the parameter mode and the expression for the parameter
-pub struct Parameter<'a>(pub ParamMode, pub Box<Spanned<Expr<'a>>>);
+pub struct Parameter<'a>(pub ParamMode, pub Box<Spanned<OuterExpr<'a>>>);
 
 impl Parameter<'_> {
     /// Return the [span](SimpleSpan) of the parameter
@@ -417,6 +430,20 @@ impl Instr<'_> {
     }
 }
 
+/// An identifier, [spanned](Spanned) by its position in the source code
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Label<'a>(pub Spanned<&'a str>);
+
+/// An outermost expression with an optional label
+#[derive(Debug, Clone, PartialEq)]
+pub struct OuterExpr<'a> {
+    /// the (optional) label of the expression
+    pub labels: Vec<Label<'a>>,
+    /// the expression itself
+    pub expr: Spanned<Expr<'a>>,
+}
+
 /// A cheap iterator that uses a fixed amount of stack space for up to four `T`
 enum StackIter<T: Copy> {
     Four(T, T, T, T),
@@ -471,9 +498,12 @@ impl<'a> Instr<'a> {
     ) -> Result<impl Iterator<Item = i64>, AssemblyError<'a>> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
-                let Parameter(mode, expr) = $param;
+                let Parameter(mode, outer_expr) = $param;
+                let OuterExpr {
+                    expr: Spanned { inner: expr, span },
+                    ..
+                } = outer_expr.inner;
                 $instr += mode as i64 * $multiplier;
-                let Spanned { inner: expr, span } = *expr;
                 expr.resolve(labels)
                     .map_err(|label| AssemblyError::UnresolvedLabel { label, span })?
             }};
@@ -572,7 +602,7 @@ pub enum Directive<'a> {
 /// comment - the last of which is not stored.
 pub struct Line<'a> {
     /// the labels for the line
-    pub labels: Vec<Spanned<&'a str>>,
+    pub labels: Vec<Label<'a>>,
     /// the directive for the line, if applicable
     pub directive: Option<Spanned<Directive<'a>>>,
 }
@@ -605,17 +635,24 @@ impl<'a> Line<'a> {
     ///
     /// # Errors
     ///
-    /// If [`self.inner`][Line::inner] is either an [`Instruction`][Directive::Instruction] or a
-    /// [`Data`][Directive::Data] directive, and an expression fails to [resolve][Expr::resolve]
-    /// due to a missing label, returns an [`AssemblyError::UnresolvedLabel`] pointing to the
-    /// source of the missing label.
+    /// If [`self.directive`] is either an [`Instruction`] or a [`Data`] directive, and an
+    /// expression fails to [resolve] due to a missing label, returns an
+    /// [`AssemblyError::UnresolvedLabel`] pointing to the source of the missing label.
+    ///
+    /// [`self.directive`]: Line::directive
+    /// [`Instruction`]: Directive::Instruction
+    /// [`Data`]: Directive::Data
+    /// [resolve]: Expr::resolve
     pub fn encode_into(
         self,
         v: &mut Vec<i64>,
         labels: &HashMap<&'a str, i64>,
     ) -> Result<(), AssemblyError<'a>> {
-        if let Some(Spanned { inner, .. }) = self.directive {
-            match inner {
+        if let Some(Spanned {
+            inner: directive, ..
+        }) = self.directive
+        {
+            match directive {
                 Directive::Data(exprs) => {
                     for expr in exprs {
                         let Spanned { inner: expr, span } = expr;
@@ -675,7 +712,7 @@ fn assemble_inner<'a>(
     let mut index = 0;
     let mut directives = Vec::new();
     for line in &code {
-        for Spanned { inner: label, span } in &line.labels {
+        for Label(Spanned { inner: label, span }) in &line.labels {
             if let Some((_, old_span)) = labels.insert(*label, (index, *span)) {
                 return Err(AssemblyError::DuplicateLabel {
                     label,
@@ -791,7 +828,7 @@ pub fn assemble_with_debug(
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));
 ///
 /// let ast = vec![
-///     Line { labels: vec![], inner: Some(Spanned { inner, span: SimpleSpan::default() }) }
+///     Line { labels: vec![], directive: Some(Spanned { inner, span: SimpleSpan::default() }) }
 /// ];
 ///
 /// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);

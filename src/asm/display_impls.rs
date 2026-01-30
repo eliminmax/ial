@@ -4,7 +4,9 @@
 
 use chumsky::span::Spanned;
 
-use super::{AssemblyError, BinOperator, Directive, Expr, Instr, Line, Parameter};
+use super::{
+    AssemblyError, BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
+};
 
 use std::fmt::{self, Display};
 
@@ -32,6 +34,21 @@ impl Display for Expr<'_> {
             Expr::UnaryAdd(e) => write!(f, "+{}", e.inner),
             Expr::Parenthesized(e) => write!(f, "({})", e.inner),
         }
+    }
+}
+
+impl Display for Label<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:", self.0.inner)
+    }
+}
+
+impl Display for OuterExpr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for label in &self.labels {
+            write!(f, "{label}\t")?;
+        }
+        write!(f, "{}", self.expr.inner)
     }
 }
 
@@ -81,7 +98,7 @@ impl Display for Directive<'_> {
 
 impl Display for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for Spanned { inner, .. } in &self.labels {
+        for Label(Spanned { inner, .. }) in &self.labels {
             write!(f, "{inner}:\t")?;
         }
         if let Some(Spanned { inner, .. }) = &self.directive {

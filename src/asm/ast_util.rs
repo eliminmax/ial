@@ -102,7 +102,16 @@ macro_rules! expr {
 /// use ial::asm::{ast_prelude::*, ast_util::*};
 /// assert_eq!(
 ///     param!(@<expr!(0);>[0..2]),
-///     Parameter(ParamMode::Relative, boxed(span(Expr::Number(0), 1..2)))
+///     Parameter(
+///         ParamMode::Relative,
+///         boxed(span(
+///             OuterExpr {
+///                 expr: span(Expr::Number(0), 1..2),
+///                 labels: Vec::new(),
+///             },
+///             1..2
+///         ))
+///     )
 /// );
 /// ```
 #[macro_export]
@@ -111,7 +120,10 @@ macro_rules! param {
         $crate::asm::Parameter(
             $crate::ParamMode::Relative,
             ::std::boxed::Box::new($crate::asm::ast_util::span(
-                $e,
+                $crate::asm::OuterExpr {
+                    expr: $crate::asm::ast_util::span($e, ($span.start + 1)..($span.end)),
+                    labels: ::std::vec::Vec::new(),
+                },
                 ($span.start + 1)..($span.end),
             )),
         )
@@ -120,7 +132,10 @@ macro_rules! param {
         $crate::asm::Parameter(
             $crate::ParamMode::Immediate,
             ::std::boxed::Box::new($crate::asm::ast_util::span(
-                $e,
+                $crate::asm::OuterExpr {
+                    expr: $crate::asm::ast_util::span($e, ($span.start + 1)..($span.end)),
+                    labels: ::std::vec::Vec::new(),
+                },
                 ($span.start + 1)..($span.end),
             )),
         )
@@ -128,7 +143,13 @@ macro_rules! param {
     (<$e: expr;>[$span: expr]) => {{
         $crate::asm::Parameter(
             $crate::ParamMode::Positional,
-            ::std::boxed::Box::new($crate::asm::ast_util::span($e, $span)),
+            ::std::boxed::Box::new($crate::asm::ast_util::span(
+                $crate::asm::OuterExpr {
+                    expr: $crate::asm::ast_util::span($e, ($span.start)..($span.end)),
+                    labels: ::std::vec::Vec::new(),
+                },
+                ($span.start)..($span.end),
+            )),
         )
     }};
 }
