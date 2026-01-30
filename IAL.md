@@ -36,7 +36,7 @@ label: directive ; comment
 
 A label is a unique[^label-uniqueness] identifer which can be used to refer to the index of the next integer in the Intcode output. It can be thought of as a name for that index.
 
-Each label is immediately followed by a colon, without any whitespace. More than one label can exist on the same line.
+Each label is immediately followed by a colon, without any whitespace between the identifier and the colon. More than one label can exist for the same index.
 
 As an example, the following code starts out with a single `ADD` instruction, which sets the initially-zeroed opcode integer of the following instruction to a `HALT` instruction.
 
@@ -86,13 +86,15 @@ The following instructions are supported:
 
 ##### Parameters
 
-A Parameter consist of an optional parameter-mode prefix, followed by a single [expression](#expressions).
+A Parameter consist of an optional parameter-mode prefix, followed by any number of [labels], and finally, a single [expression](#expressions).
 
 | Prefix | Mode                |
 |--------|---------------------|
 | *none* | [Positional][day-5] |
 | `#`    | [Immediate][day-5]  |
 | `@`    | [Relative][day-9]   |
+
+No whitespace is permitted between an immediate-mode or relative-mode prefix and the following label or expression.
 
 #### DATA Directives
 
@@ -156,12 +158,13 @@ Expressions are by far the most complex part of the IAL definition. The simpler 
 
 IAL's syntax is based on the [proposed assembly syntax on the Intcode page on Esolangs.org][proposed-syntax], and is intended to be a fully-compatible superset of that proposed syntax.
 
-That said, there are a few extensions to that syntax that IAL supports, and while it was the original basis, IAL aims to be more flexible and user-friendly than the proposal it's based on:
+That said, there are a few extensions to that syntax that IAL supports, as IAL aims to be more flexible and user-friendly than the proposal it's based on:
 
 * IAL supports comments, as documented [above](#comments)
 * Instruction mnemonics are parsed in a case-insensitive manner
 * The ASCII directive is defined
 * Character literals are supported
+* The extension mentioned in the [propsed syntax][proposed-syntax] for adding labels to parameters is supported
 
 One major difference: In 3 cases, the name for an opcode I'd used in my interpreter implementation and the proposed mnemonics differed - in those cases, both my names ("LT", "EQ", and "RBO") and the proposed names ("SLT", "SEQ", and "INCB") are supported, though my name is treated as the "canonical" representation within the code.
 
