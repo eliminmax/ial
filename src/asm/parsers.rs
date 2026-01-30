@@ -4,7 +4,6 @@
 
 use super::ast_prelude::*;
 use chumsky::prelude::*;
-use chumsky::text::Char;
 
 macro_rules! padded {
     ($inner: expr) => {{ $inner.padded_by(text::inline_whitespace()) }};
@@ -295,14 +294,26 @@ fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, R
     .as_context()
 }
 
-fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
-    padded!(labels().then(directive()))
-        .map(|(labels, directive)| Line { labels, directive })
-        .then_ignore(
-            (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
+fn comment<'a>() -> impl Parser<'a, &'a str, Option<Spanned<&'a str>>, RichErr<'a>> {
+    text::inline_whitespace()
+        .ignore_then(
+            just(';')
+                .then(any().and_is(just('\n').not()).repeated())
+                .to_slice()
+                .spanned()
                 .labelled("comment")
-                .or_not(),
+                .as_context(),
         )
+        .or_not()
+}
+
+fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
+    padded!(group((labels(), directive(), comment())))
+        .map(|(labels, directive, comment)| Line {
+            labels,
+            directive,
+            comment,
+        })
         .labelled("line")
 }
 
@@ -327,7 +338,8 @@ mod ast_tests {
             line().parse("").unwrap(),
             Line {
                 labels: vec![],
-                directive: None
+                directive: None,
+                comment: None,
             }
         );
     }
@@ -362,6 +374,7 @@ mod ast_tests {
             Line {
                 labels: vec![l!("foo", 0..3), l!("bar", 4..7), l!("baz", 9..12)],
                 directive: Some(span(Directive::Data(vec![span(expr!(0), 18..19)]), 13..19)),
+                comment: None,
             }
         );
     }

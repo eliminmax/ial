@@ -87,7 +87,8 @@
 //!                 }),
 //!             ),
 //!         )))
-//!     })
+//!     }),
+//!     comment: None,
 //! }];
 //!
 //! assert_eq!(ast, expected);
@@ -109,7 +110,8 @@
 //!             param!(#<expr!(idle_loop);>[18..28])
 //!         ))),
 //!         11..28
-//!     ))
+//!     )),
+//!     comment: None,
 //! }];
 //!
 //! assert_eq!(ast, expected);
@@ -605,16 +607,6 @@ pub enum Directive<'a> {
     Instruction(Box<Instr<'a>>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
-/// A single line of assembly, containing an optional label, an optional directive, and an optional
-/// comment - the last of which is not stored.
-pub struct Line<'a> {
-    /// the labels for the line
-    pub labels: Vec<Label<'a>>,
-    /// the directive for the line, if applicable
-    pub directive: Option<Spanned<Directive<'a>>>,
-}
-
 impl Directive<'_> {
     /// Return the number of integers that this [`Directive`] will resolve to.
     ///
@@ -636,6 +628,18 @@ impl Directive<'_> {
             Directive::Instruction(_) => DirectiveKind::Instruction,
         }
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+/// A single line of assembly, containing any number of labels, an optional directive, and an
+/// optional comment
+pub struct Line<'a> {
+    /// the labels for the line
+    pub labels: Vec<Label<'a>>,
+    /// the directive for the line, if applicable
+    pub directive: Option<Spanned<Directive<'a>>>,
+    /// the Line's comment
+    pub comment: Option<Spanned<&'a str>>,
 }
 
 impl<'a> Line<'a> {
@@ -677,6 +681,21 @@ impl<'a> Line<'a> {
             }
         }
         Ok(())
+    }
+}
+
+impl Line<'_> {
+    /// Check if line is empty
+    ///
+    /// Returns `false` unless [`labels`] is empty, and both [`directive`] and [`comment`] are
+    /// [`None`].
+    ///
+    /// [`labels`]: Line::labels
+    /// [`directive`]: Line::directive
+    /// [`comment`]: Line::comment
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty() && self.directive.is_none() && self.comment.is_none()
     }
 }
 
@@ -870,7 +889,11 @@ pub fn assemble_with_debug(
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));
 ///
 /// let ast = vec![
-///     Line { labels: vec![], directive: Some(Spanned { inner, span: SimpleSpan::default() }) }
+///     Line {
+///         labels: vec![],
+///         directive: Some(Spanned { inner, span: SimpleSpan::default() }),
+///         comment: None,
+///     }
 /// ];
 ///
 /// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);
