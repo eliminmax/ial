@@ -717,22 +717,56 @@ fn assemble_inner<'a>(
     let mut labels: HashMap<&'a str, (i64, SimpleSpan)> = HashMap::new();
     let mut index = 0;
     let mut directives = Vec::new();
+
+    let mut add_label =
+        |label: &'a str, index, span: SimpleSpan| -> Result<(), AssemblyError<'a>> {
+            if let Some((_, old_span)) = labels.insert(label, (index, span)) {
+                Err(AssemblyError::DuplicateLabel {
+                    label,
+                    spans: [old_span, span],
+                })
+            } else {
+                Ok(())
+            }
+        };
+
     for line in &code {
         for Label(Spanned { inner: label, span }) in &line.labels {
-            if let Some((_, old_span)) = labels.insert(*label, (index, *span)) {
-                return Err(AssemblyError::DuplicateLabel {
-                    label,
-                    spans: [old_span, *span],
-                });
-            }
+            add_label(label, index, *span)?;
         }
-        if let Some(inner) = line.directive.as_ref() {
-            index += inner
+        if let Some(directive) = line.directive.as_ref() {
+            index += directive
                 .size()
                 .map_err(|size| AssemblyError::DirectiveTooLarge {
                     size,
-                    span: inner.span,
+                    span: directive.span,
                 })?;
+
+            if let Directive::Instruction(instr) = &directive.inner {
+                macro_rules! add_param_labels {
+                    ($param: ident, $offset: literal) => {{
+                        for label in &$param.1.labels {
+                            add_label(label.0.inner, index + $offset, label.0.span)?;
+                        }
+                    }};
+                }
+                match instr.as_ref() {
+                    Instr::Add(a, b, c)
+                    | Instr::Mul(a, b, c)
+                    | Instr::Lt(a, b, c)
+                    | Instr::Eq(a, b, c) => {
+                        add_param_labels!(a, 1);
+                        add_param_labels!(b, 2);
+                        add_param_labels!(c, 3);
+                    }
+                    Instr::Jnz(a, b) | Instr::Jz(a, b) => {
+                        add_param_labels!(a, 1);
+                        add_param_labels!(b, 2);
+                    }
+                    Instr::In(a) | Instr::Out(a) | Instr::Rbo(a) => add_param_labels!(a, 1),
+                    Instr::Halt => (),
+                }
+            }
         }
     }
 
