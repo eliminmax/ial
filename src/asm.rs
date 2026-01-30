@@ -304,7 +304,9 @@ impl<'a> Expr<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// A simple tuple struct containing the parameter mode and the expression for the parameter
+/// A simple tuple struct containing the parameter mode, labels, and expression for the parameter
+///
+/// The labels and expression are stored as an [`OuterExpr`]
 pub struct Parameter<'a>(pub ParamMode, pub Box<OuterExpr<'a>>);
 
 impl Parameter<'_> {
