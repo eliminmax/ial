@@ -84,7 +84,7 @@ impl Display for Line<'_> {
         for Spanned { inner, .. } in &self.labels {
             write!(f, "{inner}:\t")?;
         }
-        if let Some(Spanned { inner, .. }) = &self.inner {
+        if let Some(Spanned { inner, .. }) = &self.directive {
             write!(f, "{inner}")?;
         }
         Ok(())

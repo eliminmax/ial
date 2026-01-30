@@ -574,7 +574,7 @@ pub struct Line<'a> {
     /// the labels for the line
     pub labels: Vec<Spanned<&'a str>>,
     /// the directive for the line, if applicable
-    pub inner: Option<Spanned<Directive<'a>>>,
+    pub directive: Option<Spanned<Directive<'a>>>,
 }
 
 impl Directive<'_> {
@@ -614,7 +614,7 @@ impl<'a> Line<'a> {
         v: &mut Vec<i64>,
         labels: &HashMap<&'a str, i64>,
     ) -> Result<(), AssemblyError<'a>> {
-        if let Some(Spanned { inner, .. }) = self.inner {
+        if let Some(Spanned { inner, .. }) = self.directive {
             match inner {
                 Directive::Data(exprs) => {
                     for expr in exprs {
@@ -683,7 +683,7 @@ fn assemble_inner<'a>(
                 });
             }
         }
-        if let Some(inner) = line.inner.as_ref() {
+        if let Some(inner) = line.directive.as_ref() {
             index += inner
                 .size()
                 .map_err(|size| AssemblyError::DirectiveTooLarge {
@@ -710,7 +710,7 @@ fn assemble_inner<'a>(
 
     for line in code {
         if generate_debug {
-            if let Some(spanned) = line.inner.as_ref() {
+            if let Some(spanned) = line.directive.as_ref() {
                 let kind = spanned.inner.dtype();
                 let src_span = spanned.span;
                 let start = v.len();

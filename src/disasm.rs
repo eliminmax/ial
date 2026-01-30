@@ -190,7 +190,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
             };
             lines.push(Line {
                 labels: vec![],
-                inner: Some(span(Directive::Instruction(boxed(instr)), 0..0)),
+                directive: Some(span(Directive::Instruction(boxed(instr)), 0..0)),
             });
         } else {
             let mut data = vec![span(Expr::Number(i), 0..0)];
@@ -209,7 +209,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
             }
             lines.push(Line {
                 labels: vec![],
-                inner: Some(span(Directive::Data(data), 0..0)),
+                directive: Some(span(Directive::Data(data), 0..0)),
             });
         }
     }

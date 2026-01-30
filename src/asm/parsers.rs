@@ -284,9 +284,9 @@ fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
         .repeated()
         .collect()
         .then(directive())
-        .map(|(label, inner)| Line {
+        .map(|(label, directive)| Line {
             labels: label,
-            inner,
+            directive,
         })
         .then_ignore(
             (padded!(just(';')).then((any().filter(|c: &char| !c.is_newline())).repeated()))
@@ -317,7 +317,7 @@ mod ast_tests {
             line().parse("").unwrap(),
             Line {
                 labels: vec![],
-                inner: None
+                directive: None
             }
         );
     }
@@ -348,7 +348,7 @@ mod ast_tests {
             line().parse("foo:bar: baz:DATA 0").unwrap(),
             Line {
                 labels: vec![span("foo", 0..3), span("bar", 4..7), span("baz", 9..12)],
-                inner: Some(span(Directive::Data(vec![span(expr!(0), 18..19)]), 13..19)),
+                directive: Some(span(Directive::Data(vec![span(expr!(0), 18..19)]), 13..19)),
             }
         );
     }

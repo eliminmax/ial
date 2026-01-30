@@ -52,7 +52,7 @@ fn ast_instruction_counts() {
 
     let ast_matches = ast()
         .iter()
-        .filter_map(|line| line.inner.as_ref())
+        .filter_map(|line| line.directive.as_ref())
         .map(|directive| match &directive.inner {
             Directive::Instruction(i) => match i.as_ref() {
                 Instr::Add(..) => "ADD",
