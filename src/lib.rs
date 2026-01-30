@@ -3,12 +3,20 @@
 // SPDX-License-Identifier: 0BSD
 #![warn(missing_docs)]
 
-//! Library providing an Intcode interpreter and optional assembly language
+//! Library for working with Intcode and an Intcode assembly language
 //!
-//! The interpreter is fully functional, with all of the [Opcodes] and [Parameter Modes] defined in
-//! the completed Intcode computer for [Day 9].
+//! This library provides a few different parts to it:
 //!
-//! # Example
+//! # Intcode Interpreter
+//!
+//! [`Interpreter`] is a fully-functional Intcode interpreter, with a design and API derived from
+//! the author's [Advent of Code solutions](https://github.com/eliminmax/advent-of-code), cleaned
+//! up and made more generally usable. It uses [`i64`] as the type of Intcode integers, and some
+//! select Advent of Code solutions using it can be found in this crate's [examples], though the
+//! actual Intcode programs are not included, to comply with the restrictions on sharing Advent of
+//! Code inputs.
+//!
+//! ## Interpreter Example
 //!
 //! ```rust
 //! use ial::prelude::*;
@@ -20,12 +28,66 @@
 //! );
 //! ```
 //!
-//! Additionally, the [asm] module provides tools to work with a minimal assembly language for
-//! Intcode, and the [disasm] module provides a disassembler function.
+//! # Intcode Assembly Language (IAL)
 //!
-//! [Opcodes]: https://esolangs.org/wiki/Intcode#Opcodes
-//! [Parameter Modes]: https://esolangs.org/wiki/Intcode#Parameter_Modes
-//! [Day 9]: https://adventofcode.com/2019/day/9
+//! The [`asm`] module defines an Abstract Syntax Tree for IAL and provides functions to build that
+//! AST from source code, and assemble it into a [`Vec<i64>`], ready for use in an [`Interpreter`].
+//!
+//! ## Basic IAL Example
+//!
+//! ```rust
+//! use ial::asm::assemble;
+//! let intcode = assemble("OUT #1024\nHALT").unwrap();
+//! assert_eq!(intcode, vec![104, 1024, 99]);
+//! ```
+//!
+//! For examples working with the AST, see [the `asm` module docs][asm].
+//!
+//! # Intcode Disassembler
+//!
+//! The [`disasm`] module provides a function to disassemble intcode into IAL, though it has some
+//! limits; see [`disasm::disassemble` § caveats] for details.
+//!
+//! ## Basic Disassembler Example
+//!
+//! ```rust
+//! use ial::disasm::disassemble;
+//! let disassembly = disassemble([104, 1024, 99]);
+//! assert_eq!(&disassembly, "OUT #1024\nHALT\n");
+//! ```
+//!
+//! # [`DebugInfo`]
+//!
+//! The [`debug_info`] module defines a [`DebugInfo`] struct that can be passed to an
+//! [`Interpreter`] to diagnose issues, with [`Interpreter::write_diagnostic`], and can be used to
+//! disassemble with more accuracy than [`disasm::disassemble`].
+//!
+//! ## Example: using [`DebugInfo`] for more accurate disassembly
+//!
+//! Comparsion between [`debug_info::DebugInfo::disassemble`] and [`disasm::disassemble`]:
+//!
+//! ```rust
+//! use ial::asm::{build_ast, assemble_with_debug};
+//! use ial::disasm::disassemble;
+//! let ial = r#"; Just because you can write IAL like this, doesn't mean you should!
+//! ASCII "h"  ; ASCII 'h' is 104
+//! DATA 32 * ('!' / 8 * 2 * (2 + 2)), 999 / 10 ; ASCII '!' is 33; 999/10 truncates to 99"#;
+//! let ast = build_ast(ial).unwrap();
+//! let (intcode, debug_info) = assemble_with_debug(ast).unwrap();
+//!
+//! // Because `disassemble` doesn't have access to the debug info, it can't tell that it was
+//! // actually an abomination, and because it sees valid instructions, it disassembles to them.
+//! let default_disasm = disassemble(intcode.clone());
+//! assert_eq!(&default_disasm, "OUT #1024\nHALT\n");
+//!
+//! // It isn't identical, but using the debug info at least matches directive types:
+//! let debug_info_disasm = debug_info.disassemble(intcode).unwrap();
+//! assert_eq!(&debug_info_disasm, "ASCII \"h\"\nDATA 1024, 99\n")
+//! ```
+//!
+//! [examples]: <https://github.com/eliminmax/ial/tree/main/examples>
+//! [`disasm::disassemble` § caveats]: disasm::disassemble#caveats
+//! [`DebugInfo`]: debug_info::DebugInfo
 
 /// A module implementing internal logic that doesn't fit cleanly into the module hierarchy
 mod internals;
