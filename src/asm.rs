@@ -257,6 +257,7 @@ pub enum Expr<'a> {
 
 /// An error that occured while trying to generate the intcode from the AST.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum AssemblyError<'a> {
     /// An expresison used a label that could not be resolved
     UnresolvedLabel {
