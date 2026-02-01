@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+use crate::asm::SingleByteSpan;
+
 use super::ast_prelude::*;
 use chumsky::prelude::*;
 
@@ -154,6 +156,10 @@ fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clon
                 start: lhs.span.start,
                 end: rhs.span.end,
                 context: (),
+            };
+            let op = Spanned {
+                inner: op.inner,
+                span: SingleByteSpan(op.span.start),
             };
             let inner = Expr::BinOp {
                 lhs: Box::new(lhs),
@@ -461,7 +467,7 @@ mod ast_tests {
         expr_test!(
             "1 + 1",
             expr!(
-                expr!(1);[0..1] +[2..3] expr!(1);[4..5]
+                expr!(1);[0..1] +[2] expr!(1);[4..5]
             )
         );
 
@@ -469,9 +475,9 @@ mod ast_tests {
             "1 * 1 + 1",
             expr!(
                 expr!(
-                    expr!(1);[0..1] *[2..3] expr!(1);[4..5]
+                    expr!(1);[0..1] *[2] expr!(1);[4..5]
                 );[0..5]
-                +[6..7]
+                +[6]
                 expr!(1);[8..9]
             )
         );
@@ -483,7 +489,7 @@ mod ast_tests {
             expr!((
                 expr!(
                     expr!(1);[1..2]
-                    +[3..4]
+                    +[3]
                     expr!(
                         +expr!(
                             - expr!(e);[7..8]
@@ -491,7 +497,7 @@ mod ast_tests {
                     );[5..8]
                 );[1..8]
             ));[0..9]
-            -[10..11]
+            -[10]
             expr!(1);[12..13]
         );
         expr_test!("(1 + +-e) - 1", expected);

@@ -47,10 +47,10 @@ pub use crate::param;
 ///     Expr::Negate(boxed(span(Expr::Ident("e"), 1..2)))
 /// );
 /// assert_eq!(
-///     expr!(expr!(1);[0..1] +[2..3] expr!(1);[4..5]),
+///     expr!(expr!(1);[0..1] +[2] expr!(1);[4..5]),
 ///     Expr::BinOp {
 ///         lhs: boxed(span(Expr::Number(1), 0..1)),
-///         op: span(BinOperator::Add, 2..3),
+///         op: Spanned { inner: BinOperator::Add, span: SingleByteSpan(2) },
 ///         rhs: boxed(span(Expr::Number(1), 4..5)),
 ///     }
 /// );
@@ -78,7 +78,7 @@ macro_rules! expr {
             ::std::boxed::Box::new($crate::asm::ast_util::span($e, $span))
         )
     }};
-    ($l:expr;[$span_l:expr] $op:tt[$span_op:expr] $r:expr;[$span_r:expr]) => {{
+    ($l:expr;[$span_l:expr] $op:tt[$op_index:expr] $r:expr;[$span_r:expr]) => {{
         macro_rules! op {
             [+] => {{ $crate::asm::BinOperator::Add }};
             [-] => {{ $crate::asm::BinOperator::Sub }};
@@ -87,7 +87,10 @@ macro_rules! expr {
         }
         $crate::asm::Expr::BinOp {
             lhs: ::std::boxed::Box::new($crate::asm::ast_util::span($l, $span_l)),
-            op: $crate::asm::ast_util::span(op![$op], $span_op),
+            op: ::chumsky::span::Spanned {
+                inner: op![$op],
+                span: $crate::asm::SingleByteSpan($op_index)
+            },
             rhs: ::std::boxed::Box::new($crate::asm::ast_util::span($r, $span_r)),
         }
     }};

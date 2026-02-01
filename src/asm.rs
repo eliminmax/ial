@@ -125,8 +125,10 @@
 use crate::debug_info::{DebugInfo, DirectiveDebug, DirectiveKind};
 use ast_prelude::*;
 use chumsky::error::Rich;
+use chumsky::span::Span;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::ops::Range;
 
 mod display_impls;
 mod parsers;
@@ -136,8 +138,8 @@ pub mod ast_prelude {
     pub use super::ast_util;
     pub use crate::{ParamMode, asm};
     pub use asm::{
-        BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, assemble,
-        assemble_ast, build_ast,
+        BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, SingleByteSpan,
+        assemble, assemble_ast, build_ast,
     };
     pub use chumsky::span::{SimpleSpan, Spanned};
 }
@@ -172,6 +174,39 @@ impl BinOperator {
             BinOperator::Mul => a * b,
             BinOperator::Div => a / b,
         }
+    }
+}
+
+#[repr(transparent)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+/// A [`usize`] newtype that implements [`Span`], for when something is always 1 byte
+pub struct SingleByteSpan(pub usize);
+
+impl Span for SingleByteSpan {
+    type Context = ();
+
+    type Offset = usize;
+
+    fn new((): (), range: Range<Self::Offset>) -> Self {
+        assert_eq!(
+            range.start,
+            range.end - 1,
+            "SingleByteSpan range length must be 1"
+        );
+        Self(range.start)
+    }
+
+    #[inline]
+    fn context(&self) {}
+
+    #[inline]
+    fn start(&self) -> Self::Offset {
+        self.0
+    }
+
+    #[inline]
+    fn end(&self) -> Self::Offset {
+        self.0
     }
 }
 
@@ -238,7 +273,7 @@ pub enum Expr<'a> {
         /// the left-hand-side expression
         lhs: Box<Spanned<Expr<'a>>>,
         /// the operation to perform
-        op: Spanned<BinOperator>,
+        op: Spanned<BinOperator, SingleByteSpan>,
         /// the right-hand-side expression
         rhs: Box<Spanned<Expr<'a>>>,
     },
