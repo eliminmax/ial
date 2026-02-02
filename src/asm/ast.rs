@@ -16,7 +16,6 @@ pub mod util;
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod prelude {
-    pub use super::util as ast_util;
     pub use super::{
         BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, SingleByteSpan,
     };
