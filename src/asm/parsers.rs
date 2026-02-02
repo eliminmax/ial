@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use crate::asm::SingleByteSpan;
+use crate::asm::ast::SingleByteSpan;
 
-use super::ast_prelude::*;
+use super::ast::prelude::*;
 use chumsky::prelude::*;
 
 macro_rules! padded {
@@ -336,7 +336,7 @@ mod ast_tests {
     // SPDX-License-Identifier: 0BSD
 
     use super::*;
-    use crate::asm::ast_util::*;
+    use crate::asm::ast::util::*;
 
     #[test]
     fn parse_blank_line() {

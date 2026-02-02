@@ -389,7 +389,7 @@ impl From<UnknownMode> for InterpreterError {
 /// An Intcode `OpCode`
 ///
 /// For explanations of the specific opcodes and their meaning, either go through Advent of Code
-/// 2019, or see [`asm::Instr`].
+/// 2019, or see [`asm::ast::Instr`].
 #[allow(missing_docs, reason = "trivial")]
 pub enum OpCode {
     Add = 1,

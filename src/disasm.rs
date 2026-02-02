@@ -6,8 +6,8 @@
 //!
 //! See [disassemble] for documentation
 
-use super::asm::ast_prelude::*;
-use super::asm::ast_util::boxed;
+use super::asm::ast::prelude::*;
+use super::asm::ast::util::boxed;
 use super::{Interpreter, OpCode};
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -128,9 +128,9 @@ use std::fmt::Write;
 /// assert_eq!(outcome, StepOutcome::Stopped(State::Halted));
 /// ```
 ///
-/// [`DATA` directive]: super::asm::Directive::Data
-/// [`DATA` directives]: super::asm::Directive::Data
-/// [instruction]: super::asm::Instr
+/// [`DATA` directive]: super::asm::ast::Directive::Data
+/// [`DATA` directives]: super::asm::ast::Directive::Data
+/// [instruction]: super::asm::ast::Instr
 /// [self-modifying]: <#self-modifying-code>
 /// [Naïve Approach to Ambiguity]: <#naïve-approach-to-ambiguity>
 /// [^naive]: See [Naïve Approach to Ambiguity] and [self-modifying]
@@ -231,7 +231,7 @@ pub enum DebugInfoError {
     CorruptDirectiveSize,
     /// A [directive] from the [`DebugInfo`]
     ///
-    /// [directive]: crate::asm::Directive
+    /// [directive]: crate::asm::ast::Directive
     DirectiveTooLarge(usize),
 }
 impl Display for DebugInfoError {

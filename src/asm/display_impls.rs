@@ -3,9 +3,8 @@
 
 use chumsky::span::Spanned;
 
-use super::{
-    AssemblyError, BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
-};
+use super::AssemblyError;
+use super::ast::{BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter};
 
 use std::fmt::{self, Display};
 

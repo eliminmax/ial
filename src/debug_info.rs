@@ -39,7 +39,7 @@ pub struct DebugInfo {
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of a [Directive]
 ///
-/// [Directive]: crate::asm::Directive
+/// [Directive]: crate::asm::ast::Directive
 #[allow(missing_docs, reason = "trivial")]
 pub enum DirectiveKind {
     Instruction = 0,

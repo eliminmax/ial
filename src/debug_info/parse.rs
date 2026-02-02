@@ -70,7 +70,7 @@
 //! [Reading a Label]: <#reading-a-label>
 
 use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
-use crate::asm::ast_util::span;
+use crate::asm::ast::util::span;
 use chumsky::text::Char;
 use std::io::{self, BufRead, Read, Write};
 
