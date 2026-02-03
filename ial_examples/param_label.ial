@@ -1,0 +1,8 @@
+; SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
+;
+; SPDX-License-Identifier: 0BSD
+
+; sets output value to ASCII '1' using its label
+ADD #'0', #1, out_param
+OUT #out_param: -1
+HALT
