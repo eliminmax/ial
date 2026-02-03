@@ -4,29 +4,13 @@
 
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use ial::asm::{AssemblyError, assemble_ast, assemble_with_debug, build_ast};
 use ial::bin_helpers::BinaryFormat;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-
-#[derive(PartialEq, Clone, ValueEnum)]
-enum OutputFormat {
-    /// comma-separated ASCII-encoded decimal numbers
-    #[value(alias("text"))]
-    #[value(alias("aoc"))]
-    Ascii,
-    /// little-endian 64-bit integers
-    #[cfg_attr(target_endian = "little", value(alias("binary-native")))]
-    #[value(name("binary-little-endian"), alias("binle"))]
-    LittleEndian,
-    #[cfg_attr(target_endian = "big", value(alias("binary-native")))]
-    #[value(name("binary-big-endian"), alias("binbe"))]
-    /// big-endian 64-bit integers
-    BigEndian,
-}
 
 fn output_with_format<W: Write>(
     format: BinaryFormat,
