@@ -261,8 +261,8 @@ fn assemble_inner<'a>(
             if let Directive::Instruction(instr) = &directive.inner {
                 macro_rules! add_param_labels {
                     ($param: ident, $offset: literal) => {{
-                        for label in &$param.1.labels {
-                            add_label(label.0.inner, index + $offset, label.0.span)?;
+                        for &Label(Spanned { inner: label, span }) in &$param.1.labels {
+                            add_label(label, index + $offset, span)?;
                         }
                     }};
                 }
