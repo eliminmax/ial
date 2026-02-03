@@ -258,13 +258,6 @@ fn assemble_inner<'a>(
             add_label(label, index, *span)?;
         }
         if let Some(directive) = line.directive.as_ref() {
-            index += directive
-                .size()
-                .map_err(|size| AssemblyError::DirectiveTooLarge {
-                    size,
-                    span: directive.span,
-                })?;
-
             if let Directive::Instruction(instr) = &directive.inner {
                 macro_rules! add_param_labels {
                     ($param: ident, $offset: literal) => {{
@@ -290,6 +283,13 @@ fn assemble_inner<'a>(
                     Instr::Halt => (),
                 }
             }
+
+            index += directive
+                .size()
+                .map_err(|size| AssemblyError::DirectiveTooLarge {
+                    size,
+                    span: directive.span,
+                })?;
         }
     }
 
