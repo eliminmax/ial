@@ -242,7 +242,7 @@ fn assemble_inner<'a>(
     let mut directives = Vec::new();
 
     let mut add_label =
-        |label: &'a str, index, span: SimpleSpan| -> Result<(), AssemblyError<'a>> {
+        |label: &'a str, index: i64, span: SimpleSpan| -> Result<(), AssemblyError<'a>> {
             if let Some((_, old_span)) = labels.insert(label, (index, span)) {
                 Err(AssemblyError::DuplicateLabel {
                     label,
