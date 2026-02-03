@@ -129,10 +129,9 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 mod display_impls;
-mod parsers;
 
 pub mod ast;
-use ast::{Directive, Instr, Label, Line};
+use ast::{Directive, Instr, Label, Line, parsers};
 
 /// An error that occured while trying to assemble the AST into Intcode
 #[derive(Debug)]

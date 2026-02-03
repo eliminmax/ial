@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use crate::asm::ast::SingleByteSpan;
+use super::SingleByteSpan;
 
-use super::ast::prelude::*;
+use super::prelude::*;
 use chumsky::prelude::*;
 
 macro_rules! padded {
@@ -323,7 +323,7 @@ fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
         .labelled("line")
 }
 
-pub(super) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
+pub(in crate::asm) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     line()
         .separated_by(just("\n").labelled("newline"))
         .collect()

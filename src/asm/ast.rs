@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 use util::unspan;
 
+pub(super) mod parsers;
 pub mod util;
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
