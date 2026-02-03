@@ -57,7 +57,7 @@ impl Span for SingleByteSpan {
     }
 }
 
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, Clone, PartialEq)]
 /// A binary operatior within an [`Expr::BinOp`]
 pub enum BinOperator {
@@ -87,7 +87,7 @@ impl BinOperator {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 /// An assembler expression, evaluated into a number when assembling
 ///
 /// Expressions must be fully resolvable when assembling, and cannot depend on the assembled code.
@@ -302,7 +302,7 @@ impl Line<'_> {
     }
 }
 
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, PartialEq, Clone)]
 /// The directive of a line
 ///

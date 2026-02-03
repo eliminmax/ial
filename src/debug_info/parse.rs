@@ -407,7 +407,7 @@ impl DebugInfo {
     }
 }
 
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug)]
 /// An error that occored while trying to read [`DebugInfo`] from its opaque on-disk format
 pub enum DebugInfoReadError {

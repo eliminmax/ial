@@ -23,7 +23,7 @@ pub struct DirectiveDebug {
     pub output_span: SimpleSpan,
 }
 
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, PartialEq)]
 /// Debug info generated when assembling source code with [`assemble_with_debug`]
 ///
@@ -35,7 +35,7 @@ pub struct DebugInfo {
     pub directives: Box<[DirectiveDebug]>,
 }
 
-#[non_exhaustive]
+#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of a [Directive]
 ///
