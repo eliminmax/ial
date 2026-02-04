@@ -26,7 +26,7 @@ impl Display for Expr<'_> {
             Expr::AsciiChar(c) => write!(f, "'{}'", c.escape_ascii()),
             Expr::Ident(id) => write!(f, "{id}"),
             Expr::BinOp { lhs, op, rhs } => {
-                write!(f, "{} {} {}", lhs.inner, op.inner, rhs.inner,)
+                write!(f, "{} {} {}", lhs.inner, op.inner, rhs.inner)
             }
             Expr::Negate(e) => write!(f, "-{}", e.inner),
             Expr::UnaryAdd(e) => write!(f, "+{}", e.inner),

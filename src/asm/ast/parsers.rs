@@ -349,7 +349,7 @@ mod ast_tests {
 
     #[test]
     fn parse_char_literal() {
-        assert_eq!(expr().parse("'0'").unwrap(), span(expr!(:b'0'), 0..3),);
+        assert_eq!(expr().parse("'0'").unwrap(), span(expr!(:b'0'), 0..3));
     }
 
     #[test]
