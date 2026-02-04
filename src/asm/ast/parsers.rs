@@ -348,6 +348,37 @@ mod ast_tests {
     }
 
     #[test]
+    fn parse_whitespace_only_line() {
+        assert_eq!(
+            line().parse("\t  \t  \t  \t  \t").unwrap(),
+            Line {
+                labels: vec![],
+                directive: None,
+                comment: None,
+            }
+        );
+    }
+
+    #[test]
+    fn unbalanced_parens() {
+        assert!(expr().parse("(").has_errors());
+        assert!(expr().parse(")").has_errors());
+        assert!(expr().parse(")(").has_errors());
+    }
+
+    #[test]
+    fn indendet_comment() {
+        assert_eq!(
+            line().parse("    ; comment").unwrap(),
+            Line {
+                labels: vec![],
+                directive: None,
+                comment: Some(span("; comment", 4..13)),
+            }
+        );
+    }
+
+    #[test]
     fn parse_char_literal() {
         assert_eq!(expr().parse("'0'").unwrap(), span(expr!(:b'0'), 0..3));
     }
