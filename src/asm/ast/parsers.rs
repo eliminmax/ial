@@ -331,9 +331,6 @@ pub(in crate::asm) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, R
 
 #[cfg(test)]
 mod ast_tests {
-    // SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
-    //
-    // SPDX-License-Identifier: 0BSD
 
     use super::*;
     use crate::asm::ast::util::*;
