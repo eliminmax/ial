@@ -48,7 +48,7 @@ fn outer_expr<'a>() -> impl Parser<'a, &'a str, OuterExpr<'a>, RichErr<'a>> {
 fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
     text::ident()
         .spanned()
-        .then_ignore(just(":"))
+        .then_ignore(just(':'))
         .map(Label)
         .labelled("label")
         .as_context()
@@ -325,7 +325,7 @@ fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
 
 pub(in crate::asm) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     line()
-        .separated_by(just("\n").labelled("newline"))
+        .separated_by(just('\n').labelled("newline"))
         .collect()
 }
 
