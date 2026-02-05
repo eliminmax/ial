@@ -109,7 +109,7 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
         op!("SEQ", Eq::<3>),
         op!("RBO", Rbo::<1>),
         op!("INCB", Rbo::<1>),
-        just("HALT").to(Instr::Halt).labelled("HALT"),
+        mnemonic("HALT").to(Instr::Halt).labelled("HALT"),
     )))
     .labelled("instruction")
     .as_context()
@@ -281,12 +281,12 @@ fn ascii_string<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>>
 fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, RichErr<'a>> {
     padded!(
         choice((
-            with_sep!(just("DATA"))
+            with_sep!(mnemonic("DATA"))
                 .ignore_then(expr().separated_by(comma_delimiter()).collect())
                 .map(Directive::Data)
                 .labelled("data directive")
                 .as_context(),
-            with_sep!(just("ASCII"))
+            with_sep!(mnemonic("ASCII"))
                 .ignore_then(ascii_string())
                 .map(Directive::Ascii)
                 .labelled("ASCII directive")
