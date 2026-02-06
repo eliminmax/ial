@@ -159,6 +159,15 @@ pub enum AssemblyError<'a> {
         /// The span within the input of the directive
         span: SimpleSpan,
     },
+    /// A divison expression's right-hand side evaluated to zero
+    DivisionByZero {
+        /// The left-hand side of the expression
+        lhs_span: SimpleSpan,
+        /// The index of the division operator in the source
+        div_index: usize,
+        /// The right-hand side of the expression
+        rhs_span: SimpleSpan,
+    },
 }
 
 /// A cheap iterator that uses a fixed amount of stack space for up to four `T`

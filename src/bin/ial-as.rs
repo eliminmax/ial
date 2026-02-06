@@ -149,13 +149,28 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
                             "This directive's output size is {}",
                             size.fg(Color::Cyan)
                         ))
-                        .with_message(format!(
-                            "The maximum size possible is {}",
-                            i64::MAX.fg(Color::Yellow)
-                        ))
                         .with_color(Color::Red),
                 )
+                .with_note(format!(
+                    "The maximum directive size possible is {} ({})",
+                    "2^63 - 1".fg(Color::Yellow),
+                    i64::MAX.fg(Color::Yellow)
+                ))
         }
+        AssemblyError::DivisionByZero {
+            lhs_span,
+            div_index,
+            rhs_span,
+        } => Report::build(ReportKind::Error, (file, lhs_span.start..rhs_span.end))
+            .with_message("Division by zero")
+            .with_label(
+                Label::new((file, lhs_span.start..*div_index + 1)).with_color(Color::Yellow),
+            )
+            .with_label(
+                Label::new((file, rhs_span.into_range()))
+                    .with_message("This expression evaluates to 0")
+                    .with_color(Color::Red),
+            ),
     }
     .finish()
     .eprint((file, Source::from(source)))

@@ -76,7 +76,7 @@ pub enum BinOperator {
 }
 
 impl BinOperator {
-    pub(super) const fn apply(self, a: i64, b: i64) -> i64 {
+    pub(super) const fn apply(&self, a: i64, b: i64) -> i64 {
         match self {
             BinOperator::Add => a + b,
             BinOperator::Sub => a - b,
@@ -172,19 +172,62 @@ impl<'a> Expr<'a> {
     /// # Errors
     ///
     /// If a label can't be found within `labels`, it will return that label as an Err value
-    pub fn resolve(self, labels: &HashMap<&'a str, i64>) -> Result<i64, &'a str> {
-        macro_rules! inner {
-            ($i: ident) => {
-                $i.inner.resolve(labels)?
-            };
-        }
+    pub fn resolve(&self, labels: &HashMap<&'a str, i64>) -> Result<i64, ExprResolutionError<'a>> {
         match self {
-            Expr::Number(n) => Ok(n),
-            Expr::AsciiChar(c) => Ok(i64::from(c)),
-            Expr::Ident(s) => labels.get(s).copied().ok_or(s),
-            Expr::BinOp { lhs, op, rhs } => Ok(op.inner.apply(inner!(lhs), inner!(rhs))),
-            Expr::Negate(expr) => Ok(-inner!(expr)),
-            Expr::UnaryAdd(expr) | Expr::Parenthesized(expr) => Ok(inner!(expr)),
+            Expr::Number(n) => Ok(*n),
+            Expr::AsciiChar(c) => Ok(i64::from(*c)),
+            Expr::Ident(s) => labels
+                .get(s)
+                .copied()
+                .ok_or(ExprResolutionError::UnresolvedLabel(s)),
+            Expr::BinOp { lhs, op, rhs } => {
+                if **op == BinOperator::Div && rhs.resolve(labels)? == 0 {
+                    Err(ExprResolutionError::DivisionByZero {
+                        lhs_span: lhs.span,
+                        div_index: op.span.0,
+                        rhs_span: rhs.span,
+                    })
+                } else {
+                    Ok(op.apply(lhs.resolve(labels)?, rhs.resolve(labels)?))
+                }
+            }
+            Expr::Negate(expr) => Ok(-expr.resolve(labels)?),
+            Expr::UnaryAdd(expr) | Expr::Parenthesized(expr) => Ok(expr.resolve(labels)?),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+/// An error occurred resolving an expression to a concrete value
+pub enum ExprResolutionError<'a> {
+    /// The contained identifer could not be resolved into a concrete label
+    UnresolvedLabel(&'a str),
+    /// A divison expression's right-hand side evaluated to zero
+    DivisionByZero {
+        /// The left-hand side of the expression
+        lhs_span: SimpleSpan,
+        /// The index of the division operator in the source
+        div_index: usize,
+        /// The right-hand side of the expression
+        rhs_span: SimpleSpan,
+    },
+}
+
+impl<'a> ExprResolutionError<'a> {
+    fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
+        match self {
+            ExprResolutionError::UnresolvedLabel(label) => {
+                AssemblyError::UnresolvedLabel { label, span }
+            }
+            ExprResolutionError::DivisionByZero {
+                lhs_span,
+                div_index,
+                rhs_span,
+            } => AssemblyError::DivisionByZero {
+                lhs_span,
+                div_index,
+                rhs_span,
+            },
         }
     }
 }
@@ -273,7 +316,7 @@ impl<'a> Line<'a> {
                         let Spanned { inner: expr, span } = expr;
                         v.push(
                             expr.resolve(labels)
-                                .map_err(|label| AssemblyError::UnresolvedLabel { label, span })?,
+                                .map_err(|err| err.generalize_with_span(span))?,
                         );
                     }
                 }
@@ -498,7 +541,7 @@ impl<'a> Instr<'a> {
                 let Spanned { inner: expr, span } = outer_expr.expr;
                 $instr += mode as i64 * $multiplier;
                 expr.resolve(labels)
-                    .map_err(|label| AssemblyError::UnresolvedLabel { label, span })?
+                    .map_err(|err| err.generalize_with_span(span))?
             }};
         }
 

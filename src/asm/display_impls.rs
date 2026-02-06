@@ -120,6 +120,7 @@ impl Display for AssemblyError<'_> {
                     i64::MAX
                 )
             }
+            AssemblyError::DivisionByZero { .. } => write!(f, "division by zero"),
         }
     }
 }
