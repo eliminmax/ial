@@ -5,3 +5,8 @@
 [workspace]
 resolver = "3"
 members = ["ial", "ial-core"]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip="symbols"
