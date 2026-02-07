@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members = ["ial", "ial-core"]
+members = ["ast","ial", "ial-core"]
 
 [profile.release]
 lto = "thin"

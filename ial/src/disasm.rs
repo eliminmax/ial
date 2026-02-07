@@ -216,7 +216,8 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().format("\n").to_string() + "\n"
 }
 
-use crate::debug_info::{DebugInfo, DirectiveDebug, DirectiveKind};
+use crate::asm::ast::DirectiveKind;
+use crate::debug_info::{DebugInfo, DirectiveDebug};
 use std::fmt::{self, Display};
 
 #[derive(Debug)]
@@ -275,23 +276,21 @@ fn span_dis<T>(inner: T) -> Spanned<T> {
     }
 }
 
-impl<'a> OuterExpr<'a> {
-    fn disasm_with_debug(
-        addr: i64,
-        value: i64,
-        label_lookups: &HashMap<i64, Vec<&'a str>>,
-    ) -> Self {
-        Self {
-            labels: label_lookups
-                .get(&addr)
-                .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
-                .unwrap_or_default(),
-            expr: span_dis(
-                label_lookups
-                    .get(&value)
-                    .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),
-            ),
-        }
+fn disasm_outer_expr<'a>(
+    addr: i64,
+    value: i64,
+    label_lookups: &HashMap<i64, Vec<&'a str>>,
+) -> OuterExpr<'a> {
+    OuterExpr {
+        labels: label_lookups
+            .get(&addr)
+            .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
+            .unwrap_or_default(),
+        expr: span_dis(
+            label_lookups
+                .get(&value)
+                .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),
+        ),
     }
 }
 
@@ -331,7 +330,7 @@ impl DirectiveDebug {
                 macro_rules! param {
                     ($mode_i: literal) => {{
                         let int = ints[$mode_i + 1];
-                        let outer_expr = boxed(OuterExpr::disasm_with_debug(
+                        let outer_expr = boxed(disasm_outer_expr(
                             start_address + $mode_i + 1,
                             int,
                             label_lookups,

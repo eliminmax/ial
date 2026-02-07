@@ -129,9 +129,27 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 
-pub mod ast;
-use ast::{Directive, Instr, Label, Line, parsers};
+pub use ast;
+use ast::{AstAssemblyError, Directive, Instr, Label, Line, parsers};
 
+impl<'a> From<AstAssemblyError<'a>> for AssemblyError<'a> {
+    fn from(err: AstAssemblyError<'a>) -> Self {
+        match err {
+            AstAssemblyError::UnresolvedLabel { label, span } => {
+                Self::UnresolvedLabel { label, span }
+            }
+            AstAssemblyError::DivisionByZero {
+                lhs_span,
+                div_index,
+                rhs_span,
+            } => Self::DivisionByZero {
+                lhs_span,
+                div_index,
+                rhs_span,
+            },
+        }
+    }
+}
 /// An error that occured while trying to assemble the AST into Intcode
 #[derive(Debug)]
 #[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
@@ -192,7 +210,7 @@ pub enum AssemblyError<'a> {
 /// ```
 pub fn build_ast(code: &str) -> Result<Vec<Line<'_>>, Vec<Rich<'_, char>>> {
     use chumsky::Parser;
-    parsers::grammar().parse(code).into_result()
+    parsers::ial().parse(code).into_result()
 }
 
 type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
@@ -279,7 +297,7 @@ fn assemble_inner<'a>(
     for line in code {
         if generate_debug {
             if let Some(spanned) = line.directive.as_ref() {
-                let kind = spanned.inner.dtype();
+                let kind = spanned.inner.kind();
                 let src_span = spanned.span;
                 let start = v.len();
                 line.encode_into(&mut v, &labels)?;

@@ -111,7 +111,6 @@ impl TryFrom<i64> for ParamMode {
     }
 }
 
-
 #[derive(Debug)]
 /// An unknown mode was specified in an instruction
 pub struct UnknownMode {

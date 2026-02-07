@@ -30,7 +30,7 @@
 //!
 //! # Intcode Assembly Language (IAL)
 //!
-//! The [`asm`] module defines an Abstract Syntax Tree for IAL and provides functions to build that
+//! The [`ast`] crate defines an Abstract Syntax Tree for IAL and provides functions to build that
 //! AST from source code, and assemble it into a [`Vec<i64>`], ready for use in an [`Interpreter`].
 //!
 //! ## Basic IAL Example
@@ -41,7 +41,7 @@
 //! assert_eq!(intcode, vec![104, 1024, 99]);
 //! ```
 //!
-//! For examples working with the AST, see [the `asm` module docs][asm].
+//! For examples working with the AST, see [the `ast` crate docs][ast].
 //!
 //! # Intcode Disassembler
 //!

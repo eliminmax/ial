@@ -3,27 +3,33 @@
 // SPDX-License-Identifier: 0BSD
 
 //! Module of types related to the Abstract Syntax Tree
-use super::AssemblyError;
-use crate::ParamMode;
-use crate::debug_info::DirectiveKind;
 use chumsky::span::{SimpleSpan, Span, Spanned};
+use ial_core::ParamMode;
 use std::collections::HashMap;
 use std::ops::Range;
 use util::unspan;
 
-pub(super) mod parsers;
+pub mod parsers;
 pub mod util;
 
 mod display_impls;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+/// The type of a [`Directive`]
+#[allow(missing_docs, reason = "trivial")]
+pub enum DirectiveKind {
+    Instruction = 0,
+    Data = 1,
+    Ascii = 2,
+}
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod prelude {
     pub use super::{
         BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, SingleByteSpan,
     };
-    pub use crate::{ParamMode, asm};
-    pub use asm::{assemble, assemble_ast, build_ast};
     pub use chumsky::span::{SimpleSpan, Spanned};
+    pub use ial_core::ParamMode;
 }
 
 /// A cheap iterator that uses a fixed amount of stack space for up to four `T`
@@ -65,7 +71,6 @@ impl<T: Copy> Iterator for StackIter<T> {
     }
 }
 
-
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 /// A [`usize`] newtype that implements [`Span`], for when something is always 1 byte
@@ -98,7 +103,6 @@ impl Span for SingleByteSpan {
     }
 }
 
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, Clone, PartialEq)]
 /// A binary operatior within an [`Expr::BinOp`]
 pub enum BinOperator {
@@ -117,7 +121,9 @@ pub enum BinOperator {
 }
 
 impl BinOperator {
-    pub(super) const fn apply(&self, a: i64, b: i64) -> i64 {
+    /// Apply this binary operator to two concrete values
+    #[must_use]
+    pub const fn apply(&self, a: i64, b: i64) -> i64 {
         match self {
             BinOperator::Add => a + b,
             BinOperator::Sub => a - b,
@@ -128,7 +134,6 @@ impl BinOperator {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 /// An assembler expression, evaluated into a number when assembling
 ///
 /// Expressions must be fully resolvable when assembling, and cannot depend on the assembled code.
@@ -254,17 +259,29 @@ pub enum ExprResolutionError<'a> {
     },
 }
 
+pub enum AstAssemblyError<'a> {
+    UnresolvedLabel {
+        label: &'a str,
+        span: SimpleSpan,
+    },
+    DivisionByZero {
+        lhs_span: SimpleSpan,
+        div_index: usize,
+        rhs_span: SimpleSpan,
+    },
+}
+
 impl<'a> ExprResolutionError<'a> {
-    fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
+    fn generalize_with_span(self, span: SimpleSpan) -> AstAssemblyError<'a> {
         match self {
             ExprResolutionError::UnresolvedLabel(label) => {
-                AssemblyError::UnresolvedLabel { label, span }
+                AstAssemblyError::UnresolvedLabel { label, span }
             }
             ExprResolutionError::DivisionByZero {
                 lhs_span,
                 div_index,
                 rhs_span,
-            } => AssemblyError::DivisionByZero {
+            } => AstAssemblyError::DivisionByZero {
                 lhs_span,
                 div_index,
                 rhs_span,
@@ -346,7 +363,7 @@ impl<'a> Line<'a> {
         self,
         v: &mut Vec<i64>,
         labels: &HashMap<&'a str, i64>,
-    ) -> Result<(), AssemblyError<'a>> {
+    ) -> Result<(), AstAssemblyError<'a>> {
         if let Some(Spanned {
             inner: directive, ..
         }) = self.directive
@@ -386,7 +403,6 @@ impl Line<'_> {
     }
 }
 
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
 #[derive(Debug, PartialEq, Clone)]
 /// The directive of a line
 ///
@@ -451,7 +467,10 @@ impl Directive<'_> {
             Directive::Instruction(instr) => Ok(instr.size()),
         }
     }
-    pub(super) fn dtype(&self) -> DirectiveKind {
+
+    /// Return the [`DirectiveKind`] of this directive
+    #[must_use]
+    pub fn kind(&self) -> DirectiveKind {
         match self {
             Directive::Data(_) => DirectiveKind::Data,
             Directive::Ascii(_) => DirectiveKind::Ascii,
@@ -575,7 +594,7 @@ impl<'a> Instr<'a> {
     pub fn resolve(
         self,
         labels: &HashMap<&'a str, i64>,
-    ) -> Result<impl Iterator<Item = i64>, AssemblyError<'a>> {
+    ) -> Result<impl Iterator<Item = i64>, AstAssemblyError<'a>> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, outer_expr) = $param;
@@ -627,3 +646,15 @@ impl<'a> Instr<'a> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Label<'a>(pub Spanned<&'a str>);
+impl TryFrom<u8> for DirectiveKind {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Instruction),
+            1 => Ok(Self::Data),
+            2 => Ok(Self::Ascii),
+            _ => Err(value),
+        }
+    }
+}

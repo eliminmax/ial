@@ -3,35 +3,14 @@
 # SPDX-License-Identifier: 0BSD
 
 [package]
-name = "ial"
-version = "0.2.0-dev"
+name = "ast"
+version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "intcode_ascii"
-required-features = [ "bin_deps" ]
-
-[[bin]]
-name = "ial-dis"
-required-features = [ "bin_deps" ]
-
-[[bin]]
-name = "ial-as"
-required-features = [ "bin_deps" ]
-
 [dependencies]
-ariadne = { version = "0.6.0", features = ["auto-color"], optional = true }
-clap = { version = "4.5.54", features = ["derive"], optional = true }
-chumsky = { version = "0.12.0" }
-itertools = { version = "0.14.0" }
-either = "1.15.0"
-flate2 = "1.1.8"
-ial-core = { path = "../ial-core" }
-ast = { path = "../ast" }
+chumsky = "0.12.0"
+ial-core = { version = "0.1.0", path = "../ial-core" }
 
-[features]
-default = [ ]
-bin_deps = [ "dep:ariadne", "dep:clap" ]
 
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can

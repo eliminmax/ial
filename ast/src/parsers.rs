@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+//! [`chumsky`]-powered parsers for AST nodes
 use super::SingleByteSpan;
 
 use super::prelude::*;
@@ -323,7 +324,9 @@ fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
         .labelled("line")
 }
 
-pub(in crate::asm) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
+/// A function that returns a [`Parser`] for IAL
+#[must_use]
+pub fn ial<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     line()
         .separated_by(just('\n').labelled("newline"))
         .collect()
@@ -333,7 +336,7 @@ pub(in crate::asm) fn grammar<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, R
 mod ast_tests {
 
     use super::*;
-    use crate::asm::ast::util::*;
+    use crate::util::*;
 
     #[test]
     fn parse_blank_line() {

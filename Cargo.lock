@@ -94,6 +94,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast"
+version = "0.1.0"
+dependencies = [
+ "chumsky",
+ "ial-core",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -266,6 +274,7 @@ name = "ial"
 version = "0.2.0-dev"
 dependencies = [
  "ariadne",
+ "ast",
  "chumsky",
  "clap",
  "either",
