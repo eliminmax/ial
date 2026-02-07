@@ -4,8 +4,7 @@
 
 use chumsky::span::Spanned;
 
-use super::AssemblyError;
-use super::ast::{BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter};
+use super::{BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter};
 
 use std::fmt::{self, Display};
 
@@ -104,24 +103,5 @@ impl Display for Line<'_> {
             write!(f, "{inner}")?;
         }
         Ok(())
-    }
-}
-
-impl Display for AssemblyError<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AssemblyError::UnresolvedLabel { label, .. } => {
-                write!(f, "unresolved label: {label:?}")
-            }
-            AssemblyError::DuplicateLabel { label, .. } => write!(f, "duplicate label: {label:?}"),
-            AssemblyError::DirectiveTooLarge { size, .. } => {
-                write!(
-                    f,
-                    "directive too large: size {size} is more than maximum {}",
-                    i64::MAX
-                )
-            }
-            AssemblyError::DivisionByZero { .. } => write!(f, "division by zero"),
-        }
     }
 }

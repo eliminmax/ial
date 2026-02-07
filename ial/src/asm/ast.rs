@@ -15,6 +15,8 @@ use util::unspan;
 pub(super) mod parsers;
 pub mod util;
 
+mod display_impls;
+
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod prelude {
     pub use super::{

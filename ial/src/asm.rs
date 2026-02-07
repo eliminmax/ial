@@ -127,8 +127,7 @@ use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Spanned};
 use itertools::Itertools;
 use std::collections::HashMap;
-
-mod display_impls;
+use std::fmt::{self, Display};
 
 pub mod ast;
 use ast::{Directive, Instr, Label, Line, parsers};
@@ -440,3 +439,22 @@ pub fn assemble(code: &str) -> Result<Vec<i64>, GeneralAsmError<'_>> {
 }
 
 impl std::error::Error for AssemblyError<'_> {}
+
+impl Display for AssemblyError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssemblyError::UnresolvedLabel { label, .. } => {
+                write!(f, "unresolved label: {label:?}")
+            }
+            AssemblyError::DuplicateLabel { label, .. } => write!(f, "duplicate label: {label:?}"),
+            AssemblyError::DirectiveTooLarge { size, .. } => {
+                write!(
+                    f,
+                    "directive too large: size {size} is more than maximum {}",
+                    i64::MAX
+                )
+            }
+            AssemblyError::DivisionByZero { .. } => write!(f, "division by zero"),
+        }
+    }
+}
