@@ -37,10 +37,8 @@ fn ast_instruction_counts() {
         .filter_map(|mut line| {
             // trim comment
             line = line.split_once(';').map_or(line, |l| l.0);
-            // remove label/s
-            line = line.rsplit_once(':').map_or(line, |l| l.1);
-            line.split_ascii_whitespace()
-                .next()
+            // get directive - that'll be the first word that doesn't end in a colon
+            line.split_ascii_whitespace().find(|word| !word.ends_with(':'))
                 .map(str::to_ascii_uppercase)
                 .map(|kw| match kw.as_str() {
                     "SLT" => String::from("LT"),
