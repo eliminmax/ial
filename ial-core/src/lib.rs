@@ -8,7 +8,6 @@
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
 
-
 /// Parameter mode for Intcode instruction
 ///
 /// Intcode instruction parameters each have a mode:  [positional], [immediate], or [relative].
