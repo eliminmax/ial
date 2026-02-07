@@ -51,7 +51,7 @@ impl ParamMode {
     /// # Examples
     ///
     /// ```
-    ///# use ial::{ParamMode, UnknownMode};
+    ///# use ial_core::{ParamMode, UnknownMode};
     /// assert_eq!(
     ///     ParamMode::extract(21001).unwrap(),
     ///     [
