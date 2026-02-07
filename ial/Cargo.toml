@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
+#
+# SPDX-License-Identifier: 0BSD
+
+[package]
+name = "ial"
+version = "0.2.0-dev"
+edition = "2024"
+
+[[bin]]
+name = "intcode_ascii"
+required-features = [ "bin_deps" ]
+
+[[bin]]
+name = "ial-dis"
+required-features = [ "bin_deps" ]
+
+[[bin]]
+name = "ial-as"
+required-features = [ "bin_deps" ]
+
+[dependencies]
+ariadne = { version = "0.6.0", features = ["auto-color"], optional = true }
+clap = { version = "4.5.54", features = ["derive"], optional = true }
+chumsky = { version = "0.12.0" }
+itertools = { version = "0.14.0" }
+either = "1.15.0"
+flate2 = "1.1.8"
+ial-core = { path = "../ial-core" }
+ast = { path = "../ast" }
+
+[features]
+default = [ ]
+bin_deps = [ "dep:ariadne", "dep:clap" ]
+
+[lints.clippy]
+# enable these categories with a negative priority, so that individual lints can
+# be overridden
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# some clippy::restriction tests that I want enabled
+format_push_string = "warn"
+if_then_some_else_none = "warn"
+let_underscore_must_use = "warn"
+allow_attributes_without_reason = "warn"
+assertions_on_result_states = "warn"
+dbg_macro = "warn"
+todo = "warn"
+same_name_method = "warn"
+semicolon_outside_block = "warn"
+exit = "deny"
+unseparated_literal_suffix = "warn"
+redundant_type_annotations = "warn"
+field_scoped_visibility_modifiers = "warn"
+missing_assert_message = "warn"

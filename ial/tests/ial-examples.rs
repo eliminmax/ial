@@ -9,7 +9,10 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 fn src(name: &str) -> String {
-    let mut path = Path::new(env!("CARGO_MANIFEST_DIR")).join("ial_examples");
+    let mut path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("ial_examples");
     path.push(name);
     path.add_extension("ial");
     read_to_string(path).unwrap()

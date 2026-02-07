@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Eli Array Minkoff
+#
+# SPDX-License-Identifier: 0BSD
+
+[package]
+name = "ial-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]

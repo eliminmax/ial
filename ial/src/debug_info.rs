@@ -9,6 +9,7 @@ use itertools::Itertools;
 use std::io::{self, Write};
 
 use crate::Interpreter;
+use ast::DirectiveKind;
 
 pub mod parse;
 
@@ -33,31 +34,6 @@ pub struct DebugInfo {
     pub labels: Box<[(Spanned<Box<str>>, i64)]>,
     /// Boxed slice of debug info about each directive
     pub directives: Box<[DirectiveDebug]>,
-}
-
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
-#[derive(Debug, PartialEq, Clone, Copy)]
-/// The type of a [Directive]
-///
-/// [Directive]: crate::asm::ast::Directive
-#[allow(missing_docs, reason = "trivial")]
-pub enum DirectiveKind {
-    Instruction = 0,
-    Data = 1,
-    Ascii = 2,
-}
-
-impl TryFrom<u8> for DirectiveKind {
-    type Error = u8;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Instruction),
-            1 => Ok(Self::Data),
-            2 => Ok(Self::Ascii),
-            _ => Err(value),
-        }
-    }
 }
 
 impl Interpreter {

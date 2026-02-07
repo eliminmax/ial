@@ -38,7 +38,8 @@ fn ast_instruction_counts() {
             // trim comment
             line = line.split_once(';').map_or(line, |l| l.0);
             // get directive - that'll be the first word that doesn't end in a colon
-            line.split_ascii_whitespace().find(|word| !word.ends_with(':'))
+            line.split_ascii_whitespace()
+                .find(|word| !word.ends_with(':'))
                 .map(str::to_ascii_uppercase)
                 .map(|kw| match kw.as_str() {
                     "SLT" => String::from("LT"),
@@ -67,7 +68,6 @@ fn ast_instruction_counts() {
             },
             Directive::Data(_) => "DATA",
             Directive::Ascii(_) => "ASCII",
-            d => panic!("unaccounted-for directive {d}"),
         })
         .map(String::from)
         .counts();

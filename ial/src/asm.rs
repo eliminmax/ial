@@ -2,31 +2,10 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-//! Module for working with an assembly language for Intcode
+//! Module for assembling IAL
 //!
-//! This module defines an AST for an extended version of the [proposed assembly syntax] from
-//! the Esolangs Community Wiki, powered by [chumsky]. It provides mnemonics for each of the
-//! intcode instructions, and the ability to include inline data, either directly or as ASCII text.
-//!
-//! Each [line](Line) has three components, any of which can be omitted.
-//!
-//! The first component is a label, which will resolve to the index of the next intcode int added
-//! by a directive, either on the same line or a future one.
-//!
-//! The next is a [directive](Directive), which is what will actually be converted into intcode.
-//! The third is a comment - it is ignored completely.
-//!
-//! Following from [NASM]'s syntax, the syntax of a line is as follows:
-//!
-//! ```text
-//! label: directive ; comment
-//! ```
-//!
-//! Labels are parsed using [`chumsky::text::ident`], so identifiers the same rules as [Rust], except
-//! without Unicode normalization.
-//!
-//! # Example
-//!
+//! This module provides functions for assembling the [proposed assembly syntax] from
+//! the Esolangs Community Wiki.
 //! ```
 //! use ial::prelude::*;
 //! use ial::asm::assemble;
@@ -50,77 +29,8 @@
 //! assert_eq!(output, expected_output);
 //! ```
 //!
-//! If you want, you can view the AST before assembling, though it's quite unwieldy:
-//!
-//! # Example
-//!
-//! ```
-//! use ial::{prelude::*, asm::ast::prelude::*};
-//!
-//! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
-//! let expected = vec![Line {
-//!     labels: vec![Label(Spanned {
-//!         inner: "idle_loop",
-//!         span: SimpleSpan { start: 0, end: 9, context: () },
-//!     })],
-//!     directive: Some(Spanned {
-//!         span: SimpleSpan { start: 11, end: 28, context: () },
-//!         inner: Directive::Instruction(Box::new(Instr::Jz(
-//!             Parameter (
-//!                 ParamMode::Immediate,
-//!                 Box::new(OuterExpr {
-//!                     expr: Spanned {
-//!                         inner: Expr::Number(0),
-//!                         span: SimpleSpan { start: 15, end: 16, context: () },
-//!                     },
-//!                     labels: Vec::new(),
-//!                 }),
-//!             ),
-//!             Parameter (
-//!                 ParamMode::Immediate,
-//!                 Box::new(OuterExpr {
-//!                     expr: Spanned {
-//!                         inner: Expr::Ident("idle_loop"),
-//!                         span: SimpleSpan { start: 19, end: 28, context: () },
-//!                     },
-//!                     labels: Vec::new(),
-//!                 }),
-//!             ),
-//!         )))
-//!     }),
-//!     comment: None,
-//! }];
-//!
-//! assert_eq!(ast, expected);
-//! assert_eq!(assemble_ast(ast).unwrap(), vec![1106, 0, 0]);
-//! ```
-//!
-//! The [`ast::util`] module provides some small functions and macros to express things more
-//! concicely:
-//!
-//! ```
-//! use ial::{prelude::*, asm::ast::prelude::*};
-//! use ial::asm::ast::util::*;
-//! let ast = build_ast("idle_loop: JZ #0, #idle_loop").unwrap();
-//! let expected = vec![Line {
-//!     labels: vec![Label(span("idle_loop", 0..9))],
-//!     directive: Some(span(
-//!         Directive::Instruction(Box::new(Instr::Jz(
-//!             param!(#<expr!(0);>[14..16]),
-//!             param!(#<expr!(idle_loop);>[18..28])
-//!         ))),
-//!         11..28
-//!     )),
-//!     comment: None,
-//! }];
-//!
-//! assert_eq!(ast, expected);
-//! assert_eq!(assemble_ast(ast).unwrap(), vec![1106, 0, 0]);
-//! ```
-//!
 //! [NASM]: <https://www.nasm.us/doc/nasm03.html>
 //! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
-//! [Rust]: <https://doc.rust-lang.org/reference/identifiers.html>
 
 use crate::debug_info::{DebugInfo, DirectiveDebug};
 use chumsky::error::Rich;
@@ -128,86 +38,9 @@ use chumsky::span::{SimpleSpan, Spanned};
 use itertools::Itertools;
 use std::collections::HashMap;
 
-mod display_impls;
-
-pub mod ast;
+pub use ast;
+pub use ast::AssemblyError;
 use ast::{Directive, Instr, Label, Line, parsers};
-
-/// An error that occured while trying to assemble the AST into Intcode
-#[derive(Debug)]
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
-pub enum AssemblyError<'a> {
-    /// An expresison used a label that could not be resolved
-    UnresolvedLabel {
-        /// The unresolved label
-        label: &'a str,
-        /// The span within the input of the unresolved label
-        span: SimpleSpan,
-    },
-    /// A label was defined more than once
-    DuplicateLabel {
-        /// The duplicated label
-        label: &'a str,
-        /// The spans of the new and old definitions of the label
-        spans: [SimpleSpan; 2],
-    },
-    /// A directive resolved to more than [`i64::MAX`] ints, and somehow didn't crash your computer
-    /// before it was time to size things up
-    DirectiveTooLarge {
-        /// The output size of the directive
-        size: usize,
-        /// The span within the input of the directive
-        span: SimpleSpan,
-    },
-    /// A divison expression's right-hand side evaluated to zero
-    DivisionByZero {
-        /// The left-hand side of the expression
-        lhs_span: SimpleSpan,
-        /// The index of the division operator in the source
-        div_index: usize,
-        /// The right-hand side of the expression
-        rhs_span: SimpleSpan,
-    },
-}
-
-/// A cheap iterator that uses a fixed amount of stack space for up to four `T`
-enum StackIter<T: Copy> {
-    Four(T, T, T, T),
-    Three(T, T, T),
-    Two(T, T),
-    One(T),
-    Empty,
-}
-
-impl<T: Copy> Iterator for StackIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            StackIter::Four(a, b, c, d) => {
-                let a = *a;
-                *self = Self::Three(*b, *c, *d);
-                Some(a)
-            }
-            StackIter::Three(a, b, c) => {
-                let a = *a;
-                *self = Self::Two(*b, *c);
-                Some(a)
-            }
-            StackIter::Two(a, b) => {
-                let a = *a;
-                *self = Self::One(*b);
-                Some(a)
-            }
-            StackIter::One(a) => {
-                let a = *a;
-                *self = Self::Empty;
-                Some(a)
-            }
-            StackIter::Empty => None,
-        }
-    }
-}
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
@@ -232,7 +65,7 @@ impl<T: Copy> Iterator for StackIter<T> {
 /// ```
 pub fn build_ast(code: &str) -> Result<Vec<Line<'_>>, Vec<Rich<'_, char>>> {
     use chumsky::Parser;
-    parsers::grammar().parse(code).into_result()
+    parsers::ial().parse(code).into_result()
 }
 
 type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
@@ -319,7 +152,7 @@ fn assemble_inner<'a>(
     for line in code {
         if generate_debug {
             if let Some(spanned) = line.directive.as_ref() {
-                let kind = spanned.inner.dtype();
+                let kind = spanned.inner.kind();
                 let src_span = spanned.span;
                 let start = v.len();
                 line.encode_into(&mut v, &labels)?;
@@ -438,5 +271,3 @@ pub fn assemble(code: &str) -> Result<Vec<i64>, GeneralAsmError<'_>> {
     assemble_ast(build_ast(code).map_err(GeneralAsmError::BuildAst)?)
         .map_err(GeneralAsmError::Assemble)
 }
-
-impl std::error::Error for AssemblyError<'_> {}
