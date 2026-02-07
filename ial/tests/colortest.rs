@@ -67,6 +67,10 @@ fn ast_instruction_counts() {
             },
             Directive::Data(_) => "DATA",
             Directive::Ascii(_) => "ASCII",
+            #[cfg_attr(
+                feature = "bin_deps",
+                expect(unreachable_patterns, reason = "marked non-exhaustive without feature")
+            )]
             d => panic!("unaccounted-for directive {d}"),
         })
         .map(String::from)
