@@ -4,4 +4,4 @@
 
 [workspace]
 resolver = "3"
-members = ["ast","ial", "ial-core"]
+members = ["ial", "ial-core"]
