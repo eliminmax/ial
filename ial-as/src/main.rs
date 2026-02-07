@@ -5,8 +5,8 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
+use cli_helpers::BinaryFormat;
 use ial::asm::{AssemblyError, assemble_ast, assemble_with_debug, build_ast};
-use ial::bin_helpers::BinaryFormat;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -171,6 +171,8 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
                     .with_message("This expression evaluates to 0")
                     .with_color(Color::Red),
             ),
+        err => Report::build(ReportKind::Error, (file, 0..0))
+            .with_message(format!("Unknown error occured: {err}")),
     }
     .finish()
     .eprint((file, Source::from(source)))

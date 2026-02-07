@@ -178,6 +178,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
+name = "cli-helpers"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "ast",
+ "chumsky",
+ "clap",
+ "ial",
+ "ial-core",
+ "itertools",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -273,10 +286,8 @@ checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 name = "ial"
 version = "0.2.0-dev"
 dependencies = [
- "ariadne",
  "ast",
  "chumsky",
- "clap",
  "either",
  "flate2",
  "ial-core",
@@ -284,8 +295,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "ial-as"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "chumsky",
+ "clap",
+ "cli-helpers",
+ "ial",
+ "ial-core",
+ "itertools",
+]
+
+[[package]]
 name = "ial-core"
 version = "0.1.0"
+
+[[package]]
+name = "ial-dis"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "clap",
+ "cli-helpers",
+ "ial",
+]
+
+[[package]]
+name = "intcode-ascii"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "cli-helpers",
+ "ial",
+]
 
 [[package]]
 name = "is-terminal"

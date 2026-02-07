@@ -1,0 +1,13 @@
+[package]
+name = "ial-as"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ariadne = { version = "0.6.0", features = ["auto-color"] }
+chumsky = "0.12.0"
+clap = { version = "4.5.57", features = ["derive"] }
+cli-helpers = { version = "0.1.0", path = "../cli-helpers" }
+ial = { version = "0.2.0-dev", path = "../ial" }
+ial-core = { version = "0.1.0", path = "../ial-core" }
+itertools = "0.14.0"

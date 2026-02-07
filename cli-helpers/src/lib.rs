@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-//! Common functionality used within the `[[bin]]` targets
-#![doc(hidden)]
-#![allow(missing_docs, reason = "internal")]
+//! Common common code used within the IAL binaries
+
 use clap::ValueEnum;
 use std::error::Error;
 use std::fmt::{self, Debug, Display};

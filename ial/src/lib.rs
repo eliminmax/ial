@@ -91,8 +91,6 @@
 
 /// A module implementing internal logic that doesn't fit cleanly into the module hierarchy
 mod internals;
-#[cfg(feature = "bin_deps")]
-pub use internals::bin_helpers;
 
 pub use ial_core::{ParamMode, UnknownMode};
 

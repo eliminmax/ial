@@ -6,7 +6,7 @@
 //! stdout for I/O
 
 use clap::Parser;
-use ial::bin_helpers::{BinaryFormat, DisplayedError};
+use cli_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
 use ial::{State, StepOutcome, prelude::*};
 use std::error::Error;

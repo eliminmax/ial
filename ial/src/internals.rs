@@ -4,9 +4,6 @@
 
 use super::{Interpreter, InterpreterError, NegativeMemAccess, OpCode, ParamMode, StepOutcome};
 
-#[cfg(feature = "bin_deps")]
-pub mod bin_helpers;
-
 impl Interpreter {
     // Given a 5 digit number, digits ABCDE are used as follows:
     // DE is the two-digit opcode

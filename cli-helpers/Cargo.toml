@@ -1,19 +1,16 @@
-# SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
-#
-# SPDX-License-Identifier: 0BSD
-
 [package]
-name = "ial"
-version = "0.2.0-dev"
+name = "cli-helpers"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ariadne = { version = "0.6.0", features = ["auto-color"] }
+clap = { version = "4.5.54", features = ["derive"] }
 chumsky = { version = "0.12.0" }
 itertools = { version = "0.14.0" }
-either = "1.15.0"
-flate2 = "1.1.8"
-ial-core = { path = "../ial-core" }
-ast = { path = "../ast" }
+ial-core = { version = "0.1.0", path = "../ial-core" }
+ial = { version = "0.2.0-dev", path = "../ial" }
+ast = { version = "0.1.0", path = "../ast" }
 
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can

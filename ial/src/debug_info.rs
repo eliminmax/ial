@@ -24,7 +24,7 @@ pub struct DirectiveDebug {
     pub output_span: SimpleSpan,
 }
 
-#[cfg_attr(not(feature = "bin_deps"), non_exhaustive)]
+#[non_exhaustive]
 #[derive(Debug, PartialEq)]
 /// Debug info generated when assembling source code with [`assemble_with_debug`]
 ///
