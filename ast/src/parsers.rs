@@ -6,6 +6,7 @@
 use super::SingleByteSpan;
 
 use super::prelude::*;
+pub use chumsky::Parser;
 use chumsky::prelude::*;
 
 macro_rules! padded {
@@ -22,7 +23,9 @@ fn comma_delimiter<'a>() -> impl Parser<'a, &'a str, (), RichErr<'a>> {
     padded!(just(',')).ignored().labelled("comma delimiter")
 }
 
-fn param<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
+/// Generate a [parser][Parser] for a [Parameter]
+#[must_use]
+pub fn parameter<'a>() -> impl Parser<'a, &'a str, Parameter<'a>, RichErr<'a>> {
     padded!(
         choice((
             just('#')
@@ -46,7 +49,9 @@ fn outer_expr<'a>() -> impl Parser<'a, &'a str, OuterExpr<'a>, RichErr<'a>> {
         .map(|(labels, expr)| OuterExpr { labels, expr })
 }
 
-fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
+/// Generate a [parser][Parser] for a (possibly empty) sequence of [`Label`]s
+#[must_use]
+pub fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
     text::ident()
         .spanned()
         .then_ignore(just(':'))
@@ -58,20 +63,26 @@ fn labels<'a>() -> impl Parser<'a, &'a str, Vec<Label<'a>>, RichErr<'a>> {
         .collect()
 }
 
-fn mnemonic<'a>(kw: &'static str) -> impl Parser<'a, &'a str, (), RichErr<'a>> {
+/// Generate a [parser][Parser] for a case-insensitive keyword or mnemonic from `kw`
+///
+/// On a successful match, returns the [span][SimpleSpan] of the matched keyword in the source.
+#[must_use]
+pub fn mnemonic<'a>(kw: &'static str) -> impl Parser<'a, &'a str, SimpleSpan, RichErr<'a>> {
     text::ascii::ident().try_map(move |s: &'a str, span| {
         if s.eq_ignore_ascii_case(kw) {
-            Ok(())
+            Ok(span)
         } else {
             Err(Rich::custom(span, format!("failed to match keyword {kw}")))
         }
     })
 }
 
-fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
+/// Return a [parser][Parser] for an [`Instr`]
+#[must_use]
+pub fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     macro_rules! params {
         ($n: literal) => {{
-            param()
+            parameter()
                 .separated_by(comma_delimiter())
                 .exactly($n)
                 .allow_trailing()
@@ -82,7 +93,7 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     macro_rules! op {
         ($name: literal, $variant: ident::<1>) => {
             padded!(mnemonic($name).labelled($name))
-                .ignore_then(param().map(Instr::$variant))
+                .ignore_then(parameter().map(Instr::$variant))
                 .labelled(concat!($name, " instruction parameter"))
         };
         ($name: literal, $variant: ident::<2>) => {
@@ -116,7 +127,9 @@ fn instr<'a>() -> impl Parser<'a, &'a str, Instr<'a>, RichErr<'a>> {
     .as_context()
 }
 
-fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clone {
+/// Generate a [parser][Parser] for a ([spanned][Spanned]) [`Expr`]
+#[must_use]
+pub fn expr<'a>() -> impl Parser<'a, &'a str, Spanned<Expr<'a>>, RichErr<'a>> + Clone {
     recursive(|expr| {
         let int = text::int(10)
             .try_map(|s: &str, span| {
@@ -259,7 +272,9 @@ fn ascii_char<'a>() -> impl Parser<'a, &'a str, Expr<'a>, RichErr<'a>> + Clone {
         .labelled("character literal")
 }
 
-fn ascii_string<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
+/// Generate a [parser][Parser] for a ([spanned][Spanned]) ASCII string as a [`Vec<u8>`]
+#[must_use]
+pub fn ascii_string<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>> {
     padded!(
         just('"')
             .ignore_then(
@@ -279,7 +294,9 @@ fn ascii_string<'a>() -> impl Parser<'a, &'a str, Spanned<Vec<u8>>, RichErr<'a>>
     .as_context()
 }
 
-fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, RichErr<'a>> {
+/// Generate a [parser][Parser] for an ([optional][Option], [spanned][Spanned]) [`Directive`]
+#[must_use]
+pub fn directive<'a>() -> impl Parser<'a, &'a str, Option<Spanned<Directive<'a>>>, RichErr<'a>> {
     padded!(
         choice((
             with_sep!(mnemonic("DATA"))
@@ -314,7 +331,9 @@ fn comment<'a>() -> impl Parser<'a, &'a str, Option<Spanned<&'a str>>, RichErr<'
         .or_not()
 }
 
-fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
+/// Generate a [parser][Parser] for a [`Line`]
+#[must_use]
+pub fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
     padded!(group((labels(), directive(), comment())))
         .map(|(labels, directive, comment)| Line {
             labels,
@@ -324,7 +343,7 @@ fn line<'a>() -> impl Parser<'a, &'a str, Line<'a>, RichErr<'a>> {
         .labelled("line")
 }
 
-/// A function that returns a [`Parser`] for IAL
+/// Generate a [parser][Parser] for a full IAL program
 #[must_use]
 pub fn ial<'a>() -> impl Parser<'a, &'a str, Vec<Line<'a>>, RichErr<'a>> {
     line()

@@ -259,29 +259,17 @@ pub enum ExprResolutionError<'a> {
     },
 }
 
-pub enum AstAssemblyError<'a> {
-    UnresolvedLabel {
-        label: &'a str,
-        span: SimpleSpan,
-    },
-    DivisionByZero {
-        lhs_span: SimpleSpan,
-        div_index: usize,
-        rhs_span: SimpleSpan,
-    },
-}
-
 impl<'a> ExprResolutionError<'a> {
-    fn generalize_with_span(self, span: SimpleSpan) -> AstAssemblyError<'a> {
+    fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
         match self {
             ExprResolutionError::UnresolvedLabel(label) => {
-                AstAssemblyError::UnresolvedLabel { label, span }
+                AssemblyError::UnresolvedLabel { label, span }
             }
             ExprResolutionError::DivisionByZero {
                 lhs_span,
                 div_index,
                 rhs_span,
-            } => AstAssemblyError::DivisionByZero {
+            } => AssemblyError::DivisionByZero {
                 lhs_span,
                 div_index,
                 rhs_span,
@@ -347,44 +335,26 @@ pub struct Line<'a> {
 }
 
 impl<'a> Line<'a> {
-    /// Consume the line, appending the bytes to `v`.
+    /// Thin convinience wrapper around [`Directive::encode_into`]
+    ///
+    /// Does nothing if [`self.directive`] is [`None`].
     ///
     /// # Errors
     ///
-    /// If [`self.directive`] is either an [`Instruction`] or a [`Data`] directive, and an
-    /// expression fails to [resolve] due to a missing label, returns an
-    /// [`AstAssemblyError::UnresolvedLabel`] pointing to the source of the missing label.
+    /// If the internal call to [`self.directive.inner.encode_into`] fails, passes the resulting
+    /// error along.
     ///
     /// [`self.directive`]: Line::directive
-    /// [`Instruction`]: Directive::Instruction
-    /// [`Data`]: Directive::Data
-    /// [resolve]: Expr::resolve
+    /// [`self.directive.inner.encode_into`]: Directive::encode_into
     pub fn encode_into(
         self,
         v: &mut Vec<i64>,
         labels: &HashMap<&'a str, i64>,
-    ) -> Result<(), AstAssemblyError<'a>> {
-        if let Some(Spanned {
-            inner: directive, ..
-        }) = self.directive
-        {
-            match directive {
-                Directive::Data(exprs) => {
-                    for expr in exprs {
-                        let Spanned { inner: expr, span } = expr;
-                        v.push(
-                            expr.resolve(labels)
-                                .map_err(|err| err.generalize_with_span(span))?,
-                        );
-                    }
-                }
-                Directive::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
-                Directive::Instruction(instr) => {
-                    v.extend(instr.resolve(labels)?);
-                }
-            }
+    ) -> Result<(), AssemblyError<'a>> {
+        match self.directive {
+            Some(directive) => directive.inner.encode_into(v, labels),
+            None => Ok(()),
         }
-        Ok(())
     }
 }
 
@@ -413,9 +383,14 @@ pub enum Directive<'a> {
     /// # Example
     ///
     /// ```
-    /// const ASM_SRC: &str = "data: DATA 1, 2, data + 3, 4 * 4 / 4, 5";
-    /// let assembled = ial::asm::assemble(ASM_SRC).unwrap();
-    /// assert_eq!(assembled[..], [1, 2, 3, 4, 5][..]);
+    /// use ast::parsers::{Parser, directive};
+    /// use ast::util::unspan;
+    /// use std::collections::HashMap;
+    /// const ASM_SRC: &str = "DATA 1, 2, zero + 3, 4 * 4 / 4, 5";
+    /// let directive = directive().parse(ASM_SRC).unwrap().unwrap().inner;
+    /// let mut assembled = Vec::new();
+    /// directive.encode_into(&mut assembled, &HashMap::from([("zero", 0)])).unwrap();
+    /// assert_eq!(assembled, vec![1, 2, 3, 4, 5]);
     /// ```
     Data(Vec<Spanned<Expr<'a>>>),
     /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
@@ -444,9 +419,13 @@ pub enum Directive<'a> {
     ///
     /// ```
     /// const ASM_SRC: &str = r#"ASCII "Hello, world!\n""#;
-    /// let assembled = ial::asm::assemble(ASM_SRC).unwrap();
-    /// let expected: [i64; 14] = core::array::from_fn(|i| i64::from(b"Hello, world!\n"[i] ));
-    /// assert_eq!(assembled[..], expected[..]);
+    /// use ast::parsers::{Parser, directive};
+    /// let directive = directive().parse(ASM_SRC).unwrap().unwrap().inner;
+    /// assert_eq!(directive.kind(), ast::DirectiveKind::Ascii);
+    /// let mut assembled = Vec::new();
+    /// directive.encode_into(&mut assembled, &Default::default()).unwrap();
+    /// let expected: Vec<i64> = b"Hello, world!\n".into_iter().map(|&i| i64::from(i)).collect();
+    /// assert_eq!(assembled, expected);
     /// ```
     Ascii(Spanned<Vec<u8>>),
     /// An [instruction](Instr)
@@ -476,6 +455,40 @@ impl Directive<'_> {
             Directive::Ascii(_) => DirectiveKind::Ascii,
             Directive::Instruction(_) => DirectiveKind::Instruction,
         }
+    }
+}
+impl<'a> Directive<'a> {
+    /// Consume the directive, appending the bytes to `v`.
+    ///
+    /// # Errors
+    /// If the directive is either an [`Instruction`] or a [`Data`] directive, and an
+    /// expression fails to [resolve], returns an [`AssemblyError`]
+    ///
+    /// [`Instruction`]: Directive::Instruction
+    /// [`Data`]: Directive::Data
+    /// [resolve]: Expr::resolve
+    ///
+    pub fn encode_into(
+        self,
+        v: &mut Vec<i64>,
+        labels: &HashMap<&'a str, i64>,
+    ) -> Result<(), AssemblyError<'a>> {
+        match self {
+            Directive::Data(exprs) => {
+                for expr in exprs {
+                    let Spanned { inner: expr, span } = expr;
+                    v.push(
+                        expr.resolve(labels)
+                            .map_err(|err| err.generalize_with_span(span))?,
+                    );
+                }
+            }
+            Directive::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
+            Directive::Instruction(instr) => {
+                v.extend(instr.resolve(labels)?);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -589,12 +602,12 @@ impl<'a> Instr<'a> {
     /// # Errors
     ///
     /// If a parameter depends on a label that isn't defined in labels, returns an
-    /// [`AstAssemblyError::UnresolvedLabel`] with the label in question, along with its span within
+    /// [`AssemblyError::UnresolvedLabel`] with the label in question, along with its span within
     /// the source.
     pub fn resolve(
         self,
         labels: &HashMap<&'a str, i64>,
-    ) -> Result<impl Iterator<Item = i64>, AstAssemblyError<'a>> {
+    ) -> Result<impl Iterator<Item = i64>, AssemblyError<'a>> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, outer_expr) = $param;
@@ -658,3 +671,42 @@ impl TryFrom<u8> for DirectiveKind {
         }
     }
 }
+
+/// An error that occured while trying to assemble the AST into Intcode
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum AssemblyError<'a> {
+    /// An expresison used a label that could not be resolved
+    UnresolvedLabel {
+        /// The unresolved label
+        label: &'a str,
+        /// The span within the input of the unresolved label
+        span: SimpleSpan,
+    },
+    /// A label was defined more than once
+    DuplicateLabel {
+        /// The duplicated label
+        label: &'a str,
+        /// The spans of the new and old definitions of the label
+        spans: [SimpleSpan; 2],
+    },
+    /// A directive resolved to more than [`i64::MAX`] ints, and somehow didn't crash your computer
+    /// before it was time to size things up
+    DirectiveTooLarge {
+        /// The output size of the directive
+        size: usize,
+        /// The span within the input of the directive
+        span: SimpleSpan,
+    },
+    /// A divison expression's right-hand side evaluated to zero
+    DivisionByZero {
+        /// The left-hand side of the expression
+        lhs_span: SimpleSpan,
+        /// The index of the division operator in the source
+        div_index: usize,
+        /// The right-hand side of the expression
+        rhs_span: SimpleSpan,
+    },
+}
+
+impl std::error::Error for AssemblyError<'_> {}

@@ -119,7 +119,7 @@ macro_rules! expr {
 macro_rules! param {
     (@ <$e: expr;>[$span: expr]) => {{
         $crate::Parameter(
-            $crate::ParamMode::Relative,
+            ::ial_core::ParamMode::Relative,
             ::std::boxed::Box::new($crate::OuterExpr {
                 expr: $crate::util::span($e, ($span.start + 1)..($span.end)),
                 labels: ::std::vec::Vec::new(),
@@ -128,7 +128,7 @@ macro_rules! param {
     }};
     (# <$e: expr;>[$span: expr]) => {{
         $crate::Parameter(
-            $crate::ParamMode::Immediate,
+            ::ial_core::ParamMode::Immediate,
             ::std::boxed::Box::new($crate::OuterExpr {
                 expr: $crate::util::span($e, ($span.start + 1)..($span.end)),
                 labels: ::std::vec::Vec::new(),
@@ -137,7 +137,7 @@ macro_rules! param {
     }};
     (<$e: expr;>[$span: expr]) => {{
         $crate::Parameter(
-            $crate::ParamMode::Positional,
+            ::ial_core::ParamMode::Positional,
             ::std::boxed::Box::new($crate::OuterExpr {
                 expr: $crate::util::span($e, ($span.start)..($span.end)),
                 labels: ::std::vec::Vec::new(),
