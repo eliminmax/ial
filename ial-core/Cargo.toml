@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: 0BSD
 
-[workspace]
-resolver = "3"
-members = ["ast","ial", "ial-core"]
+[package]
+name = "ial-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]

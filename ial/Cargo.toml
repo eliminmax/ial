@@ -26,6 +26,8 @@ chumsky = { version = "0.12.0" }
 itertools = { version = "0.14.0" }
 either = "1.15.0"
 flate2 = "1.1.8"
+ast = { path = "../ast" }
+ial-core = { path = "../ial-core" }
 
 [features]
 default = [ ]
@@ -57,4 +59,3 @@ missing_assert_message = "warn"
 lto = "thin"
 codegen-units = 1
 strip="symbols"
-
