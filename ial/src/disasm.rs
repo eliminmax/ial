@@ -227,7 +227,7 @@ pub enum DebugInfoError {
     MissingInts(usize),
     /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
     ///
-    /// [instruction directive]: crate::debug_info::DirectiveKind::Instruction
+    /// [instruction directive]: ast::DirectiveKind::Instruction
     /// [`output_span`]: crate::debug_info::DirectiveDebug::output_span
     CorruptDirectiveSize,
     /// A [directive] from the [`DebugInfo`]

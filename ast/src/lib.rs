@@ -353,7 +353,7 @@ impl<'a> Line<'a> {
     ///
     /// If [`self.directive`] is either an [`Instruction`] or a [`Data`] directive, and an
     /// expression fails to [resolve] due to a missing label, returns an
-    /// [`AssemblyError::UnresolvedLabel`] pointing to the source of the missing label.
+    /// [`AstAssemblyError::UnresolvedLabel`] pointing to the source of the missing label.
     ///
     /// [`self.directive`]: Line::directive
     /// [`Instruction`]: Directive::Instruction
@@ -589,7 +589,7 @@ impl<'a> Instr<'a> {
     /// # Errors
     ///
     /// If a parameter depends on a label that isn't defined in labels, returns an
-    /// [`AssemblyError::UnresolvedLabel`] with the label in question, along with its span within
+    /// [`AstAssemblyError::UnresolvedLabel`] with the label in question, along with its span within
     /// the source.
     pub fn resolve(
         self,
