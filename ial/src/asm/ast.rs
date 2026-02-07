@@ -5,7 +5,6 @@
 //! Module of types related to the Abstract Syntax Tree
 use super::AssemblyError;
 use crate::ParamMode;
-use crate::asm::StackIter;
 use crate::debug_info::DirectiveKind;
 use chumsky::span::{SimpleSpan, Span, Spanned};
 use std::collections::HashMap;
@@ -26,6 +25,46 @@ pub mod prelude {
     pub use asm::{assemble, assemble_ast, build_ast};
     pub use chumsky::span::{SimpleSpan, Spanned};
 }
+
+/// A cheap iterator that uses a fixed amount of stack space for up to four `T`
+enum StackIter<T: Copy> {
+    Four(T, T, T, T),
+    Three(T, T, T),
+    Two(T, T),
+    One(T),
+    Empty,
+}
+
+impl<T: Copy> Iterator for StackIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            StackIter::Four(a, b, c, d) => {
+                let a = *a;
+                *self = Self::Three(*b, *c, *d);
+                Some(a)
+            }
+            StackIter::Three(a, b, c) => {
+                let a = *a;
+                *self = Self::Two(*b, *c);
+                Some(a)
+            }
+            StackIter::Two(a, b) => {
+                let a = *a;
+                *self = Self::One(*b);
+                Some(a)
+            }
+            StackIter::One(a) => {
+                let a = *a;
+                *self = Self::Empty;
+                Some(a)
+            }
+            StackIter::Empty => None,
+        }
+    }
+}
+
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]

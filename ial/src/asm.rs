@@ -169,45 +169,6 @@ pub enum AssemblyError<'a> {
     },
 }
 
-/// A cheap iterator that uses a fixed amount of stack space for up to four `T`
-enum StackIter<T: Copy> {
-    Four(T, T, T, T),
-    Three(T, T, T),
-    Two(T, T),
-    One(T),
-    Empty,
-}
-
-impl<T: Copy> Iterator for StackIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            StackIter::Four(a, b, c, d) => {
-                let a = *a;
-                *self = Self::Three(*b, *c, *d);
-                Some(a)
-            }
-            StackIter::Three(a, b, c) => {
-                let a = *a;
-                *self = Self::Two(*b, *c);
-                Some(a)
-            }
-            StackIter::Two(a, b) => {
-                let a = *a;
-                *self = Self::One(*b);
-                Some(a)
-            }
-            StackIter::One(a) => {
-                let a = *a;
-                *self = Self::Empty;
-                Some(a)
-            }
-            StackIter::Empty => None,
-        }
-    }
-}
-
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
 /// # Errors
