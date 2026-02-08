@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: 0BSD
 
 //! Module of types related to the Abstract Syntax Tree
+use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
 use ial_core::ParamMode;
 use std::collections::HashMap;
@@ -13,6 +14,24 @@ pub mod parsers;
 pub mod util;
 
 mod display_impls;
+
+/// Format the code into a reasonable default appearance, attempting to preserve indentation
+///
+/// # Errors
+///
+/// If a line of source code fails to parse, then returns the parser errors
+pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
+    use chumsky::prelude::*;
+    let mut formatted = String::with_capacity(code.len());
+    let leading_whitespace = || text::whitespace().to_slice().map(|s: &str| s.replace('\t', "    "));
+    for l in code.lines() {
+        let (indent, code) = leading_whitespace().then(parsers::line()).parse(l).into_result()?;
+        formatted += &indent;
+        formatted += &code.to_string();
+        formatted.push('\n');
+    }
+    Ok(formatted)
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of a [`Directive`]
@@ -457,6 +476,7 @@ impl Directive<'_> {
         }
     }
 }
+
 impl<'a> Directive<'a> {
     /// Consume the directive, appending the bytes to `v`.
     ///
