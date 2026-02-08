@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use std::io::Read;
-use ial_debug_info::{DebugInfo, DirectiveDebug};
-use ast::{DirectiveKind, prelude::*};
-use ast::util::span;
 use ast::parsers::ial;
+use ast::util::span;
+use ast::{DirectiveKind, prelude::*};
 use chumsky::Parser;
 use flate2::read::ZlibDecoder;
+use ial_debug_info::{DebugInfo, DirectiveDebug};
+use std::io::Read;
 
 /// Unreadable macro to allow for readable test values
 ///
@@ -50,7 +50,9 @@ macro_rules! encoded {
 
 #[test]
 fn round_trip() {
-    let ast = ial().parse("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"").unwrap();
+    let ast = ial()
+        .parse("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"")
+        .unwrap();
     let expected_debug_info = DebugInfo::new(
         vec![
             (span("a", 0..1), 0),

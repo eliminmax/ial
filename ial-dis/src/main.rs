@@ -102,7 +102,10 @@ fn main() -> Result<(), DisplayedError<'static>> {
     let code = parse_with_format(args.format, &input)?;
 
     let dissassembly = if let Some(debug_info) = args.debug_info.as_ref() {
-        disassemble_with_debug(code, &DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?)?
+        disassemble_with_debug(
+            code,
+            &DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?,
+        )?
     } else {
         disassemble(code)
     };

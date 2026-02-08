@@ -23,9 +23,16 @@ mod display_impls;
 pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
     use chumsky::prelude::*;
     let mut formatted = String::with_capacity(code.len());
-    let leading_whitespace = || text::whitespace().to_slice().map(|s: &str| s.replace('\t', "    "));
+    let leading_whitespace = || {
+        text::whitespace()
+            .to_slice()
+            .map(|s: &str| s.replace('\t', "    "))
+    };
     for l in code.lines() {
-        let (indent, code) = leading_whitespace().then(parsers::line()).parse(l).into_result()?;
+        let (indent, code) = leading_whitespace()
+            .then(parsers::line())
+            .parse(l)
+            .into_result()?;
         let mut l = format!("{indent}{code}");
         while l.as_bytes().last().copied() == Some(b' ') {
             l.pop();
