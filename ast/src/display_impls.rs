@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: 0BSD
 
 use chumsky::span::Spanned;
+use itertools::Itertools;
 
 use super::{
     AssemblyError, BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
@@ -25,7 +26,7 @@ impl Display for Expr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Expr::Number(n) => write!(f, "{n}"),
-            Expr::AsciiChar(c) => write!(f, "'{}'", c.escape_ascii()),
+            Expr::AsciiChar(c) => write!(f, "'{}'", EscapedByte(*c)),
             Expr::Ident(id) => write!(f, "{id}"),
             Expr::BinOp { lhs, op, rhs } => {
                 write!(f, "{} {} {}", lhs.inner, op.inner, rhs.inner)
@@ -34,6 +35,28 @@ impl Display for Expr<'_> {
             Expr::UnaryAdd(e) => write!(f, "+{}", e.inner),
             Expr::Parenthesized(e) => write!(f, "({})", e.inner),
         }
+    }
+}
+
+struct EscapedByte(u8);
+impl Display for EscapedByte {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            b'\0' => write!(f, "\\0"),
+            b'\x1b' => write!(f, "\\e"),
+            c => write!(f, "{}", c.escape_ascii()),
+        }
+    }
+}
+
+struct EscapedStr<'a>(&'a [u8]);
+impl Display for EscapedStr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "\"{}\"",
+            self.0.iter().copied().map(EscapedByte).format("")
+        )
     }
 }
 
@@ -46,7 +69,7 @@ impl Display for Label<'_> {
 impl Display for OuterExpr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for label in &self.labels {
-            write!(f, "{label}\t")?;
+            write!(f, "{label} ")?;
         }
         write!(f, "{}", self.expr.inner)
     }
@@ -89,7 +112,7 @@ impl Display for Directive<'_> {
                 Ok(())
             }
             Directive::Ascii(spanned) => {
-                write!(f, "ASCII {}", spanned.inner.escape_ascii())
+                write!(f, "ASCII {}", EscapedStr(&spanned.inner))
             }
             Directive::Instruction(instr) => write!(f, "{instr}"),
         }
@@ -98,19 +121,16 @@ impl Display for Directive<'_> {
 
 impl Display for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut space_comment = false;
-        for Label(Spanned { inner, .. }) in &self.labels {
-            space_comment = true;
-            write!(f, "{inner}:\t")?;
+        for label in &self.labels {
+            write!(f, "{label} ")?;
         }
         if let Some(Spanned { inner, .. }) = &self.directive {
-            space_comment = true;
             write!(f, "{inner}")?;
-        }
-        if let Some(Spanned { inner, .. }) = &self.comment {
-            if space_comment {
+            if self.comment.is_some() {
                 write!(f, "  ")?;
             }
+        }
+        if let Some(Spanned { inner, .. }) = &self.comment {
             write!(f, "; {}", inner[1..].trim_start())?;
         }
         Ok(())
