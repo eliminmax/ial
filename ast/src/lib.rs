@@ -26,9 +26,12 @@ pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
     let leading_whitespace = || text::whitespace().to_slice().map(|s: &str| s.replace('\t', "    "));
     for l in code.lines() {
         let (indent, code) = leading_whitespace().then(parsers::line()).parse(l).into_result()?;
-        formatted += &indent;
-        formatted += &code.to_string();
-        formatted.push('\n');
+        let mut l = format!("{indent}{code}");
+        while l.as_bytes().last().copied() == Some(b' ') {
+            l.pop();
+        }
+        l.push('\n');
+        formatted += &l;
     }
     Ok(formatted)
 }
