@@ -217,41 +217,8 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
 }
 
 use crate::asm::ast::DirectiveKind;
-use crate::debug_info::{DebugInfo, DirectiveDebug};
-use std::fmt::{self, Display};
+use ial_debug_info::{DebugInfo, DirectiveDebug, DebugInfoError};
 
-#[derive(Debug)]
-/// An error that occured when attempting to use [`DebugInfo`] to disassemble code
-pub enum DebugInfoError {
-    /// Debug info included at least this many ints beyond the end of the input
-    MissingInts(usize),
-    /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
-    ///
-    /// [instruction directive]: ast::DirectiveKind::Instruction
-    /// [`output_span`]: crate::debug_info::DirectiveDebug::output_span
-    CorruptDirectiveSize,
-    /// A [directive] from the [`DebugInfo`]
-    ///
-    /// [directive]: crate::asm::ast::Directive
-    DirectiveTooLarge(usize),
-}
-impl Display for DebugInfoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DebugInfoError::MissingInts(i) => write!(f, "expected at least {i} more ints"),
-            DebugInfoError::CorruptDirectiveSize => {
-                write!(f, "debug info has an invalid instruction directive size")
-            }
-            DebugInfoError::DirectiveTooLarge(size) => {
-                write!(
-                    f,
-                    "debug info has a directive {size} long, which is longer than i64::MAX"
-                )
-            }
-        }
-    }
-}
-impl std::error::Error for DebugInfoError {}
 
 macro_rules! write_string {
     ($($tok: tt)*) => {
@@ -294,171 +261,167 @@ fn disasm_outer_expr<'a>(
     }
 }
 
-impl DirectiveDebug {
-    fn disasm<'a, I: Iterator<Item = i64>>(
-        &'a self,
-        code: &mut I,
-        start_address: i64,
-        label_lookups: &HashMap<i64, Vec<&'a str>>,
-        disasm: &mut String,
-    ) -> Result<i64, DebugInfoError> {
-        let directive_size = self.output_span.end - self.output_span.start;
-        let ints = code.by_ref().take(directive_size).collect_vec();
+fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
+    dbg: &'a DirectiveDebug,
+    code: &mut I,
+    start_address: i64,
+    label_lookups: &HashMap<i64, Vec<&'a str>>,
+    disasm: &mut String,
+) -> Result<i64, DebugInfoError> {
+    let directive_size = dbg.output_span.end - dbg.output_span.start;
+    let ints = code.by_ref().take(directive_size).collect_vec();
 
-        if let Some(needed @ 1..) = directive_size.checked_sub(ints.len()) {
-            return Err(DebugInfoError::MissingInts(needed));
-        }
-
-        macro_rules! fallback {
-            ($msg: expr) => {{
-                writeln_string!(disasm, "DATA {} ; {}", ints.into_iter().format(", "), $msg);
-                return i64::try_from(directive_size)
-                    .map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size));
-            }};
-        }
-
-        match self.kind {
-            DirectiveKind::Instruction => {
-                if ints.is_empty() || ints.len() > 4 {
-                    return Err(DebugInfoError::CorruptDirectiveSize);
-                }
-
-                let Ok((op, modes)) = crate::Interpreter::parse_op(ints[0]) else {
-                    fallback!("expected instruction");
-                };
-
-                macro_rules! param {
-                    ($mode_i: literal) => {{
-                        let int = ints[$mode_i + 1];
-                        let outer_expr = boxed(disasm_outer_expr(
-                            start_address + $mode_i + 1,
-                            int,
-                            label_lookups,
-                        ));
-                        Parameter(modes[$mode_i], outer_expr)
-                    }};
-                }
-
-                macro_rules! instr {
-                    ($type: ident, 3) => {{ Instr::$type(param!(0), param!(1), param!(2)) }};
-                    ($type: ident, 2) => {{ Instr::$type(param!(0), param!(1)) }};
-                    ($type: ident, 1) => {{ Instr::$type(param!(0)) }};
-                    ($type: ident, 0) => {{ Instr::$type }};
-                }
-
-                macro_rules! write_instr {
-                    ($type: ident, $n: tt) => {{
-                        if $n + 1 > ints.len() {
-                            fallback!(format_args!(
-                                "insufficient parameters for {} instruction",
-                                op
-                            ))
-                        }
-                        writeln_string!(disasm, "{}", instr!($type, $n));
-                        if ints.len() > $n + 1 {
-                            writeln_string!(
-                                disasm,
-                                "DATA {}; leftover parameters from above instruction",
-                                ints[$n + 1..].into_iter().format(", ")
-                            );
-                        }
-                    }};
-                }
-
-                match op {
-                    OpCode::Add => write_instr!(Add, 3),
-                    OpCode::Mul => write_instr!(Mul, 3),
-                    OpCode::In => write_instr!(In, 1),
-                    OpCode::Out => write_instr!(Out, 1),
-                    OpCode::Jnz => write_instr!(Jnz, 2),
-                    OpCode::Jz => write_instr!(Jz, 2),
-                    OpCode::Lt => write_instr!(Lt, 3),
-                    OpCode::Eq => write_instr!(Eq, 3),
-                    OpCode::Rbo => write_instr!(Rbo, 1),
-                    OpCode::Halt => write_instr!(Halt, 0),
-                }
-            }
-            DirectiveKind::Data => {
-                writeln_string!(disasm, "DATA {}", ints.into_iter().format(", "));
-            }
-            DirectiveKind::Ascii => {
-                if ints.iter().all(|i| (0..=255).contains(i)) {
-                    disasm.push_str("ASCII \"");
-                    for i in ints {
-                        #[allow(
-                            clippy::cast_possible_truncation,
-                            clippy::cast_sign_loss,
-                            reason = "already known to be in range 0..=255"
-                        )]
-                        match i as u8 {
-                            b'\x1b' => disasm.push_str("\\e"),
-                            b => write_string!(disasm, "{}", b.escape_ascii()),
-                        }
-                    }
-                    disasm.push_str("\"\n");
-                } else {
-                    fallback!("expected ASCII");
-                }
-            }
-        }
-
-        i64::try_from(directive_size).map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size))
+    if let Some(needed @ 1..) = directive_size.checked_sub(ints.len()) {
+        return Err(DebugInfoError::MissingInts(needed));
     }
+
+    macro_rules! fallback {
+        ($msg: expr) => {{
+            writeln_string!(disasm, "DATA {} ; {}", ints.into_iter().format(", "), $msg);
+            return i64::try_from(directive_size)
+                .map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size));
+        }};
+    }
+
+    match dbg.kind {
+        DirectiveKind::Instruction => {
+            if ints.is_empty() || ints.len() > 4 {
+                return Err(DebugInfoError::CorruptDirectiveSize);
+            }
+
+            let Ok((op, modes)) = crate::Interpreter::parse_op(ints[0]) else {
+                fallback!("expected instruction");
+            };
+
+            macro_rules! param {
+                ($mode_i: literal) => {{
+                    let int = ints[$mode_i + 1];
+                    let outer_expr = boxed(disasm_outer_expr(
+                        start_address + $mode_i + 1,
+                        int,
+                        label_lookups,
+                    ));
+                    Parameter(modes[$mode_i], outer_expr)
+                }};
+            }
+
+            macro_rules! instr {
+                ($type: ident, 3) => {{ Instr::$type(param!(0), param!(1), param!(2)) }};
+                ($type: ident, 2) => {{ Instr::$type(param!(0), param!(1)) }};
+                ($type: ident, 1) => {{ Instr::$type(param!(0)) }};
+                ($type: ident, 0) => {{ Instr::$type }};
+            }
+
+            macro_rules! write_instr {
+                ($type: ident, $n: tt) => {{
+                    if $n + 1 > ints.len() {
+                        fallback!(format_args!(
+                            "insufficient parameters for {} instruction",
+                            op
+                        ))
+                    }
+                    writeln_string!(disasm, "{}", instr!($type, $n));
+                    if ints.len() > $n + 1 {
+                        writeln_string!(
+                            disasm,
+                            "DATA {}; leftover parameters from above instruction",
+                            ints[$n + 1..].into_iter().format(", ")
+                        );
+                    }
+                }};
+            }
+
+            match op {
+                OpCode::Add => write_instr!(Add, 3),
+                OpCode::Mul => write_instr!(Mul, 3),
+                OpCode::In => write_instr!(In, 1),
+                OpCode::Out => write_instr!(Out, 1),
+                OpCode::Jnz => write_instr!(Jnz, 2),
+                OpCode::Jz => write_instr!(Jz, 2),
+                OpCode::Lt => write_instr!(Lt, 3),
+                OpCode::Eq => write_instr!(Eq, 3),
+                OpCode::Rbo => write_instr!(Rbo, 1),
+                OpCode::Halt => write_instr!(Halt, 0),
+            }
+        }
+        DirectiveKind::Data => {
+            writeln_string!(disasm, "DATA {}", ints.into_iter().format(", "));
+        }
+        DirectiveKind::Ascii => {
+            if ints.iter().all(|i| (0..=255).contains(i)) {
+                disasm.push_str("ASCII \"");
+                for i in ints {
+                    #[allow(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        reason = "already known to be in range 0..=255"
+                    )]
+                    match i as u8 {
+                        b'\x1b' => disasm.push_str("\\e"),
+                        b => write_string!(disasm, "{}", b.escape_ascii()),
+                    }
+                }
+                disasm.push_str("\"\n");
+            } else {
+                fallback!("expected ASCII");
+            }
+        }
+    }
+
+    i64::try_from(directive_size).map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size))
 }
 
-impl DebugInfo {
-    /// Dissasmble `code`, using [`DebugInfo`] to avoid some of the limitations of [disassemble]
-    ///
-    /// # Errors
-    ///
-    /// * If `code` is shorter than expected for [`self.directives`], returns
-    ///   [`DebugInfoError::MissingInts`].
-    /// * If an instruction directive's span is out of the range `1..=4`, returns a
-    ///   [`DebugInfoError::CorruptDirectiveSize`].
-    /// * If a directive's size exceeds [`usize::MAX`], returns a
-    ///   [`DebugInfoError::DirectiveTooLarge`].
-    ///
-    /// [`self.labels`]: DebugInfo::labels
-    /// [`self.directives`]: DebugInfo::directives
-    pub fn disassemble(
-        &self,
-        code: impl IntoIterator<Item = i64>,
-    ) -> Result<String, DebugInfoError> {
-        let mut code = code.into_iter();
-        let label_lookups: HashMap<i64, Vec<&str>> = self
-            .labels
-            .iter()
-            .map(|(label, addr)| (*addr, label.inner.as_ref()))
-            .into_group_map();
+/// Dissasmble `code`, using [`DebugInfo`] to avoid some of the limitations of [disassemble]
+///
+/// # Errors
+///
+/// * If `code` is shorter than expected for [`self.directives`], returns
+///   [`DebugInfoError::MissingInts`].
+/// * If an instruction directive's span is out of the range `1..=4`, returns a
+///   [`DebugInfoError::CorruptDirectiveSize`].
+/// * If a directive's size exceeds [`usize::MAX`], returns a
+///   [`DebugInfoError::DirectiveTooLarge`].
+///
+/// [`self.labels`]: DebugInfo::labels
+/// [`self.directives`]: DebugInfo::directives
+pub fn disassemble_with_debug(
+    mem_iter: impl IntoIterator<Item = i64>,
+    debug_info: &DebugInfo,
+) -> Result<String, DebugInfoError> {
+    let mut code = mem_iter.into_iter();
+    let label_lookups: HashMap<i64, Vec<&str>> = debug_info
+        .labels
+        .iter()
+        .map(|(label, addr)| (*addr, label.inner.as_ref()))
+        .into_group_map();
 
-        let mut addr: i64 = 0;
+    let mut addr: i64 = 0;
 
-        let mut disasm = String::new();
-        for (i, dir) in self.directives.iter().enumerate() {
-            if let Some(labels) = label_lookups.get(&addr) {
-                for label in &labels[..] {
-                    write_string!(&mut disasm, "{label}:\t");
-                }
-            }
-
-            match dir.disasm(&mut code, addr, &label_lookups, &mut disasm) {
-                Ok(n) => addr += n,
-                Err(DebugInfoError::MissingInts(mut missing)) => {
-                    for dir in &self.directives[i + 1..] {
-                        missing += dir.output_span.end - dir.output_span.start;
-                    }
-
-                    return Err(DebugInfoError::MissingInts(missing));
-                }
-                Err(e) => return Err(e),
-            }
-        }
-
+    let mut disasm = String::new();
+    for (i, dir) in debug_info.directives.iter().enumerate() {
         if let Some(labels) = label_lookups.get(&addr) {
             for label in &labels[..] {
                 write_string!(&mut disasm, "{label}:\t");
             }
         }
-        Ok(disasm)
+
+        match disasm_directive_with_dbg(dir, &mut code, addr, &label_lookups, &mut disasm) {
+            Ok(n) => addr += n,
+            Err(DebugInfoError::MissingInts(mut missing)) => {
+                for dir in &debug_info.directives[i + 1..] {
+                    missing += dir.output_span.end - dir.output_span.start;
+                }
+
+                return Err(DebugInfoError::MissingInts(missing));
+            }
+            Err(e) => return Err(e),
+        }
     }
+
+    if let Some(labels) = label_lookups.get(&addr) {
+        for label in &labels[..] {
+            write_string!(&mut disasm, "{label}:\t");
+        }
+    }
+    Ok(disasm)
 }

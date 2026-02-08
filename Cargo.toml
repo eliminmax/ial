@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members = ["ast", "cli-helpers", "ial", "ial-as", "ial-core", "ial-dis", "intcode-ascii"]
+members = ["ast", "cli-helpers", "ial", "ial-as", "ial-core", "ial-debug-info", "ial-dis", "intcode-ascii"]
 
 [profile.release]
 lto = "thin"

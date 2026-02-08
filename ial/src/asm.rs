@@ -32,10 +32,9 @@
 //! [NASM]: <https://www.nasm.us/doc/nasm03.html>
 //! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
 
-use crate::debug_info::{DebugInfo, DirectiveDebug};
+use ial_debug_info::{DebugInfo, DirectiveDebug};
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Spanned};
-use itertools::Itertools;
 use std::collections::HashMap;
 
 pub use ast;
@@ -191,23 +190,7 @@ pub fn assemble_with_debug(
     code: Vec<Line<'_>>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
     assemble_inner(code, true).map(|(output, (labels, directives))| {
-        let labels = labels
-            .into_iter()
-            .map(|(Spanned { inner, span }, index)| {
-                (
-                    Spanned {
-                        inner: Box::from(inner),
-                        span,
-                    },
-                    index,
-                )
-            })
-            .sorted_by_key(|(Spanned { span, .. }, index)| (*index, *span))
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
-        let directives = directives.into_boxed_slice();
-        (output, DebugInfo { labels, directives })
+        (output, DebugInfo::new( labels, directives))
     })
 }
 

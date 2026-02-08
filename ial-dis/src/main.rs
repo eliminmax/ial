@@ -5,7 +5,7 @@
 use clap::Parser;
 use cli_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
-use ial::disasm::disassemble;
+use ial::disasm::{disassemble, disassemble_with_debug};
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display};
 use std::fs::{self, OpenOptions};
@@ -102,7 +102,7 @@ fn main() -> Result<(), DisplayedError<'static>> {
     let code = parse_with_format(args.format, &input)?;
 
     let dissassembly = if let Some(debug_info) = args.debug_info.as_ref() {
-        DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?.disassemble(code)?
+        disassemble_with_debug(code, &DebugInfo::read(OpenOptions::new().read(true).open(debug_info)?)?)?
     } else {
         disassemble(code)
     };

@@ -1,20 +1,14 @@
-# SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
-#
-# SPDX-License-Identifier: 0BSD
-
 [package]
-name = "ial"
-version = "0.2.0-dev"
+name = "ial-debug-info"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chumsky = { version = "0.12.0" }
-itertools = { version = "0.14.0" }
-either = "1.15.0"
-flate2 = "1.1.8"
 ial-core = { path = "../ial-core" }
 ast = { path = "../ast" }
-ial-debug-info = { version = "0.1.0", path = "../ial-debug-info" }
+chumsky = "0.12.0"
+itertools = "0.14.0"
+flate2 = "1.1.9"
 
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can

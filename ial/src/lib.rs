@@ -58,17 +58,17 @@
 //!
 //! # [`DebugInfo`]
 //!
-//! The [`debug_info`] module defines a [`DebugInfo`] struct that can be passed to an
+//! The [`debug_info`] crate defines a [`DebugInfo`] struct that can be passed to an
 //! [`Interpreter`] to diagnose issues, with [`Interpreter::write_diagnostic`], and can be used to
 //! disassemble with more accuracy than [`disasm::disassemble`].
 //!
 //! ## Example: using [`DebugInfo`] for more accurate disassembly
 //!
-//! Comparsion between [`debug_info::DebugInfo::disassemble`] and [`disasm::disassemble`]:
+//! Comparsion between [`disasm::disassemble`] and [`disasm::disassemble_with_debug`]:
 //!
 //! ```rust
 //! use ial::asm::{build_ast, assemble_with_debug};
-//! use ial::disasm::disassemble;
+//! use ial::disasm::{disassemble, disassemble_with_debug};
 //! let ial = r#"; Just because you can write IAL like this, doesn't mean you should!
 //! ASCII "h"  ; ASCII 'h' is 104
 //! DATA 32 * ('!' / 8 * 2 * (2 + 2)), 999 / 10 ; ASCII '!' is 33; 999/10 truncates to 99"#;
@@ -81,7 +81,7 @@
 //! assert_eq!(&default_disasm, "OUT #1024\nHALT\n");
 //!
 //! // It isn't identical, but using the debug info at least matches directive types:
-//! let debug_info_disasm = debug_info.disassemble(intcode).unwrap();
+//! let debug_info_disasm = disassemble_with_debug(intcode, &debug_info).unwrap();
 //! assert_eq!(&debug_info_disasm, "ASCII \"h\"\nDATA 1024, 99\n")
 //! ```
 //!
@@ -103,6 +103,10 @@ use std::error::Error;
 use std::fmt::{self, Debug, Display};
 use std::iter::empty;
 use std::ops::{Index, IndexMut, Range};
+use itertools::Itertools;
+use std::io::{self, Write};
+use ial_debug_info::DebugInfo;
+use disasm::disassemble_with_debug;
 
 pub mod trace;
 
@@ -114,7 +118,7 @@ pub mod prelude {
 
 pub mod asm;
 
-pub mod debug_info;
+pub use ial_debug_info as debug_info;
 pub mod disasm;
 
 use mmu::IntcodeMem;
@@ -611,6 +615,76 @@ impl Interpreter {
         } else {
             Err(NegativeMemAccess(range.start))
         }
+    }
+    /// Write human-readable diagnostic information about the interpreter's state to `writer`
+    ///
+    /// Uses [`debug_info.labels`][DebugInfo::labels] to determine points of interest, and to
+    /// disassemble the intcode memory.
+    ///
+    /// # Errors
+    ///
+    /// If writing to `writer` fails, returns the resulting [`io::Error`].
+    ///
+    /// If `debug_info` fails to apply to this [`Interpreter`], then it does not return an error,
+    /// but it does write the error message instead of writing the dissassembly to the output.
+    pub fn write_diagnostic<W: Write>(
+        &self,
+        debug_info: &DebugInfo,
+        writer: &mut W,
+    ) -> io::Result<()> {
+        use std::collections::BTreeMap;
+        let label_map = debug_info
+            .labels
+            .iter()
+            .map(|(s, a)| (a, s.inner.as_ref()))
+            .into_group_map();
+        let directive_starts = debug_info
+            .directives
+            .iter()
+            .enumerate()
+            .filter_map(|(i, dir)| {
+                i64::try_from(dir.output_span.start)
+                    .ok()
+                    .map(|start| (start, i + 1))
+            })
+            .collect::<BTreeMap<i64, usize>>();
+
+        writeln!(writer, "INTERPRETER STATE")?;
+        if let Some(labels) = label_map.get(&self.index) {
+            writeln!(
+                writer,
+                "    instruction pointer: {} ({})",
+                self.index,
+                labels.join(", ")
+            )?;
+        } else {
+            writeln!(writer, "    instruction pointer: {}", self.index)?;
+        }
+        if let Some(i) = directive_starts.get(&self.index) {
+            writeln!(writer, "        directive #{i}")
+        } else {
+            writeln!(writer, "        not a directive boundary")
+        }?;
+
+        if let Some(labels) = label_map.get(&self.rel_offset) {
+            writeln!(
+                writer,
+                "    relative base: {} ({})",
+                self.rel_offset,
+                labels.join(", ")
+            )?;
+        } else {
+            writeln!(writer, "    relative base {}", self.rel_offset)?;
+        }
+
+        match disassemble_with_debug(self.code.clone(), debug_info) {
+            Ok(dis) => writeln!(writer, "\n\nDISASSEMBLY\n{dis}")?,
+            Err(e) => writeln!(
+                writer,
+                "unable to disassemble with provided debug_info: {e}"
+            )?,
+        }
+        Ok(())
     }
 }
 
