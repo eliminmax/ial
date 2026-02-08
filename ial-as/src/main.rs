@@ -57,10 +57,13 @@ struct Args {
     #[arg(help = "output debug info")]
     #[arg(short = 'g', long = "debug-file")]
     debug: Option<PathBuf>,
+    #[arg(help = "format source code instead of assembling")]
+    #[arg(short, long, action)]
+    format: bool,
     #[arg(help = "Output format for the assembled intcode")]
     #[arg(short, long)]
     #[arg(default_value = "ascii")]
-    format: BinaryFormat,
+    output_format: BinaryFormat,
 }
 
 fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
@@ -208,6 +211,41 @@ fn main() -> ExitCode {
         }
     };
 
+    if args.format {
+        let formatted = match ial::asm::ast::format(&input) {
+            Ok(s) => s,
+            Err(errs) => {
+                for err in errs {
+                    report_ast_build_err(&err, &file, &input);
+                }
+
+                return ExitCode::FAILURE;
+            }
+        };
+
+        if let Some(outfile) = args.output.as_deref()
+            && outfile != "-"
+        {
+            match open_writable(outfile) {
+                Ok(mut w) => {
+                    return if let Err(e) = write!(w, "{formatted}") {
+                        eprintln!("Error writing output: {e}");
+                        ExitCode::FAILURE
+                    } else {
+                        ExitCode::SUCCESS
+                    };
+                }
+                Err(e) => {
+                    eprintln!("Failed to open {} for writing: {e}", outfile.display());
+                    return ExitCode::FAILURE;
+                }
+            }
+        } else {
+            print!("{formatted}");
+            return ExitCode::SUCCESS;
+        }
+    }
+
     let ast = match build_ast(&input) {
         Ok(ast) => ast,
         Err(errs) => {
@@ -264,7 +302,7 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        match output_with_format(args.format, intcode, writer) {
+        match output_with_format(args.output_format, intcode, writer) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("Failed to write to {}: {e}.", outfile.display());
@@ -272,7 +310,7 @@ fn main() -> ExitCode {
             }
         }
     } else {
-        match output_with_format(args.format, intcode, io::stdout()) {
+        match output_with_format(args.output_format, intcode, io::stdout()) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => {
                 eprintln!("Failed to write to stdout: {e}.");
