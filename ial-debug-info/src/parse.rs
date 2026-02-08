@@ -255,7 +255,8 @@ const _: () = assert!(
     "wrong BitCounter type selected"
 );
 
-const HEADER: [u8; 8] = const {
+/// An array containing the magic bytes and version number of an IAL debug file
+pub const HEADER: [u8; 8] = const {
     let mut header: [u8; 8] = [0; 8];
     let mut i = 0;
     while i < MAGIC.len() {
