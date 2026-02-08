@@ -98,11 +98,20 @@ impl Display for Directive<'_> {
 
 impl Display for Line<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut space_comment = false;
         for Label(Spanned { inner, .. }) in &self.labels {
+            space_comment = true;
             write!(f, "{inner}:\t")?;
         }
         if let Some(Spanned { inner, .. }) = &self.directive {
+            space_comment = true;
             write!(f, "{inner}")?;
+        }
+        if let Some(Spanned { inner, .. }) = &self.comment {
+            if space_comment {
+                write!(f, "  ")?;
+            }
+            write!(f, "; {}", inner[1..].trim_start())?;
         }
         Ok(())
     }
