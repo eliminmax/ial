@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "ial-as"
-version = "0.1.0"
+version = "0.2.0-dev"
 dependencies = [
  "ariadne",
  "chumsky",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "ial-dis"
-version = "0.1.0"
+version = "0.2.0-dev"
 dependencies = [
  "ariadne",
  "clap",
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "intcode-ascii"
-version = "0.1.0"
+version = "0.2.0-dev"
 dependencies = [
  "clap",
  "cli-helpers",
