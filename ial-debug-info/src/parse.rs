@@ -352,17 +352,9 @@ impl DebugInfo {
             let len = read_size(&mut reader)?;
 
             // SAFETY: `0` is a valid u8 value
-            let mut raw_label_text = unsafe { Box::new_zeroed_slice(len).assume_init() };
+            let mut raw_label_text = vec![0; len];
             reader.read_exact(&mut raw_label_text)?;
-            // because there's no str::from_boxed_utf8 that validates, but there is an unsafe
-            // unchecked `std::str::from_boxed_utf8_unchecked`, first validate, then convert within
-            // an unsafe block
-            let label_text = if str::from_utf8(&raw_label_text).is_ok() {
-                // SAFETY: Already validated
-                unsafe { std::str::from_boxed_utf8_unchecked(raw_label_text) }
-            } else {
-                return Err(Error::NonUtf8Label(raw_label_text));
-            };
+            let label_text = String::from_utf8(raw_label_text)?.into_boxed_str();
 
             if !valid_ident(&label_text) {
                 return Err(Error::InvalidLabel(label_text));
@@ -424,13 +416,14 @@ pub enum DebugInfoReadError {
     BadDirectiveByte(u8),
     /// A [label][DebugInfo::labels]'s [span][SimpleSpan] is backwards
     /// A label's text data wasn't UTF-8-encoded
-    NonUtf8Label(Box<[u8]>),
+    NonUtf8Label(FromUtf8Error),
     /// A label was valid UTF-8, but was not a valid identifier
     InvalidLabel(Box<str>),
 }
 
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
+use std::string::FromUtf8Error;
 
 impl Debug for EncodedSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -464,11 +457,7 @@ impl Display for DebugInfoReadError {
                 write!(f, "bad directive byte: 0x{byte:02x}")
             }
             DebugInfoReadError::NonUtf8Label(label) => {
-                write!(
-                    f,
-                    "tried to decode a non-utf8 label: {}",
-                    label.escape_ascii()
-                )
+                write!(f, "tried to decode a non-utf8 label: {label}")
             }
             DebugInfoReadError::InvalidLabel(s) => {
                 write!(f, "invalid label: {:?}", s.as_ref())
@@ -482,6 +471,12 @@ impl Error for DebugInfoReadError {}
 impl From<io::Error> for DebugInfoReadError {
     fn from(err: io::Error) -> Self {
         Self::IoError(err)
+    }
+}
+
+impl From<FromUtf8Error> for DebugInfoReadError {
+    fn from(err: FromUtf8Error) -> Self {
+        Self::NonUtf8Label(err)
     }
 }
 
