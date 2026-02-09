@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+use chumsky::Parser;
+use flate2::read::ZlibDecoder;
 use ial_ast::parsers::ial;
 use ial_ast::util::span;
 use ial_ast::{DirectiveKind, prelude::*};
-use chumsky::Parser;
-use flate2::read::ZlibDecoder;
 use ial_debug_info::{DebugInfo, DirectiveDebug};
 use std::io::Read;
 

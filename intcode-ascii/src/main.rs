@@ -6,9 +6,9 @@
 //! stdout for I/O
 
 use clap::Parser;
-use ial_cli_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
 use ial::{State, StepOutcome, prelude::*};
+use ial_cli_helpers::{BinaryFormat, DisplayedError};
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::fs::{self, OpenOptions, read_to_string};

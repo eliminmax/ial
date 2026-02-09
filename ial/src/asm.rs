@@ -37,9 +37,9 @@ use chumsky::span::{SimpleSpan, Spanned};
 use ial_debug_info::{DebugInfo, DirectiveDebug};
 use std::collections::HashMap;
 
-pub use ial_ast as ast;
 pub use ast::AssemblyError;
 use ast::{Directive, Instr, Label, Line, parsers};
+pub use ial_ast as ast;
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///

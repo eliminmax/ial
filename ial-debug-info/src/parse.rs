@@ -70,8 +70,8 @@
 //! [Reading a Label]: <#reading-a-label>
 
 use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
-use ial_ast::util::span;
 use chumsky::text::Char;
+use ial_ast::util::span;
 use std::io::{self, BufRead, Read, Write};
 
 /// the magic bytes for on-disk debug data.
