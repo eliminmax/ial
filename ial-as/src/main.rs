@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Eli Array Minkoff
+// SPDX-FileCopyrightText: 2025 - 2026 Eli Array Minkoff
 //
 // SPDX-License-Identifier: 0BSD
 
