@@ -285,7 +285,7 @@ pub const HEADER: [u8; 8] = const {
 };
 
 impl DebugInfo {
-    /// Write the debug info into the format described in [`crate::debug_info::parse`]
+    /// Write the debug info into the format described in [the module docs][crate::parse]
     ///
     /// # Errors
     ///
@@ -333,7 +333,7 @@ impl DebugInfo {
         ZlibEncoder::new(f, compression_level).write_all(&buffer)
     }
 
-    /// Read the debug info from the format described in [`crate::debug_info::parse`]
+    /// Read the debug info from the format described in [the module docs][crate::parse]
     ///
     /// # Errors
     ///

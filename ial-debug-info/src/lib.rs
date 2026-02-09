@@ -19,9 +19,7 @@ pub struct DirectiveDebug {
 
 #[non_exhaustive]
 #[derive(Debug, PartialEq)]
-/// Debug info generated when assembling source code with [`assemble_with_debug`]
-///
-/// [`assemble_with_debug`]: crate::asm::assemble_with_debug
+/// Debug info generated when assembling IAL
 pub struct DebugInfo {
     /// Mapping of labels' spans in the source code to their resolved addresses in the output
     pub labels: Box<[(Spanned<Box<str>>, i64)]>,
@@ -61,11 +59,11 @@ pub enum DebugInfoError {
     /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
     ///
     /// [instruction directive]: ial_ast::DirectiveKind::Instruction
-    /// [`output_span`]: crate::debug_info::DirectiveDebug::output_span
+    /// [`output_span`]: DirectiveDebug::output_span
     CorruptDirectiveSize,
-    /// A [directive] from the [`DebugInfo`]
+    /// A [directive] from the [`DebugInfo`] was larger than [`i64::MAX`]
     ///
-    /// [directive]: crate::asm::ast::Directive
+    /// [directive]: ial_ast::Directive
     DirectiveTooLarge(usize),
 }
 impl Display for DebugInfoError {
