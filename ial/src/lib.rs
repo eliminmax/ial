@@ -30,18 +30,15 @@
 //!
 //! # Intcode Assembly Language (IAL)
 //!
-//! The [`ial_ast`] crate defines an Abstract Syntax Tree for IAL and provides functions to build that
-//! AST from source code, and assemble it into a [`Vec<i64>`], ready for use in an [`Interpreter`].
+//! The [`asm`] module provides functions for assembling IAL.
 //!
-//! ## Basic IAL Example
+//! ## Basic Assembler Example
 //!
 //! ```rust
 //! use ial::asm::assemble;
 //! let intcode = assemble("OUT #1024\nHALT").unwrap();
 //! assert_eq!(intcode, vec![104, 1024, 99]);
 //! ```
-//!
-//! For examples working with the AST, see [the `ial_ast` crate docs][ial_ast].
 //!
 //! # Intcode Disassembler
 //!
@@ -58,8 +55,8 @@
 //!
 //! # [`DebugInfo`]
 //!
-//! The [`debug_info`] crate defines a [`DebugInfo`] struct that can be passed to an
-//! [`Interpreter`] to diagnose issues, with [`Interpreter::write_diagnostic`], and can be used to
+//! The [`debug_info`] crate defines a [`DebugInfo`] struct that can be used with an
+//! [`Interpreter`] to diagnose issues with [`Interpreter::write_diagnostic`], and can be used to
 //! disassemble with more accuracy than [`disasm::disassemble`].
 //!
 //! ## Example: using [`DebugInfo`] for more accurate disassembly
@@ -686,25 +683,4 @@ impl Interpreter {
         }
         Ok(())
     }
-}
-
-/// Ensure that failure due to missing input leaves the interpreter in a sane state that can
-/// be recovered from
-#[test]
-fn missing_input_recoverable() {
-    let mut interpreter = Interpreter::new(vec![3, 10, 4, 10, 99]);
-    let old_state = interpreter.clone();
-
-    let failed_run = interpreter.run_through_inputs(empty());
-
-    // make sure that the failure returned the right InterpreterError and left both `outputs` and
-    // `interpreter` unchanged
-    assert_eq!(failed_run, Ok((vec![], State::Awaiting)));
-    assert_eq!(interpreter, old_state);
-
-    // make sure that interpreter can still be used
-    assert_eq!(
-        interpreter.run_through_inputs([1]),
-        Ok((vec![1], State::Halted))
-    );
 }

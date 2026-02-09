@@ -7,6 +7,6 @@ resolver = "3"
 members = ["ial", "ial-as", "ial-ast", "ial-cli-helpers", "ial-core", "ial-debug-info", "ial-dis", "intcode-ascii"]
 
 [profile.release]
-lto = "thin"
+lto = true
 codegen-units = 1
-strip="symbols"
+strip = "symbols"
