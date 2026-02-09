@@ -11,3 +11,4 @@ ial-cli-helpers = { version = "0.1.0", path = "../ial-cli-helpers" }
 ial = { version = "0.2.0-dev", path = "../ial" }
 ial-core = { version = "0.1.0", path = "../ial-core" }
 itertools = "0.14.0"
+ial-ast = { version = "0.1.0", path = "../ial-ast" }

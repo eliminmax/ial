@@ -37,9 +37,8 @@ use chumsky::span::{SimpleSpan, Spanned};
 use ial_debug_info::{DebugInfo, DirectiveDebug};
 use std::collections::HashMap;
 
-pub use ast::AssemblyError;
-use ast::{Directive, Instr, Label, Line, parsers};
-pub use ial_ast as ast;
+pub use ial_ast::AssemblyError;
+use ial_ast::{Directive, Instr, Label, Line, parsers};
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
@@ -208,7 +207,8 @@ pub fn assemble_with_debug(
 /// # Example
 ///
 /// ```
-/// use ial::asm::{assemble_ast, ast::{Line, Directive, Instr, Parameter}};
+/// use ial::asm::assemble_ast;
+/// use ial_ast::{Line, Directive, Instr, Parameter};
 /// use chumsky::span::{Spanned, SimpleSpan};
 ///
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));

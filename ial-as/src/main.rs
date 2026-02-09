@@ -5,7 +5,8 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
-use ial::asm::{AssemblyError, assemble_ast, assemble_with_debug, build_ast};
+use ial_ast::AssemblyError;
+use ial::asm::{assemble_ast, assemble_with_debug, build_ast};
 use ial_cli_helpers::BinaryFormat;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, Write};
@@ -212,7 +213,7 @@ fn main() -> ExitCode {
     };
 
     if args.format {
-        let formatted = match ial::asm::ast::format(&input) {
+        let formatted = match ial_ast::format(&input) {
             Ok(s) => s,
             Err(errs) => {
                 for err in errs {

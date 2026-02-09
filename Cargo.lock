@@ -282,6 +282,7 @@ dependencies = [
  "chumsky",
  "clap",
  "ial",
+ "ial-ast",
  "ial-cli-helpers",
  "ial-core",
  "itertools",

@@ -5,7 +5,7 @@
 //! A handful of tests involving the [colortest](https://github.com/eliminmax/colortest) IAL
 //! implementation.
 
-use ial::asm::ast::{Directive, Instr, Line};
+use ial_ast::{Directive, Instr, Line};
 use ial::asm::{assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
 use ial::{Interpreter, State};

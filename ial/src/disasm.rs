@@ -6,14 +6,14 @@
 //!
 //! See [disassemble] for documentation
 
-use super::asm::ast::prelude::*;
-use super::asm::ast::util::boxed;
+use ial_ast::prelude::*;
+use ial_ast::util::boxed;
 use super::{Interpreter, OpCode};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::Write;
 
-/// Create disassembly from the memory
+/// Create disassembly from Intcode memory
 ///
 /// # Example
 ///
@@ -128,9 +128,9 @@ use std::fmt::Write;
 /// assert_eq!(outcome, StepOutcome::Stopped(State::Halted));
 /// ```
 ///
-/// [`DATA` directive]: super::asm::ast::Directive::Data
-/// [`DATA` directives]: super::asm::ast::Directive::Data
-/// [instruction]: super::asm::ast::Instr
+/// [`DATA` directive]: <https://github.com/eliminmax/ial/blob/main/IAL.md#data-directives>
+/// [`DATA` directives]: <https://github.com/eliminmax/ial/blob/main/IAL.md#data-directives>
+/// [instruction]: <https://github.com/eliminmax/ial/blob/main/IAL.md#instructions>
 /// [self-modifying]: <#self-modifying-code>
 /// [Naïve Approach to Ambiguity]: <#naïve-approach-to-ambiguity>
 /// [^naive]: See [Naïve Approach to Ambiguity] and [self-modifying]
@@ -216,7 +216,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().format("\n").to_string() + "\n"
 }
 
-use crate::asm::ast::DirectiveKind;
+use ial_ast::DirectiveKind;
 use ial_debug_info::{DebugInfo, DebugInfoError, DirectiveDebug};
 
 macro_rules! write_string {
