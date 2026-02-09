@@ -3,8 +3,9 @@
 use chumsky::span::{SimpleSpan, Spanned};
 
 use ial_ast::DirectiveKind;
-pub mod parse;
 use itertools::Itertools;
+
+pub mod parse;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// Debug info about a given directive
