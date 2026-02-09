@@ -119,33 +119,50 @@ pub fn valid_ident(text: &str) -> bool {
 pub struct EncodedSize([u8]);
 
 impl EncodedSize {
+    #[cfg_attr(not(debug_assertions), inline(always))]
+    fn panic_if_invalid(slice: &[u8]) {
+        let Some(last) = slice.last().copied() else {
+            panic!("EncodedSize must not be empty");
+        };
+        debug_assert_eq!(
+            last & 0x80,
+            0,
+            "Invalid final byte for EncodedSize: 0x{last:02x} (most significant byte is 1)"
+        );
+        for &byte in &slice[..slice.len() - 1] {
+            debug_assert_eq!(
+                byte & 0x80,
+                0x80,
+                "Invalid non-final byte for EncodedSize: 0x{byte:02x} (most significant byte is 0)"
+            );
+        }
+    }
+
     /// Converts a [`Box<[u8]>`][Box] into a [`Box<EncodedSize>`][EncodedSize]
     ///
-    /// If the boxed slice is empty, or doesn't follow the documented structure for
-    /// [`EncodedSize`], this function may panic, or it may result in incoherent outcomes.
+    /// # Panics
+    ///
+    /// * Panics `slice` is empty.
+    /// * If `cfg(debug_assertions)` is set, panics if the most significant bit of the final byte
+    ///   of `slice` is 1, or if the most significant bit of any other byte of `slice` is 0.
     #[must_use]
     pub fn from_boxed_slice(slice: Box<[u8]>) -> Box<Self> {
-        debug_assert!(slice.last().is_some_and(|v| v & 0x80 == 0), "{slice:?}");
-        debug_assert!(
-            (slice.get(..slice.len() - 1)).is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
-            "{slice:?}"
-        );
+        EncodedSize::panic_if_invalid(&slice);
         // SAFETY: this is accepted by Miri, and the same pattern is used in the (unstable)
         // `impl From<Box<[u8]>> for Box<ByteStr>` as of Rust 1.92.0.
-        unsafe { Box::from_raw(Box::into_raw(slice) as _) }
+        unsafe { Box::from_raw(Box::into_raw(slice) as *mut Self) }
     }
 
     /// Converts an [`&[u8]`][slice] into an [`&EncodedSize`][EncodedSize]
     ///
-    /// If the slice is empty, or doesn't follow the documented structure for
-    /// [`EncodedSize`], this function may panic, or it may result in incoherent outcomes.
-    #[allow(clippy::must_use_candidate, reason = "used within encoded_into_vec")]
+    /// # Panics
+    ///
+    /// * Panics `slice` is empty.
+    /// * If `cfg(debug_assertions)` is set, panics if the most significant bit of the final byte
+    ///   of `slice` is 1, or if the most significant bit of any other byte of `slice` is 0.
+    #[must_use]
     pub fn from_slice(slice: &[u8]) -> &Self {
-        debug_assert!(slice.last().is_some_and(|v| v & 0x80 == 0), "{slice:?}");
-        debug_assert!(
-            (slice.get(..slice.len() - 1)).is_none_or(|s| s.iter().all(|v| v & 0x80 == 0x80)),
-            "{slice:?}"
-        );
+        EncodedSize::panic_if_invalid(slice);
 
         #[allow(clippy::ref_as_ptr, reason = "match precedent cited in SAFETY comment")]
         // SAFETY: given the fact that EncodedSize is #[repr(transparent)], and that this construct
