@@ -93,10 +93,10 @@ pub fn valid_ident(text: &str) -> bool {
 }
 
 #[repr(transparent)]
-/// portable binary serialization for any size unsigned integer, optimized for smaller values
+/// Portable binary serialization for unsigned integers of any size, designed for small values
 ///
-/// An "Encoded Size" consists of a non-empty sequence of bytes. The highest bit in every byte
-/// except for the last one is set to `1`, and the highest bit in the last one is set to `0`.
+/// An "Encoded Size" consists of a non-empty sequence of bytes. The most significant bit in every
+/// byte except for the last one is set to `1`, to mark it as a continuation byte.
 ///
 /// To convert an "encoded size" back into an integer value, the following algorithm can be used:
 ///
@@ -112,7 +112,7 @@ pub fn valid_ident(text: &str) -> bool {
 /// ```
 ///
 /// *In fact, the implementation of [`TryFrom<&EncodedSize>`] for [usize] uses that approach, with
-/// the addition of overflow checking.*
+/// the addition of overflow checking to ensure that it's less than [`usize::MAX`].*
 ///
 /// An [`EncodedSize`] can be [dereferenced][core::ops::Deref] into a [`[u8]`][slice].
 #[derive(PartialEq)]
