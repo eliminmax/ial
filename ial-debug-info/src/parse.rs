@@ -81,6 +81,19 @@ pub const MAGIC: [u8; 7] = *b"\0IALDBG";
 /// [module docs]: self
 pub const VERSION: u8 = 0;
 
+const _HEADER: [u8; 8] = const {
+    let mut header: [u8; 8] = [0; 8];
+    let mut i = 0;
+    while i < MAGIC.len() {
+        header[i] = MAGIC[i];
+        i += 1;
+    }
+    header[i] = VERSION;
+    header
+};
+/// An array containing the magic bytes and version number of an IAL debug file
+pub const HEADER: [u8; 8] = _HEADER;
+
 const FLATE_LOWER_THRESHOLD: usize = 2048;
 const FLATE_MIDDLE_THRESHOLD: usize = FLATE_LOWER_THRESHOLD * 4;
 const FLATE_UPPER_THRESHOLD: usize = FLATE_MIDDLE_THRESHOLD * 4;
@@ -271,19 +284,6 @@ const _: () = assert!(
         },
     "wrong BitCounter type selected"
 );
-
-const _HEADER: [u8; 8] = const {
-    let mut header: [u8; 8] = [0; 8];
-    let mut i = 0;
-    while i < MAGIC.len() {
-        header[i] = MAGIC[i];
-        i += 1;
-    }
-    header[i] = VERSION;
-    header
-};
-/// An array containing the magic bytes and version number of an IAL debug file
-pub const HEADER: [u8; 8] = _HEADER;
 
 impl DebugInfo {
     /// Write the debug info into the format described in [the module docs][crate::parse]
