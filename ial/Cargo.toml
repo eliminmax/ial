@@ -11,7 +11,7 @@ edition = "2024"
 chumsky = { version = "0.12.0" }
 itertools = { version = "0.14.0" }
 ial-core = { path = "../ial-core" }
-ast = { path = "../ast" }
+ial-ast = { path = "../ial-ast" }
 ial-debug-info = { version = "0.1.0", path = "../ial-debug-info" }
 
 [dev-dependencies]

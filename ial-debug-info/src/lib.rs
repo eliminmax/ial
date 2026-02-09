@@ -2,7 +2,7 @@
 
 use chumsky::span::{SimpleSpan, Spanned};
 
-use ast::DirectiveKind;
+use ial_ast::DirectiveKind;
 pub mod parse;
 use itertools::Itertools;
 

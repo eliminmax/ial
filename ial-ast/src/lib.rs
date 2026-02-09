@@ -412,8 +412,8 @@ pub enum Directive<'a> {
     /// # Example
     ///
     /// ```
-    /// use ast::parsers::{Parser, directive};
-    /// use ast::util::unspan;
+    /// use ial_ast::parsers::{Parser, directive};
+    /// use ial_ast::util::unspan;
     /// use std::collections::HashMap;
     /// const ASM_SRC: &str = "DATA 1, 2, zero + 3, 4 * 4 / 4, 5";
     /// let directive = directive().parse(ASM_SRC).unwrap().unwrap().inner;
@@ -448,9 +448,9 @@ pub enum Directive<'a> {
     ///
     /// ```
     /// const ASM_SRC: &str = r#"ASCII "Hello, world!\n""#;
-    /// use ast::parsers::{Parser, directive};
+    /// use ial_ast::parsers::{Parser, directive};
     /// let directive = directive().parse(ASM_SRC).unwrap().unwrap().inner;
-    /// assert_eq!(directive.kind(), ast::DirectiveKind::Ascii);
+    /// assert_eq!(directive.kind(), ial_ast::DirectiveKind::Ascii);
     /// let mut assembled = Vec::new();
     /// directive.encode_into(&mut assembled, &Default::default()).unwrap();
     /// let expected: Vec<i64> = b"Hello, world!\n".into_iter().map(|&i| i64::from(i)).collect();

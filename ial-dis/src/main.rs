@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: 0BSD
 
 use clap::Parser;
-use cli_helpers::{BinaryFormat, DisplayedError};
+use ial_cli_helpers::{BinaryFormat, DisplayedError};
 use ial::debug_info::DebugInfo;
 use ial::disasm::{disassemble, disassemble_with_debug};
 use std::borrow::Cow;

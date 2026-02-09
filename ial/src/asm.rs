@@ -37,7 +37,7 @@ use chumsky::span::{SimpleSpan, Spanned};
 use ial_debug_info::{DebugInfo, DirectiveDebug};
 use std::collections::HashMap;
 
-pub use ast;
+pub use ial_ast as ast;
 pub use ast::AssemblyError;
 use ast::{Directive, Instr, Label, Line, parsers};
 

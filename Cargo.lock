@@ -94,15 +94,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ast"
-version = "0.1.0"
-dependencies = [
- "chumsky",
- "ial-core",
- "itertools",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -177,19 +168,6 @@ name = "clap_lex"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
-
-[[package]]
-name = "cli-helpers"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "ast",
- "chumsky",
- "clap",
- "ial",
- "ial-core",
- "itertools",
-]
 
 [[package]]
 name = "colorchoice"
@@ -287,10 +265,10 @@ checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
 name = "ial"
 version = "0.2.0-dev"
 dependencies = [
- "ast",
  "chumsky",
  "either",
  "flate2",
+ "ial-ast",
  "ial-core",
  "ial-debug-info",
  "itertools",
@@ -303,8 +281,30 @@ dependencies = [
  "ariadne",
  "chumsky",
  "clap",
- "cli-helpers",
  "ial",
+ "ial-cli-helpers",
+ "ial-core",
+ "itertools",
+]
+
+[[package]]
+name = "ial-ast"
+version = "0.1.0"
+dependencies = [
+ "chumsky",
+ "ial-core",
+ "itertools",
+]
+
+[[package]]
+name = "ial-cli-helpers"
+version = "0.1.0"
+dependencies = [
+ "ariadne",
+ "chumsky",
+ "clap",
+ "ial",
+ "ial-ast",
  "ial-core",
  "itertools",
 ]
@@ -317,9 +317,9 @@ version = "0.1.0"
 name = "ial-debug-info"
 version = "0.1.0"
 dependencies = [
- "ast",
  "chumsky",
  "flate2",
+ "ial-ast",
  "ial-core",
  "itertools",
 ]
@@ -330,8 +330,8 @@ version = "0.2.0-dev"
 dependencies = [
  "ariadne",
  "clap",
- "cli-helpers",
  "ial",
+ "ial-cli-helpers",
 ]
 
 [[package]]
@@ -339,8 +339,8 @@ name = "intcode-ascii"
 version = "0.2.0-dev"
 dependencies = [
  "clap",
- "cli-helpers",
  "ial",
+ "ial-cli-helpers",
 ]
 
 [[package]]

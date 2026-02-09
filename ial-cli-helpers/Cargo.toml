@@ -1,5 +1,5 @@
 [package]
-name = "cli-helpers"
+name = "ial-cli-helpers"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,7 +10,7 @@ chumsky = { version = "0.12.0" }
 itertools = { version = "0.14.0" }
 ial-core = { version = "0.1.0", path = "../ial-core" }
 ial = { version = "0.2.0-dev", path = "../ial" }
-ast = { version = "0.1.0", path = "../ast" }
+ial-ast = { version = "0.1.0", path = "../ial-ast" }
 
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can

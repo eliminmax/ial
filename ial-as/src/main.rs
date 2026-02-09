@@ -5,7 +5,7 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
-use cli_helpers::BinaryFormat;
+use ial_cli_helpers::BinaryFormat;
 use ial::asm::{AssemblyError, assemble_ast, assemble_with_debug, build_ast};
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, Write};
