@@ -81,7 +81,7 @@ pub const MAGIC: [u8; 7] = *b"\0IALDBG";
 /// [module docs]: self
 pub const VERSION: u8 = 0;
 
-const FLATE_LOWER_THRESHOLD: usize = 4096;
+const FLATE_LOWER_THRESHOLD: usize = 2048;
 const FLATE_MIDDLE_THRESHOLD: usize = FLATE_LOWER_THRESHOLD * 4;
 const FLATE_UPPER_THRESHOLD: usize = FLATE_MIDDLE_THRESHOLD * 4;
 
