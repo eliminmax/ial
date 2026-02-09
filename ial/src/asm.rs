@@ -209,7 +209,7 @@ pub fn assemble_with_debug(
 ///
 /// ```
 /// use ial::asm::{assemble_ast, ast::{Line, Directive, Instr, Parameter}};
-/// use chumsky::prelude::{Spanned, SimpleSpan};
+/// use chumsky::span::{Spanned, SimpleSpan};
 ///
 /// let inner = Directive::Instruction(Box::new(Instr::Halt));
 ///
