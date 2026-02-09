@@ -5,13 +5,12 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
-use ial_ast::AssemblyError;
 use ial::asm::{assemble_ast, assemble_with_debug, build_ast};
-use ial_cli_helpers::BinaryFormat;
-use std::fs::{OpenOptions, read_to_string};
+use ial_ast::AssemblyError;
+use ial_cli_helpers::{BinaryFormat, DisplayedError, EmptyError, ErrorMessage};
+use std::fs::{self, OpenOptions, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
 
 fn output_with_format<W: Write>(
     format: BinaryFormat,
@@ -67,7 +66,7 @@ struct Args {
     output_format: BinaryFormat,
 }
 
-fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
+fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) -> EmptyError {
     let mut builder = Report::build(ReportKind::Error, (file, err.span().into_range()))
         .with_message(format!("Failed to parse {}", file.fg(Color::Red)));
 
@@ -115,9 +114,10 @@ fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
         .finish()
         .eprint((file, Source::from(source)))
         .unwrap();
+    EmptyError
 }
 
-fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
+fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) -> EmptyError {
     match err {
         AssemblyError::UnresolvedLabel { label, span } => {
             Report::build(ReportKind::Error, (file, span.into_range()))
@@ -181,6 +181,7 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
     .finish()
     .eprint((file, Source::from(source)))
     .unwrap();
+    EmptyError
 }
 
 fn open_writable(outfile: &Path) -> io::Result<impl Write> {
@@ -191,7 +192,7 @@ fn open_writable(outfile: &Path) -> io::Result<impl Write> {
         .open(outfile)
 }
 
-fn main() -> ExitCode {
+fn main() -> Result<(), DisplayedError<'static>> {
     let args = Args::parse();
     let (file, input) = {
         use std::borrow::Cow;
@@ -204,119 +205,54 @@ fn main() -> ExitCode {
         }
     };
 
-    let input = match input {
-        Ok(i) => i,
-        Err(e) => {
-            eprintln!("Error reading input: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let input = input.map_err(|e| ErrorMessage(format!("Error reading input: {e}")))?;
 
     if args.format {
-        let formatted = match ial_ast::format(&input) {
-            Ok(s) => s,
-            Err(errs) => {
-                for err in errs {
-                    report_ast_build_err(&err, &file, &input);
-                }
-
-                return ExitCode::FAILURE;
+        let formatted = ial_ast::format(&input).map_err(|errs| {
+            for err in errs {
+                report_ast_build_err(&err, &file, &input);
             }
-        };
+            EmptyError
+        })?;
 
         if let Some(outfile) = args.output.as_deref()
             && outfile != "-"
         {
-            match open_writable(outfile) {
-                Ok(mut w) => {
-                    return if let Err(e) = write!(w, "{formatted}") {
-                        eprintln!("Error writing output: {e}");
-                        ExitCode::FAILURE
-                    } else {
-                        ExitCode::SUCCESS
-                    };
-                }
-                Err(e) => {
-                    eprintln!("Failed to open {} for writing: {e}", outfile.display());
-                    return ExitCode::FAILURE;
-                }
-            }
+            fs::write(outfile, formatted)?;
         } else {
             print!("{formatted}");
-            return ExitCode::SUCCESS;
         }
+        return Ok(());
     }
 
-    let ast = match build_ast(&input) {
-        Ok(ast) => ast,
-        Err(errs) => {
-            for err in errs {
-                report_ast_build_err(&err, &file, &input);
-            }
-
-            return ExitCode::FAILURE;
+    let ast = build_ast(&input).map_err(|errs| {
+        for err in errs {
+            report_ast_build_err(&err, &file, &input);
         }
-    };
+        EmptyError
+    })?;
 
     let intcode = if let Some(debug_path) = args.debug.as_deref() {
-        match assemble_with_debug(ast) {
-            Ok((code, debug)) => {
-                match open_writable(debug_path) {
-                    Ok(w) => {
-                        if let Err(e) = debug.write(w) {
-                            eprintln!(
-                                "Failed to write debug info to {}: {e}",
-                                debug_path.display()
-                            );
-                            return ExitCode::FAILURE;
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to open {} for writing: {e}", debug_path.display());
-                        return ExitCode::FAILURE;
-                    }
-                }
-                code
-            }
-            Err(e) => {
-                report_ast_assembly_err(&e, &file, &input);
-                return ExitCode::FAILURE;
-            }
-        }
+        let (code, debug) =
+            assemble_with_debug(ast).map_err(|e| report_ast_assembly_err(&e, &file, &input))?;
+        let w = open_writable(debug_path)?;
+        debug.write(w).map_err(|e| {
+            ErrorMessage(format!(
+                "Failed to write debug info to {}: {e}",
+                debug_path.display()
+            ))
+        })?;
+        code
     } else {
-        match assemble_ast(ast) {
-            Ok(code) => code,
-            Err(e) => {
-                report_ast_assembly_err(&e, &file, &input);
-                return ExitCode::FAILURE;
-            }
-        }
+        assemble_ast(ast).map_err(|e| report_ast_assembly_err(&e, &file, &input))?
     };
 
     if let Some(outfile) = args.output.as_deref()
         && outfile != "-"
     {
-        let writer = match open_writable(outfile) {
-            Ok(w) => w,
-            Err(e) => {
-                eprintln!("Failed to open {} for writing: {e}.", outfile.display());
-                return ExitCode::FAILURE;
-            }
-        };
-        match output_with_format(args.output_format, intcode, writer) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => {
-                eprintln!("Failed to write to {}: {e}.", outfile.display());
-                ExitCode::FAILURE
-            }
-        }
+        output_with_format(args.output_format, intcode, open_writable(outfile)?)
     } else {
-        match output_with_format(args.output_format, intcode, io::stdout()) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => {
-                eprintln!("Failed to write to stdout: {e}.");
-                ExitCode::FAILURE
-            }
-        }
+        output_with_format(args.output_format, intcode, io::stdout())
     }
+    .map_err(Into::into)
 }

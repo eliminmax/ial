@@ -44,11 +44,21 @@ impl Debug for DisplayedError<'_> {
 }
 
 #[derive(Debug)]
-pub struct ErrorMessage(String);
+pub struct ErrorMessage(pub String);
 
 impl Display for ErrorMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
+
 impl Error for ErrorMessage {}
+
+#[derive(Debug)]
+pub struct EmptyError;
+impl Display for EmptyError {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Ok(())
+    }
+}
+impl Error for EmptyError {}
