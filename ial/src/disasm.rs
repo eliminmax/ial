@@ -6,9 +6,9 @@
 //!
 //! See [disassemble] for documentation
 
+use super::{Interpreter, OpCode};
 use ial_ast::prelude::*;
 use ial_ast::util::boxed;
-use super::{Interpreter, OpCode};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::Write;

@@ -5,10 +5,10 @@
 //! A handful of tests involving the [colortest](https://github.com/eliminmax/colortest) IAL
 //! implementation.
 
-use ial_ast::{Directive, Instr, Line};
 use ial::asm::{assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
 use ial::{Interpreter, State};
+use ial_ast::{Directive, Instr, Line};
 use itertools::Itertools;
 use std::sync::OnceLock;
 
