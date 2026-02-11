@@ -74,6 +74,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.101"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
+
+[[package]]
 name = "ar_archive_writer"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -294,6 +300,22 @@ version = "0.1.0"
 dependencies = [
  "chumsky",
  "ial-core",
+ "itertools",
+]
+
+[[package]]
+name = "ial-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ariadne",
+ "chumsky",
+ "clap",
+ "ial",
+ "ial-ast",
+ "ial-cli-helpers",
+ "ial-core",
+ "ial-debug-info",
  "itertools",
 ]
 
