@@ -5,18 +5,17 @@
 use anyhow::Result;
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
-use clap::{ArgAction, Parser, ValueHint};
+use clap::Parser;
 use itertools::Itertools;
 use std::fmt::Write;
-use std::fs;
-use std::io::{self, Read};
-use std::path::PathBuf;
+
+mod format;
 
 #[derive(Parser, Debug)]
 enum Action {
     /// Format the IAL code, attempting to preserve indentation
     #[command(alias = "fmt")]
-    Format(FormatArgs),
+    Format(format::FormatArgs),
     Assemble,
     Disassemble,
     RunAscii,
@@ -91,54 +90,6 @@ fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) -> Resul
         .map_err(Into::into)
 }
 
-#[derive(Debug, Parser)]
-struct FormatArgs {
-    /// File containing the IAL assembly (reads stdin if unset)
-    #[arg(value_name = "FILE", value_hint = ValueHint::FilePath, required = false)]
-    input: Option<PathBuf>,
-    /// Output file for formatted IAL
-    #[arg(short, long, value_name = "FILE", conflicts_with = "in_place")]
-    #[arg(value_hint = ValueHint::FilePath)]
-    output: Option<PathBuf>,
-    #[arg(short, long, action = ArgAction::SetTrue, requires = "input")]
-    /// Overwrite the source file
-    in_place: bool,
-}
-
-impl FormatArgs {
-    fn run(&self) -> Result<()> {
-        if self.in_place {
-            let path = self.input.as_deref().expect("enforced by clap Parser");
-            let src = fs::read_to_string(path)?;
-            return match ial_ast::format(&src) {
-                Ok(formatted) => fs::write(path, formatted).map_err(Into::into),
-                Err(errs) => print_parse_errors(&errs, &path.as_os_str().to_string_lossy(), &src),
-            };
-        }
-
-        let (src_file, input) = if let Some(path) = self.input.as_deref() {
-            (
-                path.as_os_str().to_string_lossy(),
-                fs::read_to_string(path)?,
-            )
-        } else {
-            let mut s = String::new();
-            io::stdin().read_to_string(&mut s)?;
-            ("stdin".into(), s)
-        };
-        match ial_ast::format(&input) {
-            Ok(formatted) => {
-                if let Some(out) = self.output.as_deref() {
-                    fs::write(out, formatted).map_err(Into::into)
-                } else {
-                    print!("{formatted}");
-                    Ok(())
-                }
-            }
-            Err(errs) => print_parse_errors(&errs, &src_file, &input),
-        }
-    }
-}
 
 // NOTE: Should return `Result<!>` once the never type is stabilized, as it calls
 // `std::process::exit` once all error messages have been printed successfully
