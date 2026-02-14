@@ -14,3 +14,25 @@ ial-cli-helpers = { path = "../ial-cli-helpers" }
 ial-core = { path = "../ial-core" }
 ial-debug-info = { path = "../ial-debug-info" }
 itertools = "0.14.0"
+
+[lints.clippy]
+# enable these categories with a negative priority, so that individual lints can
+# be overridden
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# some clippy::restriction tests that I want enabled
+format_push_string = "warn"
+if_then_some_else_none = "warn"
+let_underscore_must_use = "warn"
+allow_attributes_without_reason = "warn"
+assertions_on_result_states = "warn"
+dbg_macro = "warn"
+todo = "warn"
+same_name_method = "warn"
+semicolon_outside_block = "warn"
+exit = "deny"
+unseparated_literal_suffix = "warn"
+redundant_type_annotations = "warn"
+field_scoped_visibility_modifiers = "warn"
+missing_assert_message = "warn"
