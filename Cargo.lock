@@ -302,20 +302,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ial-as"
-version = "0.2.0-dev"
-dependencies = [
- "ariadne",
- "chumsky",
- "clap",
- "ial",
- "ial-ast",
- "ial-cli-helpers",
- "ial-core",
- "itertools",
-]
-
-[[package]]
 name = "ial-ast"
 version = "0.1.0"
 dependencies = [
@@ -341,19 +327,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ial-cli-helpers"
-version = "0.1.0"
-dependencies = [
- "ariadne",
- "chumsky",
- "clap",
- "ial",
- "ial-ast",
- "ial-core",
- "itertools",
-]
-
-[[package]]
 name = "ial-core"
 version = "0.1.0"
 
@@ -366,25 +339,6 @@ dependencies = [
  "ial-ast",
  "ial-core",
  "itertools",
-]
-
-[[package]]
-name = "ial-dis"
-version = "0.2.0-dev"
-dependencies = [
- "ariadne",
- "clap",
- "ial",
- "ial-cli-helpers",
-]
-
-[[package]]
-name = "intcode-ascii"
-version = "0.2.0-dev"
-dependencies = [
- "clap",
- "ial",
- "ial-cli-helpers",
 ]
 
 [[package]]

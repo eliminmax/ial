@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members = ["ial", "ial-as", "ial-ast", "ial-cli", "ial-cli-helpers", "ial-core", "ial-debug-info", "ial-dis", "intcode-ascii"]
+members = ["ial", "ial-ast", "ial-cli", "ial-core", "ial-debug-info"]
 
 [profile.release]
 lto = true
