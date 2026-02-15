@@ -335,7 +335,6 @@ dependencies = [
  "const_format",
  "ial",
  "ial-ast",
- "ial-cli-helpers",
  "ial-core",
  "ial-debug-info",
  "itertools",
