@@ -39,6 +39,8 @@ enum Action {
     /// Disassemble Intcode into IAL
     #[command(alias = "disasm")]
     Disassemble(disassemble::DisassembleArgs),
+    /// Run Intcode program
+    #[command(alias = "run")]
     RunAscii(run_ascii::RunAsciiArgs),
 }
 
