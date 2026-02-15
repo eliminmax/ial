@@ -86,6 +86,9 @@
 //! [`disasm::disassemble` § caveats]: disasm::disassemble#caveats
 //! [`DebugInfo`]: debug_info::DebugInfo
 
+#[doc(hidden)]
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// A module implementing internal logic that doesn't fit cleanly into the module hierarchy
 mod internals;
 

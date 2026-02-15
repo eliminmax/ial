@@ -13,10 +13,21 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
 
-mod assemble;
 mod format;
+mod disassemble;
+mod assemble;
+mod run_ascii;
+
+const LONG_VERSION: &str = const_format::formatcp!(
+    "{}\n(built with ial {} and ial-ast {})",
+    env!("CARGO_PKG_VERSION"),
+    ial::VERSION,
+    ial_ast::VERSION
+);
 
 #[derive(Parser, Debug)]
+#[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(long_version = LONG_VERSION)]
 enum Action {
     /// Format the IAL code, attempting to preserve indentation
     #[command(alias = "fmt")]
@@ -24,9 +35,10 @@ enum Action {
     /// Assemble the IAL into Intcode
     #[command(alias = "asm")]
     Assemble(assemble::AssembleArgs),
-    Disassemble,
-    RunAscii,
-    Debug,
+    /// Disassemble Intcode into IAL
+    #[command(alias = "disasm")]
+    Disassemble(disassemble::DisassembleArgs),
+    RunAscii(run_ascii::RunAsciiArgs),
 }
 
 impl Action {
@@ -34,9 +46,8 @@ impl Action {
         match self {
             Action::Format(format_args) => format_args.run(),
             Action::Assemble(assemble_args) => assemble_args.run(),
-            Action::Disassemble => todo!(),
-            Action::RunAscii => todo!(),
-            Action::Debug => todo!(),
+            Action::Disassemble(disassemble_args) => disassemble_args.run(),
+            Action::RunAscii(run_ascii_args) => run_ascii_args.run(),
         }
     }
 }
@@ -46,6 +57,25 @@ fn debug_path<P: AsRef<Path>>(outfile_path: Option<&P>) -> Cow<'static, Path> {
         Some(path) => Cow::Owned(path.as_ref().with_extension(".ialdbg")),
         None => Cow::Borrowed(Path::new("ialdbg")),
     }
+}
+
+fn read_intcode<P: AsRef<Path>>(input: Option<&P>) -> Result<Vec<i64>> {
+    let text = if let Some(path) = input {
+        fs::read_to_string(path.as_ref())?
+    } else {
+        let mut s = String::new();
+        io::stdin().read_to_string(&mut s)?;
+        s
+    };
+
+    let s = text.trim();
+    Ok(if s.is_empty() {
+        vec![]
+    } else {
+        s.split(',')
+            .map(str::parse)
+            .collect::<Result<Vec<i64>, _>>()?
+    })
 }
 
 fn read_src<P: AsRef<Path>>(input: Option<&P>) -> Result<(Cow<'_, str>, String)> {
@@ -123,7 +153,10 @@ fn print_parse_errors(errs: &[Rich<'_, char>], file: &str, src: &str) -> ! {
         eprintln!("report_ast_build_err({err:?}, {file:?}, ...");
         report_ast_build_err(err, file, src);
     }
-    #[allow(clippy::exit, reason = "explicitly documented in print_parse_errors")]
+    #[warn(
+        clippy::exit,
+        reason = "don't forbid as replacement requires massive refactoring"
+    )]
     std::process::exit(1)
 }
 
@@ -218,7 +251,10 @@ where
         Ok(val) => val,
         Err(ast_err) => {
             report_ast_assembly_err(&ast_err, file, src);
-            #[allow(clippy::exit, reason = "explicitly documented in docstring")]
+            #[warn(
+                clippy::exit,
+                reason = "don't forbid as replacement requires massive refactoring"
+            )]
             std::process::exit(1);
         }
     }
