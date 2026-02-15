@@ -28,32 +28,6 @@ pub struct DebugInfo {
     pub directives: Box<[DirectiveDebug]>,
 }
 
-impl DebugInfo {
-    #[deprecated]
-    /// Create a new [`DebugInfo`]
-    #[must_use]
-    pub fn new(labels: Vec<(Spanned<&str>, i64)>, directives: Vec<DirectiveDebug>) -> Self {
-        let labels = labels
-            .into_iter()
-            .map(|(Spanned { inner, span }, addr)| {
-                (
-                    Spanned {
-                        inner: inner.into(),
-                        span,
-                    },
-                    addr,
-                )
-            })
-            .sorted_by_key(|(Spanned { span, .. }, index)| (*index, *span))
-            .collect_vec()
-            .into_boxed_slice();
-        Self {
-            labels,
-            directives: directives.into_boxed_slice(),
-        }
-    }
-}
-
 use std::fmt::{self, Display};
 #[derive(Debug)]
 /// An error that occured when attempting to use [`DebugInfo`] to disassemble code
