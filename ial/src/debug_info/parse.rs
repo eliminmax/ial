@@ -628,7 +628,6 @@ mod tests {
     #[test]
     fn round_trip() {
         use flate2::read::ZlibDecoder;
-        use ial_ast::parsers::{Parser, ial};
         let expected_labels = Box::from([
             (span(Box::from("a"), 0..1), 0),
             (span(Box::from("b"), 3..4), 0),
@@ -695,9 +694,7 @@ mod tests {
             }
         ];
 
-        let ast = ial()
-            .parse("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"")
-            .unwrap();
+        let ast = crate::asm::build_ast("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"").unwrap();
         let (_, dbg) = crate::asm::assemble_with_debug(ast).unwrap();
         assert_eq!(dbg.labels, expected_labels);
         assert_eq!(dbg.directives, expected_directives);

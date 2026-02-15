@@ -6,7 +6,8 @@ use anyhow::Result;
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
-use ial_ast::{AssemblyError, Line};
+use ial::asm::Ast;
+use ial_ast::AssemblyError;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::fs;
@@ -243,9 +244,9 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
 ///
 /// On error, calls [`report_ast_assembly_err(&err, file, src)`][report_ast_build_err]
 /// then [exits][std::process::exit] with exit code 1.
-fn checked_assemble<'a, F, T>(f: F, ast: Vec<Line<'a>>, file: &str, src: &'a str) -> T
+fn checked_assemble<'a, F, T>(f: F, ast: Ast<'a>, file: &str, src: &'a str) -> T
 where
-    F: Fn(Vec<Line<'a>>) -> Result<T, AssemblyError<'a>>,
+    F: Fn(Ast<'a>) -> Result<T, AssemblyError<'a>>,
 {
     match f(ast) {
         Ok(val) => val,

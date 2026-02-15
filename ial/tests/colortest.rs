@@ -4,11 +4,12 @@
 
 //! A handful of tests involving the [colortest](https://github.com/eliminmax/colortest) IAL
 //! implementation.
+#![cfg(feature = "ast")]
 
-use ial::asm::{assemble_with_debug, build_ast};
+use ial::asm::{assemble_with_debug, build_ast, Ast};
 use ial::debug_info::DebugInfo;
 use ial::{Interpreter, State};
-use ial_ast::{Directive, Instr, Line};
+use ial_ast::{Directive, Instr};
 use itertools::Itertools;
 use std::sync::OnceLock;
 
@@ -16,15 +17,15 @@ const COLORTEST_ASM: &str = include_str!("colortest/ial/colortest.ial");
 
 fn parsed_ast() -> &'static (Vec<i64>, DebugInfo) {
     static PARSED: OnceLock<(Vec<i64>, DebugInfo)> = OnceLock::new();
-    PARSED.get_or_init(|| assemble_with_debug(ast().to_vec()).unwrap())
+    PARSED.get_or_init(|| assemble_with_debug(ast().clone()).unwrap())
 }
 
 fn code() -> &'static [i64] {
     &parsed_ast().0
 }
 
-fn ast() -> &'static [Line<'static>] {
-    static AST: OnceLock<Vec<Line<'static>>> = OnceLock::new();
+fn ast() -> &'static Ast<'static> {
+    static AST: OnceLock<Ast<'static>> = OnceLock::new();
     AST.get_or_init(|| build_ast(COLORTEST_ASM).unwrap())
 }
 
@@ -50,7 +51,7 @@ fn ast_instruction_counts() {
         })
         .counts();
 
-    let ast_matches = ast()
+    let ast_matches = ast().inner()
         .iter()
         .filter_map(|line| line.directive.as_ref())
         .map(|directive| match &directive.inner {

@@ -3,7 +3,6 @@
 use chumsky::span::{SimpleSpan, Spanned};
 
 use ial_ast::DirectiveKind;
-use itertools::Itertools;
 
 pub mod parse;
 

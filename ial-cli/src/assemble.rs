@@ -7,7 +7,7 @@
 use crate::{checked_assemble, checked_ast_fn, debug_path, read_src};
 use anyhow::Result;
 use clap::{Parser, ValueHint};
-use ial::asm::{assemble_ast, assemble_with_debug, build_ast};
+use ial::asm::{AstBuildErr, assemble_ast, assemble_with_debug, build_ast};
 use itertools::Itertools;
 use std::fs::{self, OpenOptions};
 use std::path::PathBuf;
@@ -42,7 +42,11 @@ pub(crate) struct AssembleArgs {
 impl AssembleArgs {
     pub(crate) fn run(&self) -> Result<()> {
         let (src_file, input) = read_src(self.input.as_ref())?;
-        let ast = checked_ast_fn(build_ast, &src_file, &input);
+        let ast = checked_ast_fn(
+            |s| build_ast(s).map_err(AstBuildErr::into_inner),
+            &src_file,
+            &input,
+        );
         let intcode = match self.debug_info.as_ref() {
             Some(dbg_path) => {
                 let (intcode, dbg) = checked_assemble(assemble_with_debug, ast, &src_file, &input);

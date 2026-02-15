@@ -7,7 +7,7 @@
 
 use anyhow::Result;
 use clap::{ArgAction, Parser, ValueHint};
-use ial::asm::{assemble_with_debug, build_ast};
+use ial::asm::{AstBuildErr, assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
 use ial::{State, StepOutcome, prelude::*};
 use std::error::Error;
@@ -170,7 +170,11 @@ impl RunAsciiArgs {
         let (prog, debug_info) = if self.assemble_intcode {
             let src = read_to_string(&self.code)?;
             let path = self.code.as_os_str().to_string_lossy();
-            let ast = checked_ast_fn(build_ast, &path, &src);
+            let ast = checked_ast_fn(
+                |s| build_ast(s).map_err(AstBuildErr::into_inner),
+                &path,
+                &src,
+            );
             let (prog, debug_info) = checked_assemble(assemble_with_debug, ast, &path, &src);
             (prog, Some(debug_info))
         } else {

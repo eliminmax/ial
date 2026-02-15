@@ -37,9 +37,42 @@ use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Spanned};
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::fmt::{self, Display};
+use std::error::Error;
 
 pub use ial_ast::AssemblyError;
 use ial_ast::{Directive, Instr, Label, Line, parsers};
+
+/// The Abstract Syntax Tree generated from the assembly
+#[derive(Debug, PartialEq, Clone)]
+pub struct Ast<'a>(Vec<Line<'a>>);
+
+#[cfg(feature = "ast")]
+impl<'a> Ast<'a> {
+    /// Access the AST's internals
+    #[must_use]
+    pub fn inner(&self) -> &[Line<'a>] {
+        &self.0
+    }
+
+    #[must_use]
+    /// Mutably access the AST's internals
+    pub fn inner_mut(&mut self) -> &mut Vec<Line<'a>> {
+        &mut self.0
+    }
+
+    #[must_use]
+    /// take the underlying [`Vec`] of [`Line`]s 
+    pub fn into_inner(self) -> Vec<Line<'a>> {
+        self.0
+    }
+    
+    #[must_use]
+    /// convert a [`Vec`] of [`Line`]s into an [`Ast`]
+    pub fn from_lines(lines: Vec<Line<'a>>) -> Self {
+        Self(lines)
+    }
+}
 
 /// Parse the assembly code into a [`Vec<Line>`], or a [`Vec<Rich<char>>`] on failure.
 ///
@@ -62,9 +95,9 @@ use ial_ast::{Directive, Instr, Label, Line, parsers};
 /// hello: ASCII "Hello, world!"
 /// "#).is_ok());
 /// ```
-pub fn build_ast(code: &str) -> Result<Vec<Line<'_>>, Vec<Rich<'_, char>>> {
+pub fn build_ast(code: &str) -> Result<Ast<'_>, AstBuildErr<'_>> {
     use chumsky::Parser;
-    parsers::ial().parse(code).into_result()
+    parsers::ial().parse(code).into_result().map(Ast).map_err(AstBuildErr)
 }
 
 type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
@@ -74,7 +107,7 @@ type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
 /// If `generate_debug` is false, then both vecs in the returned [`RawDebugInfo`] will be empty to
 /// avoid allocating
 fn assemble_inner<'a>(
-    code: Vec<Line<'a>>,
+    code: Ast<'a>,
     generate_debug: bool,
 ) -> Result<(Vec<i64>, RawDebugInfo<'a>), AssemblyError<'a>> {
     let mut labels: HashMap<&'a str, (i64, SimpleSpan)> = HashMap::new();
@@ -93,7 +126,7 @@ fn assemble_inner<'a>(
             }
         };
 
-    for line in &code {
+    for line in &code.0 {
         for Label(Spanned { inner: label, span }) in &line.labels {
             add_label(label, index, *span)?;
         }
@@ -148,7 +181,7 @@ fn assemble_inner<'a>(
 
     let mut v = Vec::with_capacity(index.try_into().unwrap_or_default());
 
-    for line in code {
+    for line in code.0 {
         if generate_debug {
             if let Some(spanned) = line.directive.as_ref() {
                 let kind = spanned.inner.kind();
@@ -187,7 +220,7 @@ fn assemble_inner<'a>(
 /// * If an expression fails to resolve due to a missing label, returns
 ///   [`AssemblyError::UnresolvedLabel`].
 pub fn assemble_with_debug(
-    code: Vec<Line<'_>>,
+    code: Ast<'_>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
     assemble_inner(code, true).map(|(output, (labels, directives))| {
         (
@@ -228,32 +261,54 @@ pub fn assemble_with_debug(
 /// # Example
 ///
 /// ```
-/// use ial::asm::assemble_ast;
-/// use ial_ast::{Line, Directive, Instr, Parameter};
-/// use chumsky::span::{Spanned, SimpleSpan};
-///
-/// let inner = Directive::Instruction(Box::new(Instr::Halt));
-///
-/// let ast = vec![
-///     Line {
-///         labels: vec![],
-///         directive: Some(Spanned { inner, span: SimpleSpan::default() }),
-///         comment: None,
-///     }
-/// ];
-///
+/// use ial::asm::{build_ast, assemble_ast};
+/// let ast = build_ast("halt: HALT; halts the program").unwrap();
 /// assert_eq!(assemble_ast(ast).unwrap(), vec![99]);
 /// ```
-pub fn assemble_ast(code: Vec<Line<'_>>) -> Result<Vec<i64>, AssemblyError<'_>> {
+pub fn assemble_ast(code: Ast<'_>) -> Result<Vec<i64>, AssemblyError<'_>> {
     assemble_inner(code, false).map(|(output, _)| output)
 }
+
+#[derive(Debug)]
+/// One or more parsing errors that occured in [`build_ast`]
+pub struct AstBuildErr<'a>(Vec<Rich<'a, char>>);
+
+#[cfg(feature = "ast")]
+impl<'a> AstBuildErr<'a> {
+    /// Get the underlying [`chumsky::error::Rich<'_, char>`]s in a slice
+    #[must_use]
+    pub fn inner(&self) -> &[Rich<'a, char>] {
+        self.0.as_slice()
+    }
+
+    /// Convert the [`AstBuildErr`] into the underlying [`Vec`] of
+    /// [`chumsky::error::Rich<'_, char>`]
+    #[must_use]
+    pub fn into_inner(self) -> Vec<Rich<'a, char>> {
+        self.0
+    }
+
+    #[must_use]
+    /// Convert a [`Vec`] of [`chumsky::error::Rich<'a, char>`]s into an [`AstBuildErr<'a>`]
+    pub fn from_inner(v: Vec<Rich<'a, char>>) -> Self {
+        Self(v)
+    }
+}
+
+impl Display for AstBuildErr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0.iter().format("\n"))
+    }
+}
+
+impl Error for AstBuildErr<'_> {}
 
 /// An error that indicates where in the assembly process a failure occured, and wraps around the
 /// error type for that part of the process.
 #[derive(Debug)]
 pub enum GeneralAsmError<'a> {
     /// Failure to build the AST
-    BuildAst(Vec<Rich<'a, char>>),
+    BuildAst(AstBuildErr<'a>),
     /// Failure to assemble the parsed AST
     Assemble(AssemblyError<'a>),
 }
