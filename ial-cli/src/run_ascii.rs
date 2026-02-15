@@ -47,7 +47,7 @@ pub(crate) struct RunAsciiArgs {
     ///
     /// Conflicts with --debug-info
     #[arg(short, long, action = ArgAction::SetTrue)]
-    #[arg(conflicts_with = "debug-info")]
+    #[arg(conflicts_with = "debug_info")]
     assemble_intcode: bool,
     /// Disable buffering of output
     #[arg(short, long, action = ArgAction::SetTrue)]
@@ -56,7 +56,7 @@ pub(crate) struct RunAsciiArgs {
     ///
     /// Requires unbuffered output
     #[arg(short = 't', long, action = ArgAction::SetTrue)]
-    #[arg(requires = "unbuffered-output")]
+    #[arg(requires = "unbuffered_output")]
     show_trace: bool,
 }
 
