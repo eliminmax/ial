@@ -6,7 +6,7 @@ use chumsky::span::Spanned;
 use itertools::Itertools;
 
 use super::{
-    AssemblyError, BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
+    BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
 };
 
 use std::fmt::{self, Display};
@@ -134,24 +134,5 @@ impl Display for Line<'_> {
             write!(f, "; {}", inner[1..].trim_start())?;
         }
         Ok(())
-    }
-}
-
-impl Display for AssemblyError<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AssemblyError::UnresolvedLabel { label, .. } => {
-                write!(f, "unresolved label: {label:?}")
-            }
-            AssemblyError::DuplicateLabel { label, .. } => write!(f, "duplicate label: {label:?}"),
-            AssemblyError::DirectiveTooLarge { size, .. } => {
-                write!(
-                    f,
-                    "directive too large: size {size} is more than maximum {}",
-                    i64::MAX
-                )
-            }
-            AssemblyError::DivisionByZero { .. } => write!(f, "division by zero"),
-        }
     }
 }

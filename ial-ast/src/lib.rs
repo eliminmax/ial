@@ -9,7 +9,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
-use ial_core::ParamMode;
+use ial_core::{AssemblyError, ParamMode};
 use std::collections::HashMap;
 use std::ops::Range;
 use util::unspan;
@@ -296,16 +296,16 @@ impl<'a> ExprResolutionError<'a> {
     fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
         match self {
             ExprResolutionError::UnresolvedLabel(label) => {
-                AssemblyError::UnresolvedLabel { label, span }
+                AssemblyError::UnresolvedLabel { label, span: span.into_range()  }
             }
             ExprResolutionError::DivisionByZero {
                 lhs_span,
                 div_index,
                 rhs_span,
             } => AssemblyError::DivisionByZero {
-                lhs_span,
+                lhs_span: lhs_span.into_range(),
                 div_index,
-                rhs_span,
+                rhs_span: rhs_span.into_range(),
             },
         }
     }
@@ -705,42 +705,3 @@ impl TryFrom<u8> for DirectiveKind {
         }
     }
 }
-
-/// An error that occured while trying to assemble the AST into Intcode
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum AssemblyError<'a> {
-    /// An expresison used a label that could not be resolved
-    UnresolvedLabel {
-        /// The unresolved label
-        label: &'a str,
-        /// The span within the input of the unresolved label
-        span: SimpleSpan,
-    },
-    /// A label was defined more than once
-    DuplicateLabel {
-        /// The duplicated label
-        label: &'a str,
-        /// The spans of the new and old definitions of the label
-        spans: [SimpleSpan; 2],
-    },
-    /// A directive resolved to more than [`i64::MAX`] ints, and somehow didn't crash your computer
-    /// before it was time to size things up
-    DirectiveTooLarge {
-        /// The output size of the directive
-        size: usize,
-        /// The span within the input of the directive
-        span: SimpleSpan,
-    },
-    /// A divison expression's right-hand side evaluated to zero
-    DivisionByZero {
-        /// The left-hand side of the expression
-        lhs_span: SimpleSpan,
-        /// The index of the division operator in the source
-        div_index: usize,
-        /// The right-hand side of the expression
-        rhs_span: SimpleSpan,
-    },
-}
-
-impl std::error::Error for AssemblyError<'_> {}

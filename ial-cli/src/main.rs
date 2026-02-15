@@ -7,7 +7,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
 use ial::asm::Ast;
-use ial_ast::AssemblyError;
+use ial_core::AssemblyError;
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::fs;
@@ -177,35 +177,35 @@ where
 fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
     match err {
         AssemblyError::UnresolvedLabel { label, span } => {
-            Report::build(ReportKind::Error, (file, span.into_range()))
+            Report::build(ReportKind::Error, (file, span.clone()))
                 .with_message(format!(
                     "Unable to resolve label \"{}\"",
                     label.fg(Color::Red)
                 ))
-                .with_label(Label::new((file, span.into_range())).with_color(Color::Yellow))
+                .with_label(Label::new((file, span.clone())).with_color(Color::Yellow))
         }
         AssemblyError::DuplicateLabel { label, spans } => {
-            Report::build(ReportKind::Error, (file, spans[1].into_range()))
+            Report::build(ReportKind::Error, (file, spans[1].clone()))
                 .with_message(format!(
                     "Multiple definitions of label \"{}\"",
                     label.fg(Color::Red)
                 ))
                 .with_label(
-                    Label::new((file, spans[0].into_range()))
+                    Label::new((file, spans[0].clone()))
                         .with_message("previously defined here")
                         .with_color(Color::Yellow),
                 )
                 .with_label(
-                    Label::new((file, spans[1].into_range()))
+                    Label::new((file, spans[1].clone()))
                         .with_message("redefined here")
                         .with_color(Color::Blue),
                 )
         }
         AssemblyError::DirectiveTooLarge { size, span } => {
-            Report::build(ReportKind::Error, (file, span.into_range()))
+            Report::build(ReportKind::Error, (file, span.clone()))
                 .with_message("Directive too large")
                 .with_label(
-                    Label::new((file, span.into_range()))
+                    Label::new((file, span.clone()))
                         .with_message(format!(
                             "This directive's output size is {}",
                             size.fg(Color::Cyan)
@@ -228,7 +228,7 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
                 Label::new((file, lhs_span.start..*div_index + 1)).with_color(Color::Yellow),
             )
             .with_label(
-                Label::new((file, rhs_span.into_range()))
+                Label::new((file, rhs_span.clone()))
                     .with_message("This expression evaluates to 0")
                     .with_color(Color::Red),
             ),

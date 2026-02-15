@@ -40,35 +40,66 @@ use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::error::Error;
 
-pub use ial_ast::AssemblyError;
+pub use ial_core::AssemblyError;
 use ial_ast::{Directive, Instr, Label, Line, parsers};
 
 /// The Abstract Syntax Tree generated from the assembly
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ast<'a>(Vec<Line<'a>>);
 
-#[cfg(feature = "ast")]
 impl<'a> Ast<'a> {
     /// Access the AST's internals
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
     #[must_use]
     pub fn inner(&self) -> &[Line<'a>] {
         &self.0
     }
 
-    #[must_use]
     /// Mutably access the AST's internals
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
+    #[must_use]
     pub fn inner_mut(&mut self) -> &mut Vec<Line<'a>> {
         &mut self.0
     }
 
-    #[must_use]
     /// take the underlying [`Vec`] of [`Line`]s 
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
+    #[must_use]
     pub fn into_inner(self) -> Vec<Line<'a>> {
         self.0
     }
     
-    #[must_use]
     /// convert a [`Vec`] of [`Line`]s into an [`Ast`]
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
+    #[must_use]
     pub fn from_lines(lines: Vec<Line<'a>>) -> Self {
         Self(lines)
     }
@@ -119,7 +150,7 @@ fn assemble_inner<'a>(
             if let Some((_, old_span)) = labels.insert(label, (index, span)) {
                 Err(AssemblyError::DuplicateLabel {
                     label,
-                    spans: [old_span, span],
+                    spans: [old_span.into_range(), span.into_range()],
                 })
             } else {
                 Ok(())
@@ -161,7 +192,7 @@ fn assemble_inner<'a>(
                 .size()
                 .map_err(|size| AssemblyError::DirectiveTooLarge {
                     size,
-                    span: directive.span,
+                    span: directive.span.into_range(),
                 })?;
         }
     }
@@ -273,9 +304,16 @@ pub fn assemble_ast(code: Ast<'_>) -> Result<Vec<i64>, AssemblyError<'_>> {
 /// One or more parsing errors that occured in [`build_ast`]
 pub struct AstBuildErr<'a>(Vec<Rich<'a, char>>);
 
-#[cfg(feature = "ast")]
 impl<'a> AstBuildErr<'a> {
     /// Get the underlying [`chumsky::error::Rich<'_, char>`]s in a slice
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
     #[must_use]
     pub fn inner(&self) -> &[Rich<'a, char>] {
         self.0.as_slice()
@@ -283,13 +321,29 @@ impl<'a> AstBuildErr<'a> {
 
     /// Convert the [`AstBuildErr`] into the underlying [`Vec`] of
     /// [`chumsky::error::Rich<'_, char>`]
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
     #[must_use]
     pub fn into_inner(self) -> Vec<Rich<'a, char>> {
         self.0
     }
 
-    #[must_use]
     /// Convert a [`Vec`] of [`chumsky::error::Rich<'a, char>`]s into an [`AstBuildErr<'a>`]
+    ///
+    /// <div class="warning">
+    ///
+    /// This and other methods gated behind the `"ast"` crate feature expose internals, and may
+    /// have breaking changes in minor updates.
+    ///
+    /// </div>
+    #[cfg(feature = "ast")]
+    #[must_use]
     pub fn from_inner(v: Vec<Rich<'a, char>>) -> Self {
         Self(v)
     }

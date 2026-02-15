@@ -7,6 +7,7 @@
 
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
+use std::ops::Range;
 
 /// Parameter mode for Intcode instruction
 ///
@@ -131,3 +132,61 @@ impl UnknownMode {
 }
 
 impl Error for UnknownMode {}
+
+/// An error that occured while trying to assemble the AST into Intcode
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum AssemblyError<'a> {
+    /// An expresison used a label that could not be resolved
+    UnresolvedLabel {
+        /// The unresolved label
+        label: &'a str,
+        /// The span within the input of the unresolved label
+        span: Range<usize>,
+    },
+    /// A label was defined more than once
+    DuplicateLabel {
+        /// The duplicated label
+        label: &'a str,
+        /// The spans of the new and old definitions of the label
+        spans: [Range<usize>; 2],
+    },
+    /// A directive resolved to more than [`i64::MAX`] ints, and somehow didn't crash your computer
+    /// before it was time to size things up
+    DirectiveTooLarge {
+        /// The output size of the directive
+        size: usize,
+        /// The span within the input of the directive
+        span: Range<usize>,
+    },
+    /// A divison expression's right-hand side evaluated to zero
+    DivisionByZero {
+        /// The left-hand side of the expression
+        lhs_span: Range<usize>,
+        /// The index of the division operator in the source
+        div_index: usize,
+        /// The right-hand side of the expression
+        rhs_span: Range<usize>,
+    },
+}
+
+impl Display for AssemblyError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssemblyError::UnresolvedLabel { label, .. } => {
+                write!(f, "unresolved label: {label:?}")
+            }
+            AssemblyError::DuplicateLabel { label, .. } => write!(f, "duplicate label: {label:?}"),
+            AssemblyError::DirectiveTooLarge { size, .. } => {
+                write!(
+                    f,
+                    "directive too large: size {size} is more than maximum {}",
+                    i64::MAX
+                )
+            }
+            AssemblyError::DivisionByZero { .. } => write!(f, "division by zero"),
+        }
+    }
+}
+
+impl std::error::Error for AssemblyError<'_> {}
