@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::error::{Rich, RichPattern};
 use clap::Parser;
@@ -103,10 +103,14 @@ fn debug_path<P: AsRef<Path>>(outfile_path: Option<&P>) -> Cow<'static, Path> {
 
 fn read_intcode<P: AsRef<Path>>(input: Option<&P>) -> Result<Vec<i64>> {
     let text = if let Some(path) = input {
-        fs::read_to_string(path.as_ref())?
+        fs::read_to_string(path).with_context(|| {
+            format!("unable to read {}", path.as_ref().display())
+        })?
     } else {
         let mut s = String::new();
-        io::stdin().read_to_string(&mut s)?;
+        io::stdin()
+            .read_to_string(&mut s)
+            .context("unable to read input")?;
         s
     };
 
@@ -116,7 +120,8 @@ fn read_intcode<P: AsRef<Path>>(input: Option<&P>) -> Result<Vec<i64>> {
     } else {
         s.split(',')
             .map(str::parse)
-            .collect::<Result<Vec<i64>, _>>()?
+            .collect::<Result<Vec<i64>, _>>()
+            .context("invalid integer in intcode")?
     })
 }
 
@@ -124,12 +129,16 @@ fn read_src<P: AsRef<Path>>(input: Option<&P>) -> Result<(Cow<'_, str>, String)>
     Ok(if let Some(path) = input {
         (
             path.as_ref().as_os_str().to_string_lossy(),
-            fs::read_to_string(path)?,
+            fs::read_to_string(path).with_context(|| {
+                format!("unable to read {}", path.as_ref().display())
+            })?,
         )
     } else {
         let mut s = String::new();
-        io::stdin().read_to_string(&mut s)?;
-        ("stdin".into(), s)
+        io::stdin()
+            .read_to_string(&mut s)
+            .context("unable to read input")?;
+        (Cow::Borrowed("stdin"), s)
     })
 }
 
