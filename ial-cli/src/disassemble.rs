@@ -4,10 +4,10 @@
 
 use anyhow::Result;
 use clap::{Parser, ValueHint};
-use std::path::PathBuf;
 use ial::debug_info::DebugInfo;
 use ial::disasm::{disassemble, disassemble_with_debug};
 use std::fs::{self, File};
+use std::path::PathBuf;
 
 use crate::debug_path;
 

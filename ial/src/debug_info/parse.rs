@@ -627,8 +627,8 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        use ial_ast::parsers::{Parser, ial};
         use flate2::read::ZlibDecoder;
+        use ial_ast::parsers::{Parser, ial};
         let expected_labels = Box::from([
             (span(Box::from("a"), 0..1), 0),
             (span(Box::from("b"), 3..4), 0),

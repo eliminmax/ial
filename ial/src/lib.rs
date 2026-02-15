@@ -98,8 +98,8 @@ pub use ial_core::{ParamMode, UnknownMode};
 /// into segments, which are each contiguous in memory.
 mod mmu;
 
-use disasm::disassemble_with_debug;
 use debug_info::DebugInfo;
+use disasm::disassemble_with_debug;
 use itertools::Itertools;
 use std::convert::AsRef;
 use std::error::Error;

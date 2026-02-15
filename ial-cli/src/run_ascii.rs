@@ -16,7 +16,7 @@ use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, stderr, stdin};
 use std::path::PathBuf;
 
-use crate::{checked_ast_fn, checked_assemble, debug_path};
+use crate::{checked_assemble, checked_ast_fn, debug_path};
 
 #[derive(Debug, Parser)]
 #[allow(
@@ -170,11 +170,7 @@ impl RunAsciiArgs {
         let (prog, debug_info) = if self.assemble_intcode {
             let src = read_to_string(&self.code)?;
             let path = self.code.as_os_str().to_string_lossy();
-            let ast = checked_ast_fn(
-                build_ast,
-                &path,
-                &src,
-            );
+            let ast = checked_ast_fn(build_ast, &path, &src);
             let (prog, debug_info) = checked_assemble(assemble_with_debug, ast, &path, &src);
             (prog, Some(debug_info))
         } else {

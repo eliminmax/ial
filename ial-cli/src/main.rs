@@ -13,9 +13,9 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
 
-mod format;
-mod disassemble;
 mod assemble;
+mod disassemble;
+mod format;
 mod run_ascii;
 
 const LONG_VERSION: &str = const_format::formatcp!(
