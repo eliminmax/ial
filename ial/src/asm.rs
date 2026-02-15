@@ -47,6 +47,7 @@ use ial_ast::{Directive, Instr, Label, Line, parsers};
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ast<'a>(Vec<Line<'a>>);
 
+#[cfg(feature = "ast")]
 impl<'a> Ast<'a> {
     /// Access the AST's internals
     ///
@@ -56,7 +57,6 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn inner(&self) -> &[Line<'a>] {
         &self.0
@@ -70,7 +70,6 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn inner_mut(&mut self) -> &mut Vec<Line<'a>> {
         &mut self.0
@@ -84,7 +83,6 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn into_inner(self) -> Vec<Line<'a>> {
         self.0
@@ -98,7 +96,6 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn from_lines(lines: Vec<Line<'a>>) -> Self {
         Self(lines)
@@ -304,6 +301,7 @@ pub fn assemble_ast(code: Ast<'_>) -> Result<Vec<i64>, AssemblyError<'_>> {
 /// One or more parsing errors that occured in [`build_ast`]
 pub struct AstBuildErr<'a>(Vec<Rich<'a, char>>);
 
+#[cfg(feature = "ast")]
 impl<'a> AstBuildErr<'a> {
     /// Get the underlying [`chumsky::error::Rich<'_, char>`]s in a slice
     ///
@@ -313,7 +311,6 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn inner(&self) -> &[Rich<'a, char>] {
         self.0.as_slice()
@@ -328,7 +325,6 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn into_inner(self) -> Vec<Rich<'a, char>> {
         self.0
@@ -342,7 +338,6 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
-    #[cfg(feature = "ast")]
     #[must_use]
     pub fn from_inner(v: Vec<Rich<'a, char>>) -> Self {
         Self(v)
