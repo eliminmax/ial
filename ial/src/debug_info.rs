@@ -19,7 +19,7 @@ pub struct DirectiveDebug {
 }
 
 #[non_exhaustive]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 /// Debug info generated when assembling IAL
 pub struct DebugInfo {
     /// Mapping of labels' spans in the source code to their resolved addresses in the output
@@ -29,23 +29,26 @@ pub struct DebugInfo {
 }
 
 impl DebugInfo {
+    #[deprecated]
+    /// Create a new [`DebugInfo`]
     #[must_use]
     pub fn new(labels: Vec<(Spanned<&str>, i64)>, directives: Vec<DirectiveDebug>) -> Self {
+        let labels = labels
+            .into_iter()
+            .map(|(Spanned { inner, span }, addr)| {
+                (
+                    Spanned {
+                        inner: inner.into(),
+                        span,
+                    },
+                    addr,
+                )
+            })
+            .sorted_by_key(|(Spanned { span, .. }, index)| (*index, *span))
+            .collect_vec()
+            .into_boxed_slice();
         Self {
-            labels: labels
-                .into_iter()
-                .map(|(Spanned { inner, span }, index)| {
-                    (
-                        Spanned {
-                            inner: Box::from(inner),
-                            span,
-                        },
-                        index,
-                    )
-                })
-                .sorted_by_key(|(Spanned { span, .. }, index)| (*index, *span))
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
+            labels,
             directives: directives.into_boxed_slice(),
         }
     }

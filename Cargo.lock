@@ -297,7 +297,6 @@ dependencies = [
  "flate2",
  "ial-ast",
  "ial-core",
- "ial-debug-info",
  "itertools",
 ]
 
@@ -328,17 +327,6 @@ dependencies = [
 [[package]]
 name = "ial-core"
 version = "0.1.0"
-
-[[package]]
-name = "ial-debug-info"
-version = "0.1.0"
-dependencies = [
- "chumsky",
- "flate2",
- "ial-ast",
- "ial-core",
- "itertools",
-]
 
 [[package]]
 name = "is-terminal"

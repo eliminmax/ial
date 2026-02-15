@@ -115,7 +115,7 @@ pub fn valid_ident(text: &str) -> bool {
 ///
 /// ```no_run
 /// let encoded_size = // ...
-///# Box::<ial_debug_info::parse::EncodedSize>::from(0);
+///# Box::<ial::debug_info::parse::EncodedSize>::from(0);
 /// let mut val = 0;
 /// let mut shift = 0;
 /// for byte in encoded_size.iter().copied() {
@@ -286,7 +286,7 @@ const _: () = assert!(
 );
 
 impl DebugInfo {
-    /// Write the debug info into the format described in [the module docs][crate::parse]
+    /// Write the debug info into the format described in [the module docs][self]
     ///
     /// # Errors
     ///
@@ -334,7 +334,7 @@ impl DebugInfo {
         ZlibEncoder::new(f, compression_level).write_all(&buffer)
     }
 
-    /// Read the debug info from the format described in [the module docs][crate::parse]
+    /// Read the debug info from the format described in [the module docs][self]
     ///
     /// # Errors
     ///

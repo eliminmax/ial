@@ -217,7 +217,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
 }
 
 use ial_ast::DirectiveKind;
-use ial_debug_info::{DebugInfo, DebugInfoError, DirectiveDebug};
+use crate::debug_info::{DebugInfo, DebugInfoError, DirectiveDebug};
 
 macro_rules! write_string {
     ($($tok: tt)*) => {

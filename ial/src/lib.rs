@@ -55,7 +55,7 @@
 //!
 //! # [`DebugInfo`]
 //!
-//! The [`debug_info`] crate defines a [`DebugInfo`] struct that can be used with an
+//! The [`debug_info`] module defines a [`DebugInfo`] struct that can be used with an
 //! [`Interpreter`] to diagnose issues with [`Interpreter::write_diagnostic`], and can be used to
 //! disassemble with more accuracy than [`disasm::disassemble`].
 //!
@@ -99,7 +99,7 @@ pub use ial_core::{ParamMode, UnknownMode};
 mod mmu;
 
 use disasm::disassemble_with_debug;
-use ial_debug_info::DebugInfo;
+use debug_info::DebugInfo;
 use itertools::Itertools;
 use std::convert::AsRef;
 use std::error::Error;
@@ -118,7 +118,7 @@ pub mod prelude {
 
 pub mod asm;
 
-pub use ial_debug_info as debug_info;
+pub mod debug_info;
 pub mod disasm;
 
 use mmu::IntcodeMem;

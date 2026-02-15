@@ -32,9 +32,10 @@
 //! [NASM]: <https://www.nasm.us/doc/nasm03.html>
 //! [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
 
+use crate::debug_info::{DebugInfo, DirectiveDebug};
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Spanned};
-use ial_debug_info::{DebugInfo, DirectiveDebug};
+use itertools::Itertools;
 use std::collections::HashMap;
 
 pub use ial_ast::AssemblyError;
@@ -188,8 +189,28 @@ fn assemble_inner<'a>(
 pub fn assemble_with_debug(
     code: Vec<Line<'_>>,
 ) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
-    assemble_inner(code, true)
-        .map(|(output, (labels, directives))| (output, DebugInfo::new(labels, directives)))
+    assemble_inner(code, true).map(|(output, (labels, directives))| {
+        (
+            output,
+            DebugInfo {
+                labels: labels
+                    .into_iter()
+                    .map(|(Spanned { inner, span }, addr)| {
+                        (
+                            Spanned {
+                                inner: inner.into(),
+                                span,
+                            },
+                            addr,
+                        )
+                    })
+                    .sorted_by_key(|(Spanned { span, .. }, index)| (*index, *span))
+                    .collect_vec()
+                    .into_boxed_slice(),
+                directives: directives.into_boxed_slice(),
+            },
+        )
+    })
 }
 
 /// Assemble an AST in the form of a [`Vec<Line>`] into a [`Vec<i64>`]

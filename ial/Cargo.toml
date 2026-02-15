@@ -12,7 +12,7 @@ chumsky = { version = "0.12.0" }
 itertools = { version = "0.14.0" }
 ial-core = { path = "../ial-core" }
 ial-ast = { path = "../ial-ast" }
-ial-debug-info = { version = "0.1.0", path = "../ial-debug-info" }
+flate2 = "1.1.9"
 
 [dev-dependencies]
 either = "1.15.0"

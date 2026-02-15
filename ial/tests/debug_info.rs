@@ -4,10 +4,10 @@
 
 use chumsky::Parser;
 use flate2::read::ZlibDecoder;
+use ial::debug_info::{DebugInfo, DirectiveDebug};
 use ial_ast::parsers::ial;
 use ial_ast::util::span;
 use ial_ast::{DirectiveKind, prelude::*};
-use ial_debug_info::{DebugInfo, DirectiveDebug};
 use std::io::Read;
 
 /// Unreadable macro to allow for readable test values
@@ -50,29 +50,24 @@ macro_rules! encoded {
 
 #[test]
 fn round_trip() {
-    let ast = ial()
-        .parse("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"")
-        .unwrap();
-    let expected_debug_info = DebugInfo::new(
-        vec![
-            (span("a", 0..1), 0),
-            (span("b", 3..4), 0),
-            (span("c", 6..7), 0),
-            (span("d", 24..25), 4),
-        ],
-        vec![
-            DirectiveDebug {
-                kind: DirectiveKind::Instruction,
-                src_span: SimpleSpan::from(9..23),
-                output_span: SimpleSpan::from(0..4),
-            },
-            DirectiveDebug {
-                kind: DirectiveKind::Ascii,
-                src_span: SimpleSpan::from(26..36),
-                output_span: SimpleSpan::from(4..6),
-            },
-        ],
-    );
+    let expected_labels = Box::from([
+        (span(Box::from("a"), 0..1), 0),
+        (span(Box::from("b"), 3..4), 0),
+        (span(Box::from("c"), 6..7), 0),
+        (span(Box::from("d"), 24..25), 4),
+    ]);
+    let expected_directives = Box::from([
+        DirectiveDebug {
+            kind: DirectiveKind::Instruction,
+            src_span: SimpleSpan::from(9..23),
+            output_span: SimpleSpan::from(0..4),
+        },
+        DirectiveDebug {
+            kind: DirectiveKind::Ascii,
+            src_span: SimpleSpan::from(26..36),
+            output_span: SimpleSpan::from(4..6),
+        },
+    ]);
 
     let expected_serialized = encoded![
         // 4 labels total
@@ -121,15 +116,19 @@ fn round_trip() {
         }
     ];
 
+    let ast = ial()
+        .parse("a: b: c: ADD #9, #90, d\nd:ASCII \"hi\"")
+        .unwrap();
     let (_, dbg) = ial::asm::assemble_with_debug(ast).unwrap();
-    assert_eq!(dbg, expected_debug_info);
+    assert_eq!(dbg.labels, expected_labels);
+    assert_eq!(dbg.directives, expected_directives);
     let written: Vec<u8> = {
         let mut w = Vec::new();
-        dbg.write(&mut w).unwrap();
+        dbg.clone().write(&mut w).unwrap();
         w
     };
 
-    assert_eq!(&written[..8], ial_debug_info::parse::HEADER);
+    assert_eq!(&written[..8], ial::debug_info::parse::HEADER);
 
     let mut decoded = Vec::with_capacity(expected_serialized.len());
     ZlibDecoder::new(&written[8..])
@@ -137,8 +136,5 @@ fn round_trip() {
         .unwrap();
     assert_eq!(decoded, expected_serialized);
 
-    assert_eq!(
-        DebugInfo::read(written.as_slice()).unwrap(),
-        expected_debug_info
-    );
+    assert_eq!(DebugInfo::read(written.as_slice()).unwrap(), dbg);
 }
