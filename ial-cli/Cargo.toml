@@ -12,7 +12,6 @@ const_format = { version = "0.2.35", features = ["fmt"] }
 ial = { path = "../ial" }
 ial-ast = { version = "0.1.0", path = "../ial-ast" }
 ial-core = { path = "../ial-core" }
-ial-debug-info = { path = "../ial-debug-info" }
 itertools = "0.14.0"
 
 [lints.clippy]

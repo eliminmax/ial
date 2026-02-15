@@ -322,7 +322,6 @@ dependencies = [
  "ial",
  "ial-ast",
  "ial-core",
- "ial-debug-info",
  "itertools",
 ]
 

@@ -5,7 +5,7 @@
 use anyhow::Result;
 use clap::{Parser, ValueHint};
 use std::path::PathBuf;
-use ial_debug_info::DebugInfo;
+use ial::debug_info::DebugInfo;
 use ial::disasm::{disassemble, disassemble_with_debug};
 use std::fs::{self, File};
 
