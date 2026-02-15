@@ -12,7 +12,7 @@ use itertools::Itertools;
 use std::borrow::Cow;
 use std::fs;
 use std::io::{self, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod assemble;
 mod disassemble;
@@ -26,31 +26,70 @@ const LONG_VERSION: &str = const_format::formatcp!(
     ial_ast::VERSION
 );
 
+#[cfg(feature = "man")]
+#[derive(Parser, Debug)]
+struct GenerateManpageArgs {
+    /// The manpath to write to
+    manpath: PathBuf,
+}
+
+#[cfg(feature = "completion")]
+#[derive(Parser, Debug)]
+struct ShellChoice {
+    /// The shell to generate completion for
+    shell: clap_complete::Shell,
+}
+
 #[derive(Parser, Debug)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(long_version = LONG_VERSION)]
 enum Action {
     /// Format the IAL code, attempting to preserve indentation
-    #[command(alias = "fmt")]
+    #[command(visible_alias = "fmt")]
     Format(format::FormatArgs),
     /// Assemble the IAL into Intcode
-    #[command(alias = "asm")]
+    #[command(visible_alias = "asm")]
     Assemble(assemble::AssembleArgs),
     /// Disassemble Intcode into IAL
-    #[command(alias = "disasm")]
+    #[command(visible_alias = "disasm")]
     Disassemble(disassemble::DisassembleArgs),
     /// Run Intcode program
-    #[command(alias = "run")]
+    #[command(visible_alias = "run")]
     RunAscii(run_ascii::RunAsciiArgs),
+    /// Print out a man page
+    #[cfg(feature = "man")]
+    #[command(visible_alias = "man")]
+    GenerateManpage(GenerateManpageArgs),
+    /// Generate shell completion
+    #[cfg(feature = "completion")]
+    Complete(ShellChoice),
 }
 
 impl Action {
-    fn run(&self) -> Result<()> {
+    fn run(self) -> Result<()> {
         match self {
             Action::Format(format_args) => format_args.run(),
             Action::Assemble(assemble_args) => assemble_args.run(),
             Action::Disassemble(disassemble_args) => disassemble_args.run(),
             Action::RunAscii(run_ascii_args) => run_ascii_args.run(),
+            #[cfg(feature = "man")]
+            Action::GenerateManpage(GenerateManpageArgs { mut manpath }) => {
+                use clap::CommandFactory;
+                manpath.push("man1");
+                clap_mangen::generate_to(Self::command(), manpath)?;
+                Ok(())
+            }
+            #[cfg(feature = "completion")]
+            Action::Complete(ShellChoice { shell }) => {
+                use clap::CommandFactory;
+                clap_complete::aot::generate(
+                    shell,
+                    &mut Self::command(),
+                    "ial-cli",
+                    &mut io::stdout(),
+                );
+                Ok(())
+            }
         }
     }
 }
