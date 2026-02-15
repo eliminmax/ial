@@ -154,10 +154,6 @@ fn print_parse_errors(errs: &[Rich<'_, char>], file: &str, src: &str) -> ! {
         eprintln!("report_ast_build_err({err:?}, {file:?}, ...");
         report_ast_build_err(err, file, src);
     }
-    #[warn(
-        clippy::exit,
-        reason = "don't forbid as replacement requires massive refactoring"
-    )]
     std::process::exit(1)
 }
 
@@ -252,10 +248,6 @@ where
         Ok(val) => val,
         Err(ast_err) => {
             report_ast_assembly_err(&ast_err, file, src);
-            #[warn(
-                clippy::exit,
-                reason = "don't forbid as replacement requires massive refactoring"
-            )]
             std::process::exit(1);
         }
     }
