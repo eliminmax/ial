@@ -6,15 +6,19 @@ SPDX-License-Identifier: 0BSD
 
 # Intcode Assembly Language
 
-A library built around my Intcode module from Advent of Code 2019, cleaned up and reorganized, as well as an assembly language that can assemble into it.
-
-**It is in a state of active tweaking with regular breaking changes, and does not yet follow SemVer**
+A library built around my Intcode Assembly Language based on my Advent of Code 2019 Intcode module, and the [proposed assembly language from the Esolang wiki](https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax).
 
 See [IAL.md](./IAL.md) for documentation of IAL's syntax and semantics.
 
-It's organized as a library which provides the `ial::Interpreter` struct as a way to interpret and debug intcode, an `ial::asm` module which provides an extended version of a [proposed assembly language from the Esolang wiki](https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax), and a few small binaries that make use of those: `ial-as` is an assembler, `ial-dis` is a disassembler, and `intcode` acts as an interpreter.
+**It is in a state of active tweaking with regular breaking changes, and does not yet follow SemVer**
 
-The interpreter is fully functional, with all of the [opcodes](https://esolangs.org/wiki/Intcode#Opcodes) and [parameter modes](https://esolangs.org/wiki/Intcode#Parameter_Modes) defined in the completed Intcode computer for [Advent of Code 2019 Day 9](https://adventofcode.com/2019/day/9).
+## Structure
+
+The `ial` crate provides the assembler and interpreter. The assembler uses an AST defined in the `ial-ast` crate. The AST is intended to remain flexible, so I'm in the process of feature-gating anything in the main `ial` crate that exposes it. The `ial-core` crate provides types that fit conceptually into `ial`, but are needed in `ial-ast`, in order to avoid circular dependencies between `ial` and `ial-ast`.
+
+The `ial` crate provides the `ial::Interpreter` struct as a way to interpret and debug intcode, an `ial::asm` module which provides an IAL assembler, and a few smaller modules.
+
+The `ial-cli` crate provides a command-line interface to the functionality found in the `ial` crate.
 
 ## General Examples
 
