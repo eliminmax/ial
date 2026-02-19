@@ -166,10 +166,10 @@ impl<M: IntcodeMem> Interpreter<M> {
     /// assert!(prev_trace.is_none());
     /// let _out = interp.run_through_inputs(empty()).unwrap();
     ///# assert_eq!(_out, (vec![], State::Halted));
-    /// let traced = interp.end_trace().unwrap().0;
-    /// assert_eq!(traced[0].op_code(), OpCode::Add);
-    /// assert_eq!(traced[0].instr_ptr(), 0);
-    /// assert_eq!(traced[1].op_code(), OpCode::Halt);
+    /// let trace = interp.end_trace().unwrap();
+    /// assert_eq!(trace.as_slice()[0].op_code(), OpCode::Add);
+    /// assert_eq!(trace.as_slice()[0].instr_ptr(), 0);
+    /// assert_eq!(trace.as_slice()[1].op_code(), OpCode::Halt);
     /// ```
     pub fn start_trace(&mut self) -> Option<Trace> {
         self.trace.replace(Trace::new())
