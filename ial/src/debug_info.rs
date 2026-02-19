@@ -40,7 +40,7 @@ pub enum DebugInfoError {
     MissingInts(usize),
     /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
     ///
-    /// [instruction directive]: ial_ast::DirectiveKind::Instruction
+    /// [instruction directive]: DirectiveKind::Instruction
     /// [`output_span`]: DirectiveDebug::output_span
     CorruptDirectiveSize,
     /// A [directive] from the [`DebugInfo`] was larger than [`i64::MAX`]
