@@ -218,11 +218,8 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().format("\n").to_string() + "\n"
 }
 
-use crate::{
-    debug_info::{DebugInfo, DebugInfoError, DirectiveDebug},
-    internals::parse_op,
-};
-use ial_ast::DirectiveKind;
+use crate::debug_info::{DebugInfo, DebugInfoError, DirectiveDebug, DirectiveKind};
+use crate::internals::parse_op;
 
 macro_rules! write_string {
     ($($tok: tt)*) => {

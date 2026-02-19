@@ -9,6 +9,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
+use ial_core::DirectiveKind;
 use ial_core::{AssemblyError, ParamMode};
 use std::collections::HashMap;
 use std::ops::Range;
@@ -45,15 +46,6 @@ pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
         formatted += &l;
     }
     Ok(formatted)
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-/// The type of a [`Directive`]
-#[allow(missing_docs, reason = "trivial")]
-pub enum DirectiveKind {
-    Instruction = 0,
-    Data = 1,
-    Ascii = 2,
 }
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
@@ -455,7 +447,7 @@ pub enum Directive<'a> {
     /// const ASM_SRC: &str = r#"ASCII "Hello, world!\n""#;
     /// use ial_ast::parsers::{Parser, directive};
     /// let directive = directive().parse(ASM_SRC).unwrap().unwrap().inner;
-    /// assert_eq!(directive.kind(), ial_ast::DirectiveKind::Ascii);
+    /// assert_eq!(directive.kind(), ial_core::DirectiveKind::Ascii);
     /// let mut assembled = Vec::new();
     /// directive.encode_into(&mut assembled, &Default::default()).unwrap();
     /// let expected: Vec<i64> = b"Hello, world!\n".into_iter().map(|&i| i64::from(i)).collect();
@@ -694,15 +686,3 @@ impl<'a> Instr<'a> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Label<'a>(pub Spanned<&'a str>);
-impl TryFrom<u8> for DirectiveKind {
-    type Error = u8;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::Instruction),
-            1 => Ok(Self::Data),
-            2 => Ok(Self::Ascii),
-            _ => Err(value),
-        }
-    }
-}

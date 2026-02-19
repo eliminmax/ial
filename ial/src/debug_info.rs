@@ -6,7 +6,8 @@
 
 use chumsky::span::{SimpleSpan, Spanned};
 
-use ial_ast::DirectiveKind;
+#[doc(inline)]
+pub use ial_core::DirectiveKind;
 
 pub mod parse;
 

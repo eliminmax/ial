@@ -189,5 +189,26 @@ impl Display for AssemblyError<'_> {
         }
     }
 }
+#[derive(Debug, PartialEq, Clone, Copy)]
+/// The type of a [`Directive`]
+#[allow(missing_docs, reason = "trivial")]
+pub enum DirectiveKind {
+    Instruction = 0,
+    Data = 1,
+    Ascii = 2,
+}
+
+impl TryFrom<u8> for DirectiveKind {
+    type Error = u8;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Instruction),
+            1 => Ok(Self::Data),
+            2 => Ok(Self::Ascii),
+            _ => Err(value),
+        }
+    }
+}
 
 impl std::error::Error for AssemblyError<'_> {}
