@@ -637,7 +637,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     pub fn get_range(
         &self,
         range: Range<i64>,
-    ) -> Result<impl AsRef<[i64]> + Debug + PartialEq<&[i64]> + Clone, NegativeMemAccess> {
+    ) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         self.code.get_range(range)
     }
     /// Write human-readable diagnostic information about the interpreter's state to `writer`
