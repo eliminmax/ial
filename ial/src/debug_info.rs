@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Eli Array Minkoff
+//
+// SPDX-License-Identifier: 0BSD
+
 //! Module for [`DebugInfo`] and its related functionality
 
 use chumsky::span::{SimpleSpan, Spanned};
