@@ -8,6 +8,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 use std::ops::Range;
 
+use crate::{IntcodeMem, IntcodeMemIndex, NegativeMemAccess};
+
 macro_rules! page_index {
     ($i: expr) => {{
         #[allow(clippy::cast_sign_loss, reason = "masked down anyway")]
@@ -16,14 +18,15 @@ macro_rules! page_index {
         }
     }};
 }
+
 /// a virtual memory management unit
-pub(super) struct IntcodeMem {
+pub struct PagedMem {
     segments: HashMap<i64, Box<[i64; 512]>>,
 }
 
 static EMPTY: [i64; 512] = [0; 512];
 
-impl IntcodeMem {
+impl PagedMem {
     fn active_segments(&self) -> BTreeSet<i64> {
         self.segments
             .iter()
@@ -42,33 +45,9 @@ impl IntcodeMem {
             .get(&segment_num)
             .map_or(&EMPTY, |s| s.as_ref())
     }
-
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "mask ensures it's always in range"
-    )]
-    pub(super) fn get_range(&self, range: Range<i64>) -> Cow<'_, [i64]> {
-        let first = range.start;
-        let last = range.end - 1;
-        let first_segment = first & !0x1ff;
-        let last_segment = last & !0x1ff;
-        if first & !0x1ff == last & !0x1ff {
-            Cow::Borrowed(&self.get_segment(first_segment)[page_index!(first)..=page_index!(last)])
-        } else {
-            let mut v = Vec::with_capacity(range.clone().count());
-            v.extend_from_slice(&self.get_segment(first_segment)[page_index!(first)..]);
-            for segment in ((first_segment + 512)..last_segment).step_by(512) {
-                v.extend_from_slice(self.get_segment(segment));
-            }
-            v.extend_from_slice(&self.get_segment(last_segment)[..=page_index!(last)]);
-
-            Cow::Owned(v)
-        }
-    }
 }
 
-impl PartialEq for IntcodeMem {
+impl PartialEq for PagedMem {
     fn eq(&self, other: &Self) -> bool {
         let active_segments = self.active_segments();
         other.active_segments() == active_segments
@@ -78,7 +57,7 @@ impl PartialEq for IntcodeMem {
     }
 }
 
-impl std::iter::FromIterator<i64> for IntcodeMem {
+impl FromIterator<i64> for PagedMem {
     fn from_iter<I: IntoIterator<Item = i64>>(iter: I) -> Self {
         let iter = iter.into_iter();
 
@@ -104,7 +83,7 @@ impl std::iter::FromIterator<i64> for IntcodeMem {
     }
 }
 
-impl std::ops::Index<i64> for IntcodeMem {
+impl std::ops::Index<i64> for PagedMem {
     type Output = i64;
     fn index(&self, i: i64) -> &i64 {
         self.segments
@@ -113,7 +92,37 @@ impl std::ops::Index<i64> for IntcodeMem {
     }
 }
 
-impl std::ops::IndexMut<i64> for IntcodeMem {
+impl IntcodeMemIndex for PagedMem {}
+
+impl IntcodeMem for PagedMem {
+    type MemSlice<'a> = Cow<'a, [i64]>;
+
+    fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
+        let first = range.start;
+        if first < 0 {
+            return Err(NegativeMemAccess(first));
+        }
+        let last = range.end - 1;
+        let first_segment = first & !0x1ff;
+        let last_segment = last & !0x1ff;
+        if first & !0x1ff == last & !0x1ff {
+            Ok(Cow::Borrowed(
+                &self.get_segment(first_segment)[page_index!(first)..=page_index!(last)],
+            ))
+        } else {
+            let mut v = Vec::with_capacity(range.clone().count());
+            v.extend_from_slice(&self.get_segment(first_segment)[page_index!(first)..]);
+            for segment in ((first_segment + 512)..last_segment).step_by(512) {
+                v.extend_from_slice(self.get_segment(segment));
+            }
+            v.extend_from_slice(&self.get_segment(last_segment)[..=page_index!(last)]);
+
+            Ok(Cow::Owned(v))
+        }
+    }
+}
+
+impl std::ops::IndexMut<i64> for PagedMem {
     fn index_mut(&mut self, i: i64) -> &mut i64 {
         self.segments
             .entry(i & !0x1ff)
@@ -122,7 +131,7 @@ impl std::ops::IndexMut<i64> for IntcodeMem {
     }
 }
 
-impl Clone for IntcodeMem {
+impl Clone for PagedMem {
     fn clone(&self) -> Self {
         // don't copy blank pages
         let segments = self
@@ -135,13 +144,14 @@ impl Clone for IntcodeMem {
     }
 }
 
-pub(super) struct IntcodeMemIter {
+/// An [`Iterator`] created with [`IntcodeMem::into_iter`]
+pub struct Iter {
     segments: BTreeMap<i64, [i64; 512]>,
     current_segment: i64,
     segment_index: usize,
 }
 
-impl Iterator for IntcodeMemIter {
+impl Iterator for Iter {
     type Item = i64;
     fn next(&mut self) -> Option<i64> {
         if self.current_segment > self.segments.keys().max().copied().unwrap_or_default() {
@@ -165,12 +175,12 @@ impl Iterator for IntcodeMemIter {
     }
 }
 
-impl IntoIterator for IntcodeMem {
+impl IntoIterator for PagedMem {
     type Item = i64;
-    type IntoIter = IntcodeMemIter;
-    fn into_iter(mut self) -> IntcodeMemIter {
+    type IntoIter = Iter;
+    fn into_iter(mut self) -> Iter {
         self.prune();
-        IntcodeMemIter {
+        Iter {
             segments: self.segments.into_iter().map(|(k, v)| (k, *v)).collect(),
             current_segment: 0,
             segment_index: 0,
@@ -178,7 +188,7 @@ impl IntoIterator for IntcodeMem {
     }
 }
 
-impl fmt::Debug for IntcodeMem {
+impl fmt::Debug for PagedMem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtstruct = fmt.debug_map();
         for sn in self.segments.keys().sorted_unstable() {

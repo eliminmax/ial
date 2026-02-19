@@ -6,7 +6,7 @@
 //!
 //! See [disassemble] for documentation
 
-use super::{Interpreter, OpCode};
+use super::OpCode;
 use ial_ast::prelude::*;
 use ial_ast::util::boxed;
 use itertools::Itertools;
@@ -140,7 +140,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     let mut lines = Vec::new();
 
     let parse_op_strict = |i: i64| -> Option<(OpCode, [ParamMode; 3])> {
-        let (opcode, modes) = Interpreter::parse_op(i).ok()?;
+        let (opcode, modes) = parse_op(i).ok()?;
         let rebuilt = match opcode {
             OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq => {
                 opcode as i64
@@ -216,7 +216,10 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().format("\n").to_string() + "\n"
 }
 
-use crate::debug_info::{DebugInfo, DebugInfoError, DirectiveDebug};
+use crate::{
+    debug_info::{DebugInfo, DebugInfoError, DirectiveDebug},
+    internals::parse_op,
+};
 use ial_ast::DirectiveKind;
 
 macro_rules! write_string {
@@ -288,7 +291,7 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
                 return Err(DebugInfoError::CorruptDirectiveSize);
             }
 
-            let Ok((op, modes)) = crate::Interpreter::parse_op(ints[0]) else {
+            let Ok((op, modes)) = parse_op(ints[0]) else {
                 fallback!("expected instruction");
             };
 

@@ -5,6 +5,8 @@
 //! module containing the [Trace] type and its related functionality
 use std::fmt::{self, Debug, Display};
 
+use crate::{IntcodeMem, internals::parse_op};
+
 use super::{Interpreter, OpCode, ParamMode};
 
 #[derive(Clone, Copy)]
@@ -106,8 +108,7 @@ impl TracedInstr {
         rel_base: i64,
         resolved_params: &[(i64, i64)],
     ) -> Self {
-        let (opcode, modes) =
-            Interpreter::parse_op(op_int).expect("previously parsed successfully");
+        let (opcode, modes) = parse_op(op_int).expect("previously parsed successfully");
         macro_rules! op {
             {$id: ident(_, _, _)} => {{
                 debug_assert_eq!(resolved_params.len(), 3);
@@ -152,7 +153,7 @@ impl TracedInstr {
     }
 }
 
-impl Interpreter {
+impl<M: IntcodeMem> Interpreter<M> {
     /// Begin a [Trace] of executed instructions. If a trace is already running, this replaces that
     /// trace and returns in a [`Some`], otherwise, it returns [`None`].
     ///

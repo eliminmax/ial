@@ -2,28 +2,30 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use super::{Interpreter, InterpreterError, NegativeMemAccess, OpCode, ParamMode, StepOutcome};
+use super::{
+    IntcodeMem, Interpreter, InterpreterError, NegativeMemAccess, OpCode, ParamMode, StepOutcome,
+};
 
-impl Interpreter {
-    // Given a 5 digit number, digits ABCDE are used as follows:
-    // DE is the two-digit opcode
-    // C is the 1st parameter's mode
-    // B is the 2nd parameter's mode
-    // A is the 3rd parameter's mode
-    //
-    // So *0*1202 would be parsed as follows:
-    //
-    // Opcode 02 is multiply
-    // C=2: 1st parameter is in relative mode
-    // B=1: 2nd parameter is in immediate mode
-    // A=0: 3rd parameter is in positional mode
-    pub(crate) fn parse_op(op: i64) -> Result<(OpCode, [ParamMode; 3]), InterpreterError> {
-        Ok((
-            OpCode::try_from(op % 100).map_err(|_| InterpreterError::UnrecognizedOpcode(op))?,
-            ParamMode::extract(op)?,
-        ))
-    }
+// Given a 5 digit number, digits ABCDE are used as follows:
+// DE is the two-digit opcode
+// C is the 1st parameter's mode
+// B is the 2nd parameter's mode
+// A is the 3rd parameter's mode
+//
+// So *0*1202 would be parsed as follows:
+//
+// Opcode 02 is multiply
+// C=2: 1st parameter is in relative mode
+// B=1: 2nd parameter is in immediate mode
+// A=0: 3rd parameter is in positional mode
+pub(crate) fn parse_op(op: i64) -> Result<(OpCode, [ParamMode; 3]), InterpreterError> {
+    Ok((
+        OpCode::try_from(op % 100).map_err(|_| InterpreterError::UnrecognizedOpcode(op))?,
+        ParamMode::extract(op)?,
+    ))
+}
 
+impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// Wraps [`Interpreter::mem_get`], marking the interpreter as poisoned on error
     pub(crate) fn checked_access(&mut self, address: i64) -> Result<i64, NegativeMemAccess> {
         let result = self.mem_get(address);

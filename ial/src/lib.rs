@@ -121,7 +121,7 @@ pub mod asm;
 pub mod debug_info;
 pub mod disasm;
 
-use mmu::IntcodeMem;
+use mmu::PagedMem;
 
 /// The state of the intcode system, returned whenever the intcode system has stopped.
 ///
@@ -213,12 +213,41 @@ mod address {
 
 pub use address::IntcodeAddress;
 
+/// A marker trait to indicate that non-negative out-of-bounds indices won't fail
+///
+/// If implmenented, out-of-bounds calls to [`Index::index`] must return a fallback `&static`
+/// value, and out-of-bounds [`IndexMut::index_mut`] values must zero-extend the collection.
+///
+/// The implementation of [`Interpreter`] assumes that
+pub trait IntcodeMemIndex: Index<i64, Output = i64> + IndexMut<i64> {}
+
+/// A type with the needed functionality to be used as the memory backing for an [`Interpreter`]
+pub trait IntcodeMem:
+    Clone + IntoIterator<Item = i64> + FromIterator<i64> + IntcodeMemIndex
+{
+    /// Type returned by [`IntcodeMem::get_range`]
+    ///
+    /// Recommended types are [`&'a [i64]`][slice] if memory is stored contiguously, and either
+    /// [`Vec<i64>`] or [`Cow<'a, [i64]>`][std::borrow::Cow] if it isn't.
+    type MemSlice<'a>: AsRef<[i64]> + Debug + for<'b> PartialEq<&'b [i64]> + Clone
+    where
+        Self: 'a;
+
+    /// Return a range of memory addresses. The range may be either
+    ///
+    /// # Errors
+    ///
+    /// If `range` starts at a negative index, [`IntcodeMem::get_range`] must return a
+    /// [`NegativeMemAccess`] containing the starting index of `range`
+    fn get_range(&self, range: Range<i64>) -> Result<Self::MemSlice<'_>, NegativeMemAccess>;
+}
+
 #[derive(Clone)]
 /// An intcode interpreter, which provides optional logging of executed instructions.
-pub struct Interpreter {
+pub struct Interpreter<Mem: IntcodeMem = PagedMem> {
     index: i64,
     rel_offset: i64,
-    code: IntcodeMem,
+    code: Mem,
     poisoned: bool,
     halted: bool,
     trace: Option<trace::Trace>,
@@ -355,7 +384,7 @@ impl From<NegativeMemAccess> for InterpreterError {
     }
 }
 
-impl Interpreter {
+impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// Manually set a memory location to a provided value
     ///
     /// # Errors
@@ -465,7 +494,7 @@ impl Interpreter {
 
         debug_assert!(self.index >= 0, "uncaught negative instruction index");
 
-        let (opcode, modes) = Self::parse_op(self.code[self.index])?;
+        let (opcode, modes) = internals::parse_op(self.code[self.index])?;
 
         match opcode {
             OpCode::Add => self.op3(modes, |a, b| a + b),
@@ -509,7 +538,7 @@ impl Interpreter {
     /// Create a new interpreter. Collects `code` into the starting memory state.
     ///
     /// Panics if the number of entries exceeds `i64::MAX`
-    pub fn new(code: impl IntoIterator<Item = i64>) -> Self {
+    pub fn new_with_mem(code: impl IntoIterator<Item = i64>) -> Self {
         Self {
             index: 0,
             rel_offset: 0,
@@ -551,7 +580,7 @@ impl Interpreter {
     /// If an internal call to [`self.exec_instruction`][Interpreter::exec_instruction] fails,
     /// returns the resulting [`InterpreterError`] unchanged.
     pub fn precompute(&mut self) -> Result<(), InterpreterError> {
-        while Self::parse_op(self.code[self.index])
+        while internals::parse_op(self.code[self.index])
             .is_ok_and(|(opcode, _)| !matches!(opcode, OpCode::In | OpCode::Out | OpCode::Halt))
         {
             self.exec_instruction(&mut empty(), &mut Vec::with_capacity(0))?;
@@ -560,6 +589,8 @@ impl Interpreter {
     }
 
     /// Get a range of memory addresses
+    ///
+    /// Passes `range` to the underlying memory type's implementation of [`IntcodeMem::get_range`]
     ///
     /// # Examples
     ///
@@ -606,15 +637,12 @@ impl Interpreter {
     ///
     /// If the range starts with a negative index, returns [`NegativeMemAccess`] containing that
     /// index.
+    #[inline]
     pub fn get_range(
         &self,
         range: Range<i64>,
     ) -> Result<impl AsRef<[i64]> + Debug + PartialEq<&[i64]> + Clone, NegativeMemAccess> {
-        if range.start >= 0 {
-            Ok(self.code.get_range(range))
-        } else {
-            Err(NegativeMemAccess(range.start))
-        }
+        self.code.get_range(range)
     }
     /// Write human-readable diagnostic information about the interpreter's state to `writer`
     ///
@@ -685,5 +713,12 @@ impl Interpreter {
             )?,
         }
         Ok(())
+    }
+}
+
+impl Interpreter {
+    /// Create a new interpreter with the default Mem type
+    pub fn new(code: impl IntoIterator<Item = i64>) -> Self {
+        Self::new_with_mem(code)
     }
 }
