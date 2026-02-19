@@ -85,7 +85,7 @@ use std::fmt::Write;
 ///
 /// If an integer's last 2 digits are a valid opcode, but it has more than 5 digits, invalid
 /// parameter modes, or digits higher than the ten thousands' place, then this function will not
-/// recognize it as a valid [instruction], as while it is accepted by this crate's [Interpreter]
+/// recognize it as a valid [instruction], as while it is accepted by this crate's [`Interpreter`]
 /// without issue, the ignored digits might have an effect if it's not actually an opcode[^naive]
 /// as being part of a [`DATA` directive], not an [instruction].
 ///
@@ -131,6 +131,7 @@ use std::fmt::Write;
 /// [`DATA` directive]: <https://github.com/eliminmax/ial/blob/main/IAL.md#data-directives>
 /// [`DATA` directives]: <https://github.com/eliminmax/ial/blob/main/IAL.md#data-directives>
 /// [instruction]: <https://github.com/eliminmax/ial/blob/main/IAL.md#instructions>
+/// [`Interpreter`]: crate::Interpreter
 /// [self-modifying]: <#self-modifying-code>
 /// [Naïve Approach to Ambiguity]: <#naïve-approach-to-ambiguity>
 /// [^naive]: See [Naïve Approach to Ambiguity] and [self-modifying]
