@@ -95,7 +95,7 @@ use std::fmt::Write;
 /// use ial::{prelude::*, disasm::disassemble};
 /// const HALT_WITH_MODES: i64 = 21299; // a HALT instruction with ignored parameter modes
 /// let mut interp = Interpreter::new([HALT_WITH_MODES]);
-/// assert_eq!(interp.run_through_inputs(empty()).unwrap(), (vec![], State::Halted));
+/// assert_eq!(interp.run_through_inputs([]).unwrap(), (vec![], State::Halted));
 /// assert_eq!(disassemble([HALT_WITH_MODES]), "DATA 21299\n");
 /// ```
 ///
@@ -107,6 +107,7 @@ use std::fmt::Write;
 ///
 /// ```
 /// use ial::{prelude::*, disasm::disassemble, asm::assemble};
+/// use std::iter::empty;
 ///
 /// const CODE: &str = r#"
 /// ADD #99, #0, halt

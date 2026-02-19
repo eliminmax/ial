@@ -14,6 +14,7 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::fs::{OpenOptions, read_to_string};
 use std::io::{self, stderr, stdin};
+use std::iter::empty;
 use std::path::PathBuf;
 
 use crate::{checked_assemble, checked_ast_fn, debug_path};
@@ -152,7 +153,7 @@ fn interactive_unbufferred(
 }
 
 fn interactive_run(mut interp: Interpreter, strict: bool) -> Result<(), (AsciiError, Interpreter)> {
-    let (output, mut state) = err_with_interp!(interp.run_through_inputs(empty()), interp);
+    let (output, mut state) = err_with_interp!(interp.run_through_inputs([]), interp);
     err_with_interp!(print_ascii(output, strict), interp);
     while state != State::Halted {
         let (output, new_state) = err_with_interp!(

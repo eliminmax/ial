@@ -9,7 +9,7 @@ use ial::prelude::*;
 fn part1(mut i: Interpreter) -> i64 {
     i[1] = 12;
     i[2] = 2;
-    let (output, state) = i.run_through_inputs(empty()).unwrap();
+    let (output, state) = i.run_through_inputs([]).unwrap();
     assert_eq!(state, State::Halted, "intcode did not run to completion");
     assert!(output.is_empty(), "intcode had unexpected output");
     i[0]
@@ -21,7 +21,7 @@ fn part2(base_interp: &Interpreter) -> i64 {
             let mut i = base_interp.clone();
             i[1] = noun;
             i[2] = verb;
-            let (output, state) = i.run_through_inputs(empty()).unwrap();
+            let (output, state) = i.run_through_inputs([]).unwrap();
             assert_eq!(state, State::Halted, "intcode did not run to completion");
             assert!(output.is_empty(), "intcode had unexpected output");
             #[allow(clippy::unreadable_literal, reason = "from Advent of Code")]

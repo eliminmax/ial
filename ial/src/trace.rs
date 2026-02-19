@@ -164,7 +164,7 @@ impl<M: IntcodeMem> Interpreter<M> {
     /// let mut interp = Interpreter::new([1101, 90, 9, 4]);
     /// let prev_trace = interp.start_trace();
     /// assert!(prev_trace.is_none());
-    /// let _out = interp.run_through_inputs(empty()).unwrap();
+    /// let _out = interp.run_through_inputs([]).unwrap();
     ///# assert_eq!(_out, (vec![], State::Halted));
     /// let trace = interp.end_trace().unwrap();
     /// assert_eq!(trace.as_slice()[0].op_code(), OpCode::Add);

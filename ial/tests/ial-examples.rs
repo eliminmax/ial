@@ -23,7 +23,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             let mut interp = Interpreter::new(assemble(&src(stringify!($name))).unwrap());
-            let outcome = interp.run_through_inputs(empty());
+            let outcome = interp.run_through_inputs([]);
             let expected = $expected;
             assert_eq!(outcome, expected, "expected {expected:?}, got {outcome:?}");
         }

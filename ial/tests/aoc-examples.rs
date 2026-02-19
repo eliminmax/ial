@@ -85,7 +85,7 @@ mod day2_examples {
             ];
             let mut interp = interp![1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50];
             interp.start_trace();
-            let output = run_to_end(&mut interp, empty()).unwrap();
+            let output = run_to_end(&mut interp, []).unwrap();
             assert!(output.is_empty());
             validate_trace(EXPECTED, interp.end_trace().unwrap());
         }
@@ -145,6 +145,8 @@ mod day5_examples {
         }
     }
     mod part2 {
+        use std::iter::empty;
+
         use crate::*;
 
         #[test]
@@ -216,7 +218,7 @@ mod day5_examples {
                     trace.as_slice()[0].param_modes()
                 });
                 for mut interp in interps {
-                    assert_eq!(run_to_end(&mut interp, empty()).unwrap(), vec![i]);
+                    assert_eq!(run_to_end(&mut interp, []).unwrap(), vec![i]);
                 }
                 assert_eq!(
                     modes,
@@ -237,6 +239,7 @@ mod day5_examples {
 mod day9_examples {
     mod part1 {
         #![allow(clippy::unreadable_literal, reason = "verbatim from example programs")]
+
         use crate::*;
         /// > takes no input and produces a copy of itself as output.
         #[test]
@@ -245,7 +248,7 @@ mod day9_examples {
                 109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99,
             ];
             let mut interp = Interpreter::new(quine_code);
-            let output = run_to_end(&mut interp, empty()).unwrap();
+            let output = run_to_end(&mut interp, []).unwrap();
             assert_eq!(output.as_slice(), quine_code.as_slice());
         }
 
@@ -253,7 +256,7 @@ mod day9_examples {
         #[test]
         fn output_sixteen_digit() {
             let mut interp = interp![1102, 34915192, 34915192, 7, 4, 7, 99, 0];
-            let output = run_to_end(&mut interp, empty()).unwrap();
+            let output = run_to_end(&mut interp, []).unwrap();
             assert_eq!(output.len(), 1, "{output:?}");
             assert_eq!(output[0].to_string().len(), 16, "{output:?}");
         }
@@ -262,7 +265,7 @@ mod day9_examples {
         #[test]
         fn large_number() {
             let mut interp = interp![104, 1125899906842624, 99];
-            let output = run_to_end(&mut interp, empty()).unwrap();
+            let output = run_to_end(&mut interp, []).unwrap();
             assert_eq!(output, vec![1125899906842624]);
         }
     }

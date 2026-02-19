@@ -23,7 +23,7 @@
 //! let mut interpreter = Interpreter::new(vec![104, 1024, 99]);
 //!
 //! assert_eq!(
-//!     interpreter.run_through_inputs(empty()).unwrap(),
+//!     interpreter.run_through_inputs([]).unwrap(),
 //!     (vec![1024], State::Halted)
 //! );
 //! ```
@@ -119,7 +119,6 @@ pub mod prelude {
     pub use crate::{IntcodeAddress, State, StepOutcome};
     /// A type alias for [`Interpreter<VecMem>`], which is a sensible default
     pub type Interpreter = crate::Interpreter<crate::VecMem>;
-    pub use std::iter::empty;
 }
 
 pub mod asm;
@@ -427,6 +426,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     ///
     /// ```
     /// use ial::prelude::*;
+    /// use std::iter::empty;
     /// let mut interp = Interpreter::new([1101, 90, 9, 8, 3, 7, 4, -1]);
     /// let mut out = Vec::new();
     ///
@@ -602,7 +602,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// // short intcode program that sets an unset int to the HALT instruction, then executes it
     /// let intcode = assemble("ADD #90, #9, halt\nhalt:").unwrap();
     /// let mut interp = Interpreter::new(intcode);
-    /// interp.run_through_inputs(empty()).unwrap();
+    /// interp.run_through_inputs([]).unwrap();
     /// let expected: &[i64] = &[1101, 90, 9, 4, 99];
     /// assert_eq!(interp.get_range(0..5).unwrap(), expected);
     /// ```
@@ -618,7 +618,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     ///     |mut v, i| { v.extend([OpCode::Out as i64 + 100, i]); v }
     /// );
     /// let interp = Interpreter::new(code.clone());
-    /// assert_eq!(interp.get_range(0..16384).unwrap(), &code);
+    /// assert_eq!(&interp.get_range(0..16384).unwrap(), &code);
     /// ```
     ///
     /// Works if the span is outside the bounds of the actually-stored memory

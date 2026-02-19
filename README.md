@@ -27,7 +27,7 @@ use ial::prelude::*;
 let mut interpreter = Interpreter::new(vec![104, 1024, 99]);
 
 assert_eq!(
-    interpreter.run_through_inputs(std::iter::empty()).unwrap(),
+    interpreter.run_through_inputs([]).unwrap(),
     (vec![1024], State::Halted)
 );
 ```
@@ -44,7 +44,7 @@ assert_eq!(assembled, vec![104, 1024, 99]);
 
 let mut interpreter = Interpreter::new(assembled);
 assert_eq!(
-    interpreter.run_through_inputs(std::iter::empty()).unwrap(),
+    interpreter.run_through_inputs([]).unwrap(),
     (vec![1024], State::Halted)
 );
 ```
