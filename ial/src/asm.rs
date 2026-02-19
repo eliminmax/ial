@@ -41,6 +41,7 @@ use std::error::Error;
 use std::fmt::{self, Display};
 
 use ial_ast::{Directive, Instr, Label, Line, parsers};
+#[doc(inline)]
 pub use ial_core::AssemblyError;
 
 /// The Abstract Syntax Tree generated from the assembly

@@ -92,6 +92,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// A module implementing internal logic that doesn't fit cleanly into the module hierarchy
 mod internals;
 
+#[doc(inline)]
 pub use ial_core::{ParamMode, UnknownMode};
 
 mod paged_mem;

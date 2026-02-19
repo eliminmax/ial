@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-//! Core types used throughout the IAL workspace
+//! This crate contains `ial` types that are needed in `ial-ast`, split out to avoid circular
+//! dependencies.
 #![warn(missing_docs)]
 
 use std::error::Error;
