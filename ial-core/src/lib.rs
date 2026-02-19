@@ -134,11 +134,11 @@ impl UnknownMode {
 
 impl Error for UnknownMode {}
 
-/// An error that occured while trying to assemble the AST into Intcode
+/// An error that occurred while trying to assemble the AST into Intcode
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum AssemblyError<'a> {
-    /// An expresison used a label that could not be resolved
+    /// An expression used a label that could not be resolved
     UnresolvedLabel {
         /// The unresolved label
         label: &'a str,
@@ -160,7 +160,7 @@ pub enum AssemblyError<'a> {
         /// The span within the input of the directive
         span: Range<usize>,
     },
-    /// A divison expression's right-hand side evaluated to zero
+    /// A division expression's right-hand side evaluated to zero
     DivisionByZero {
         /// The left-hand side of the expression
         lhs_span: Range<usize>,

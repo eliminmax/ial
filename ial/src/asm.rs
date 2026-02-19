@@ -301,7 +301,7 @@ pub fn assemble_ast(code: Ast<'_>) -> Result<Vec<i64>, AssemblyError<'_>> {
 }
 
 #[derive(Debug)]
-/// One or more parsing errors that occured in [`build_ast`]
+/// One or more parsing errors that occurred in [`build_ast`]
 pub struct AstBuildErr<'a>(Vec<Rich<'a, char>>);
 
 #[cfg(feature = "ast")]
@@ -355,7 +355,7 @@ impl Display for AstBuildErr<'_> {
 
 impl Error for AstBuildErr<'_> {}
 
-/// An error that indicates where in the assembly process a failure occured, and wraps around the
+/// An error that indicates where in the assembly process a failure occurred, and wraps around the
 /// error type for that part of the process.
 #[derive(Debug)]
 pub enum GeneralAsmError<'a> {

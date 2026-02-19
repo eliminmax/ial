@@ -230,7 +230,7 @@ impl Error for AsciiError {}
 impl Display for AsciiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AsciiError::IoError(e) => write!(f, "an I/O error occured: {e}"),
+            AsciiError::IoError(e) => write!(f, "an I/O error occurred: {e}"),
             AsciiError::InvalidAsciiInt(n) => write!(f, "{n} is not a valid ASCII character"),
             AsciiError::InvalidAsciiChar(c) => write!(f, "{c:?} is not a valid ASCII character"),
             AsciiError::InterpreterError(e) => Display::fmt(e, f),

@@ -61,7 +61,7 @@
 //!
 //! ## Example: using [`DebugInfo`] for more accurate disassembly
 //!
-//! Comparsion between [`disasm::disassemble`] and [`disasm::disassemble_with_debug`]:
+//! Comparison between [`disasm::disassemble`] and [`disasm::disassemble_with_debug`]:
 //!
 //! ```rust
 //! use ial::asm::{build_ast, assemble_with_debug};
@@ -142,7 +142,7 @@ pub enum State {
 }
 
 #[derive(Debug, PartialEq)]
-/// An error occured when executing an intcode instruction
+/// An error occurred when executing an intcode instruction
 pub enum InterpreterError {
     /// An invalid opcode was encountered
     UnrecognizedOpcode(i64),
@@ -650,7 +650,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// If writing to `writer` fails, returns the resulting [`io::Error`].
     ///
     /// If `debug_info` fails to apply to this [`Interpreter`], then it does not return an error,
-    /// but it does write the error message instead of writing the dissassembly to the output.
+    /// but it does write the error message instead of writing the disassembly to the output.
     pub fn write_diagnostic<W: Write>(
         &self,
         debug_info: &DebugInfo,

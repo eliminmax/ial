@@ -33,7 +33,7 @@ pub struct DebugInfo {
 
 use std::fmt::{self, Display};
 #[derive(Debug)]
-/// An error that occured when attempting to use [`DebugInfo`] to disassemble code
+/// An error that occurred when attempting to use [`DebugInfo`] to disassemble code
 pub enum DebugInfoError {
     /// Debug info included at least this many ints beyond the end of the input
     MissingInts(usize),

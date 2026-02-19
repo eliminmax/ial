@@ -137,7 +137,7 @@ impl Span for SingleByteSpan {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-/// A binary operatior within an [`Expr::BinOp`]
+/// A binary operator within an [`Expr::BinOp`]
 pub enum BinOperator {
     /// An addition operator
     #[doc(alias = "+")]
@@ -279,9 +279,9 @@ impl<'a> Expr<'a> {
 #[derive(Debug, PartialEq, Clone)]
 /// An error occurred resolving an expression to a concrete value
 pub enum ExprResolutionError<'a> {
-    /// The contained identifer could not be resolved into a concrete label
+    /// The contained identifier could not be resolved into a concrete label
     UnresolvedLabel(&'a str),
-    /// A divison expression's right-hand side evaluated to zero
+    /// A division expression's right-hand side evaluated to zero
     DivisionByZero {
         /// The left-hand side of the expression
         lhs_span: SimpleSpan,
@@ -369,7 +369,7 @@ pub struct Line<'a> {
 }
 
 impl<'a> Line<'a> {
-    /// Thin convinience wrapper around [`Directive::encode_into`]
+    /// Thin convenience wrapper around [`Directive::encode_into`]
     ///
     /// Does nothing if [`self.directive`] is [`None`].
     ///

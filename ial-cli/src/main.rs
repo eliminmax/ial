@@ -277,7 +277,7 @@ fn report_ast_assembly_err(err: &AssemblyError<'_>, file: &str, source: &str) {
                     .with_color(Color::Red),
             ),
         err => Report::build(ReportKind::Error, (file, 0..0))
-            .with_message(format!("Unknown error occured: {err}")),
+            .with_message(format!("Unknown error occurred: {err}")),
     }
     .finish()
     .eprint((file, Source::from(source)))

@@ -17,7 +17,7 @@ pub use crate::param;
 /// assert_eq!(expr!(10), Expr::Number(10));
 /// ```
 ///
-/// If passed an identifier, it will resolve to an [`Expr::Ident`] with that identifer
+/// If passed an identifier, it will resolve to an [`Expr::Ident`] with that identifier
 /// (stringified with [`stringify`]).
 /// ```
 ///# use ial_ast::{prelude::*, util::*};

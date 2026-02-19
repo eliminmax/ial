@@ -59,7 +59,7 @@ pub struct TracedInstr {
 }
 
 impl TracedInstr {
-    /// Return the relative base at the time the traced instruction was excuted,
+    /// Return the relative base at the time the traced instruction was executed,
     #[must_use]
     pub fn rel_base(&self) -> i64 {
         self.rel_base

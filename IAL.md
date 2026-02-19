@@ -34,7 +34,7 @@ label: directive ; comment
 
 ### Labels
 
-A label is a unique[^label-uniqueness] identifer which can be used to refer to the index of the next integer in the Intcode output. It can be thought of as a name for that index.
+A label is a unique[^label-uniqueness] identifier which can be used to refer to the index of the next integer in the Intcode output. It can be thought of as a name for that index.
 
 Each label is immediately followed by a colon, without any whitespace between the identifier and the colon. More than one label can exist for the same index.
 
