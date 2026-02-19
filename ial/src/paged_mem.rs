@@ -33,6 +33,25 @@ macro_rules! page_index {
 /// to the segment contents. The segments are [`Box<[i64; 512]>`][Box]ed so that they don't need to
 /// be moved when reallocating the [`HashMap`], at the expense of extra indirection and heap
 /// fragmentation.
+//
+/// # Examples
+///
+/// In following example, if `vec_mem` were to execute even a single instruction, it would use
+/// around 16 GiB of heap memory, given the large address accessed, but [`page_mem`] would only use
+/// around 60 KiB.
+///
+/// ```no_run
+/// use ial::{Interpreter, PagedMem, VecMem};
+/// const CODE: [i64; 8] = [
+///         // sets address 1000000000 to HALT
+///         1101, 0, 99, 1000000000,
+///         // copy HALT instruction from 1000000000 back to the next instruction index
+///         101, 0, 1000000000, 8
+/// ];
+///
+/// let vec_mem: Interpreter<VecMem> = Interpreter::new(CODE);
+///
+/// let page_mem: Interpreter<PagedMem> = Interpreter::new(CODE);
 pub struct PagedMem {
     segments: HashMap<i64, Box<[i64; 512]>>,
 }

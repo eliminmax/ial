@@ -10,25 +10,7 @@ use std::borrow::Cow;
 /// A simple type implementing [`IntcodeMem`], using a [`Vec<i64>`] to store the memory.
 ///
 /// Unlike [`PagedMem`][crate::PagedMem], memory is stored inline, which is a good thing if a fixed
-/// amount of memory is used, but can be a bad thing:
-///
-/// # Examples
-///
-/// ## *When not to use*
-///
-/// The following example, when run, uses around 16 GiB of heap memory, given the large address
-/// accessed, but using [`PagedMem`][crate::PagedMem] would only use around 60 KiB.
-///
-/// ```no_run
-/// use ial::{Interpreter, VecMem};
-///
-/// let mut vec_mem: Interpreter<VecMem> =
-///     Interpreter::new([
-///         // sets address 1000000000 to HALT
-///         1101, 0, 99, 1000000000,
-///         // copy HALT instruction from 1000000000 back to the next instruction index
-///         101, 0, 1000000000, 8
-/// ]);
+/// amount of memory is used, but can be a bad thing, if there are large gaps in the address space.
 /// ```
 pub struct VecMem(Vec<i64>);
 
