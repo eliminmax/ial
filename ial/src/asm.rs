@@ -37,11 +37,11 @@ use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Spanned};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fmt::{self, Display};
 use std::error::Error;
+use std::fmt::{self, Display};
 
-pub use ial_core::AssemblyError;
 use ial_ast::{Directive, Instr, Label, Line, parsers};
+pub use ial_core::AssemblyError;
 
 /// The Abstract Syntax Tree generated from the assembly
 #[derive(Debug, PartialEq, Clone)]
@@ -75,7 +75,7 @@ impl<'a> Ast<'a> {
         &mut self.0
     }
 
-    /// take the underlying [`Vec`] of [`Line`]s 
+    /// take the underlying [`Vec`] of [`Line`]s
     ///
     /// <div class="warning">
     ///
@@ -87,7 +87,7 @@ impl<'a> Ast<'a> {
     pub fn into_inner(self) -> Vec<Line<'a>> {
         self.0
     }
-    
+
     /// convert a [`Vec`] of [`Line`]s into an [`Ast`]
     ///
     /// <div class="warning">
@@ -125,7 +125,11 @@ impl<'a> Ast<'a> {
 /// ```
 pub fn build_ast(code: &str) -> Result<Ast<'_>, AstBuildErr<'_>> {
     use chumsky::Parser;
-    parsers::ial().parse(code).into_result().map(Ast).map_err(AstBuildErr)
+    parsers::ial()
+        .parse(code)
+        .into_result()
+        .map(Ast)
+        .map_err(AstBuildErr)
 }
 
 type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
@@ -247,9 +251,7 @@ fn assemble_inner<'a>(
 /// * If there are duplicate labels within the source, returns [`AssemblyError::DuplicateLabel`].
 /// * If an expression fails to resolve due to a missing label, returns
 ///   [`AssemblyError::UnresolvedLabel`].
-pub fn assemble_with_debug(
-    code: Ast<'_>,
-) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
+pub fn assemble_with_debug(code: Ast<'_>) -> Result<(Vec<i64>, DebugInfo), AssemblyError<'_>> {
     assemble_inner(code, true).map(|(output, (labels, directives))| {
         (
             output,

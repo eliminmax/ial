@@ -5,9 +5,7 @@
 use chumsky::span::Spanned;
 use itertools::Itertools;
 
-use super::{
-    BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter,
-};
+use super::{BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter};
 
 use std::fmt::{self, Display};
 

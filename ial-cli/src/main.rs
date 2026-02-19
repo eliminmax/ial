@@ -103,9 +103,8 @@ fn debug_path<P: AsRef<Path>>(outfile_path: Option<&P>) -> Cow<'static, Path> {
 
 fn read_intcode<P: AsRef<Path>>(input: Option<&P>) -> Result<Vec<i64>> {
     let text = if let Some(path) = input {
-        fs::read_to_string(path).with_context(|| {
-            format!("unable to read {}", path.as_ref().display())
-        })?
+        fs::read_to_string(path)
+            .with_context(|| format!("unable to read {}", path.as_ref().display()))?
     } else {
         let mut s = String::new();
         io::stdin()
@@ -129,9 +128,8 @@ fn read_src<P: AsRef<Path>>(input: Option<&P>) -> Result<(Cow<'_, str>, String)>
     Ok(if let Some(path) = input {
         (
             path.as_ref().as_os_str().to_string_lossy(),
-            fs::read_to_string(path).with_context(|| {
-                format!("unable to read {}", path.as_ref().display())
-            })?,
+            fs::read_to_string(path)
+                .with_context(|| format!("unable to read {}", path.as_ref().display()))?,
         )
     } else {
         let mut s = String::new();

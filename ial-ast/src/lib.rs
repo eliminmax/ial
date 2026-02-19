@@ -295,9 +295,10 @@ pub enum ExprResolutionError<'a> {
 impl<'a> ExprResolutionError<'a> {
     fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
         match self {
-            ExprResolutionError::UnresolvedLabel(label) => {
-                AssemblyError::UnresolvedLabel { label, span: span.into_range()  }
-            }
+            ExprResolutionError::UnresolvedLabel(label) => AssemblyError::UnresolvedLabel {
+                label,
+                span: span.into_range(),
+            },
             ExprResolutionError::DivisionByZero {
                 lhs_span,
                 div_index,

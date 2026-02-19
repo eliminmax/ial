@@ -6,7 +6,7 @@
 //! implementation.
 #![cfg(feature = "ast")]
 
-use ial::asm::{assemble_with_debug, build_ast, Ast};
+use ial::asm::{Ast, assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
 use ial::{Interpreter, State};
 use ial_ast::{Directive, Instr};
@@ -51,7 +51,8 @@ fn ast_instruction_counts() {
         })
         .counts();
 
-    let ast_matches = ast().inner()
+    let ast_matches = ast()
+        .inner()
         .iter()
         .filter_map(|line| line.directive.as_ref())
         .map(|directive| match &directive.inner {
