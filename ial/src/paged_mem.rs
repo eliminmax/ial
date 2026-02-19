@@ -19,7 +19,20 @@ macro_rules! page_index {
     }};
 }
 
-/// a virtual memory management unit
+/// A type that implements [`IntcodeMem`] by splitting the memory into 4096-byte heap-allocated
+/// segments (each of which fits 512 [`i64`]s).
+///
+/// Uses more indirection[^1] than [`VecMem`][crate::VecMem`], but if a high address is used, it
+/// won't need to zero-fill the entirety of the address space and store it in actual RAM, and it
+/// can support addresses above [`usize::MAX`] on 32-bit platforms.
+///
+/// When [cloning][Clone], fully-zeroed segments are omitted, and [`PagedMem::prune`] can be called
+/// manually to remove them and shrink the allocation.
+///
+/// [^1]: Specifically, it uses a [`HashMap<i64, Box<[i64; 512]>>`][HashMap] mapping segment starts
+/// to the segment contents. The segments are [`Box<[i64; 512]>`][Box]ed so that they don't need to
+/// be moved when reallocating the [`HashMap`], at the expense of extra indirection and heap
+/// fragmentation.
 pub struct PagedMem {
     segments: HashMap<i64, Box<[i64; 512]>>,
 }
@@ -34,8 +47,8 @@ impl PagedMem {
             .collect()
     }
 
-    /// remove all segments that are filled with zeroes, and shrink `self.segments`'s allocation
-    pub(super) fn prune(&mut self) {
+    /// remove all fully-zeroed segments, and shrink the segment map down to size
+    pub fn prune(&mut self) {
         self.segments.retain(|_, s| s[..] != EMPTY);
         self.segments.shrink_to_fit();
     }
@@ -144,7 +157,6 @@ impl Clone for PagedMem {
     }
 }
 
-/// An [`Iterator`] created with [`IntcodeMem::into_iter`]
 pub struct Iter {
     segments: BTreeMap<i64, [i64; 512]>,
     current_segment: i64,

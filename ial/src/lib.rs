@@ -94,9 +94,11 @@ mod internals;
 
 pub use ial_core::{ParamMode, UnknownMode};
 
-/// A module providing a sort of logical memory management unit, using a hashmap to split memory
-/// into segments, which are each contiguous in memory.
 mod paged_mem;
+mod vec_mem;
+
+pub use paged_mem::PagedMem;
+pub use vec_mem::VecMem;
 
 use debug_info::DebugInfo;
 use disasm::disassemble_with_debug;
@@ -112,7 +114,9 @@ pub mod trace;
 
 /// A small module that re-exports items useful when working with the Intcode interpreter
 pub mod prelude {
-    pub use crate::{IntcodeAddress, Interpreter, State, StepOutcome};
+    pub use crate::{IntcodeAddress, State, StepOutcome};
+    /// A type alias for [`Interpreter<PagedMem>`], which is a more flexible default
+    pub type Interpreter = crate::Interpreter<crate::PagedMem>;
     pub use std::iter::empty;
 }
 
@@ -120,8 +124,6 @@ pub mod asm;
 
 pub mod debug_info;
 pub mod disasm;
-
-use paged_mem::PagedMem;
 
 /// The state of the intcode system, returned whenever the intcode system has stopped.
 ///
@@ -213,12 +215,16 @@ mod address {
 
 pub use address::IntcodeAddress;
 
-/// A marker trait to indicate that non-negative out-of-bounds indices won't fail
+/// A marker trait to indicate that non-negative out-of-bounds indices can succeed[^1].
 ///
 /// If implmenented, out-of-bounds calls to [`Index::index`] must return a fallback `&static`
 /// value, and out-of-bounds [`IndexMut::index_mut`] values must zero-extend the collection.
 ///
-/// The implementation of [`Interpreter`] assumes that
+/// The implementation of [`Interpreter`] assumes that those restrictions are followed, and may
+/// panic if that assumption is broken.
+///
+/// [^1]: On 16 and 32-bit platforms, addresses above [`usize::MAX`] can still panic, and in
+/// general, if there's not enough memory to reallocate within [`IndexMut::index_mut`]
 pub trait IntcodeMemIndex: Index<i64, Output = i64> + IndexMut<i64> {}
 
 /// A type with the needed functionality to be used as the memory backing for an [`Interpreter`]
@@ -253,14 +259,26 @@ pub struct Interpreter<Mem: IntcodeMem = PagedMem> {
     trace: Option<trace::Trace>,
 }
 
-// ignore the logger field
-impl PartialEq for Interpreter {
+impl<M: IntcodeMem + PartialEq> PartialEq for Interpreter<M> {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index && self.rel_offset == other.rel_offset && self.code == other.code
     }
 }
 
-impl Debug for Interpreter {
+impl Default for Interpreter {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            rel_offset: 0,
+            poisoned: false,
+            halted: false,
+            trace: None,
+            code: PagedMem::from_iter([99])
+        }
+    }
+}
+
+impl<M: IntcodeMem + Debug> Debug for Interpreter<M> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Interpreter")
             .field("code", &self.code)
@@ -273,7 +291,7 @@ impl Debug for Interpreter {
     }
 }
 
-impl Index<IntcodeAddress> for Interpreter {
+impl<M: IntcodeMem> Index<IntcodeAddress> for Interpreter<M> {
     type Output = i64;
 
     fn index(&self, i: IntcodeAddress) -> &Self::Output {
@@ -281,7 +299,7 @@ impl Index<IntcodeAddress> for Interpreter {
     }
 }
 
-impl Index<i64> for Interpreter {
+impl<M: IntcodeMem> Index<i64> for Interpreter<M> {
     type Output = i64;
 
     fn index(&self, i: i64) -> &Self::Output {
@@ -538,14 +556,14 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// Create a new interpreter. Collects `code` into the starting memory state.
     ///
     /// Panics if the number of entries exceeds `i64::MAX`
-    pub fn new_with_mem(code: impl IntoIterator<Item = i64>) -> Self {
+    pub fn new(code: impl IntoIterator<Item = i64>) -> Self {
         Self {
             index: 0,
             rel_offset: 0,
             poisoned: false,
             halted: false,
             trace: None,
-            code: code.into_iter().collect(),
+            code: Mem::from_iter(code),
         }
     }
 
@@ -627,12 +645,6 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// assert_eq!(interp.get_range(100..1000).unwrap(), [0_i64; 900].as_slice());
     /// ```
     ///
-    /// # Note
-    ///
-    /// Given the current strategy for handling high intcode indexes, the range may be split across
-    /// multiple heap allocations, so this function currently returns a
-    /// [`Cow<'_, [i64]>`][std::borrow::Cow], though this may change in the future.
-    ///
     /// # Errors
     ///
     /// If the range starts with a negative index, returns [`NegativeMemAccess`] containing that
@@ -713,12 +725,5 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
             )?,
         }
         Ok(())
-    }
-}
-
-impl Interpreter {
-    /// Create a new interpreter with the default Mem type
-    pub fn new(code: impl IntoIterator<Item = i64>) -> Self {
-        Self::new_with_mem(code)
     }
 }

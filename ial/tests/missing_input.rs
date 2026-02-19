@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use ial::{Interpreter, State};
+use ial::prelude::*;
 #[test]
 fn missing_input_recoverable() {
     let mut interpreter = Interpreter::new(vec![3, 10, 4, 10, 99]);

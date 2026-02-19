@@ -8,7 +8,7 @@
 
 use ial::asm::{Ast, assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
-use ial::{Interpreter, State};
+use ial::prelude::*;
 use ial_ast::{Directive, Instr};
 use itertools::Itertools;
 use std::sync::OnceLock;
