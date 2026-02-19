@@ -121,7 +121,7 @@ fn interactive_unbufferred(
         interp.start_trace();
     }
     err_with_interp!(interp.precompute(), interp);
-    if trace && let Some(t) = interp.start_trace().unwrap().0.first() {
+    if trace && let Some(t) = interp.start_trace().unwrap().as_slice().first() {
         eprintln!("{t:?}");
     }
     let mut inputs = None;
@@ -136,7 +136,7 @@ fn interactive_unbufferred(
             StepOutcome::Running => {
                 err_with_interp!(print_ascii(output, strict), interp);
                 if trace {
-                    eprintln!("{:?}", interp.start_trace().unwrap().0[0]);
+                    eprintln!("{:?}", interp.start_trace().unwrap().as_slice()[0]);
                 }
             }
             StepOutcome::Stopped(State::Awaiting) => {

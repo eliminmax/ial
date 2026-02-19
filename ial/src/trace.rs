@@ -206,7 +206,7 @@ impl<M: IntcodeMem> Interpreter<M> {
 /// [`Interpreter::start_trace`]
 ///
 /// see [`Interpreter::start_trace`]
-pub struct Trace(pub Vec<TracedInstr>);
+pub struct Trace(Vec<TracedInstr>);
 
 impl Trace {
     pub(crate) fn push(
@@ -227,7 +227,14 @@ impl Trace {
     pub(crate) fn new() -> Self {
         Self(Vec::new())
     }
+
+    /// Get the [traced instructions][TracedInstr] in a slice
+    #[must_use]
+    pub const fn as_slice(&self) -> &[TracedInstr] {
+        self.0.as_slice()
+    }
 }
+
 impl Debug for TracedOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! arg {

@@ -63,11 +63,12 @@ impl ExpectedOp {
     }
 }
 
-fn validate_trace(expected: impl IntoIterator<Item = ExpectedOp>, Trace(trace): Trace) {
+#[allow(clippy::needless_pass_by_value, reason = "improved ergonomics")]
+fn validate_trace(expected: impl IntoIterator<Item = ExpectedOp>, trace: Trace) {
     expected
         .into_iter()
-        .zip_eq(trace)
-        .for_each(|(op, instr)| op.validate(&instr));
+        .zip_eq(trace.as_slice().iter())
+        .for_each(|(op, instr)| op.validate(instr));
 }
 
 mod day2_examples {
@@ -133,7 +134,7 @@ mod day5_examples {
             assert!(output.is_empty());
             let trace = interp.end_trace().unwrap();
             assert_eq!(
-                trace.0[0].param_modes(),
+                trace.as_slice()[0].param_modes(),
                 [
                     ParamMode::Positional,
                     ParamMode::Immediate,
@@ -210,9 +211,9 @@ mod day5_examples {
                     assert!(v.is_empty());
                 }
                 let modes: [[ParamMode; 3]; 2] = core::array::from_fn(|i| {
-                    let Trace(trace) = interps[i].end_trace().unwrap();
-                    assert_eq!(trace.len(), 1);
-                    trace[0].param_modes()
+                    let trace = interps[i].end_trace().unwrap();
+                    assert_eq!(trace.as_slice().len(), 1);
+                    trace.as_slice()[0].param_modes()
                 });
                 for mut interp in interps {
                     assert_eq!(run_to_end(&mut interp, empty()).unwrap(), vec![i]);
