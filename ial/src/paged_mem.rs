@@ -52,6 +52,7 @@ macro_rules! page_index {
 /// let vec_mem: Interpreter<VecMem> = Interpreter::new(CODE);
 ///
 /// let page_mem: Interpreter<PagedMem> = Interpreter::new(CODE);
+/// ```
 pub struct PagedMem {
     segments: HashMap<i64, Box<[i64; 512]>>,
 }

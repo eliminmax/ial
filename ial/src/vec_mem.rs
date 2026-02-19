@@ -11,7 +11,6 @@ use std::borrow::Cow;
 ///
 /// Unlike [`PagedMem`][crate::PagedMem], memory is stored inline, which is a good thing if a fixed
 /// amount of memory is used, but can be a bad thing, if there are large gaps in the address space.
-/// ```
 pub struct VecMem(Vec<i64>);
 
 impl Index<i64> for VecMem {
