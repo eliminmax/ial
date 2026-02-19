@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: 0BSD
 
 use crate::{IntcodeMem, IntcodeMemIndex, NegativeMemAccess};
-use std::ops::{Index, IndexMut};
 use std::borrow::Cow;
+use std::ops::{Index, IndexMut};
 
 #[derive(Debug, PartialEq, Clone)]
 /// A simple type implementing [`IntcodeMem`], using a [`Vec<i64>`] to store the memory.
@@ -50,10 +50,7 @@ impl FromIterator<i64> for VecMem {
 }
 
 impl IntcodeMem for VecMem {
-    fn get_range(
-        &self,
-        range: std::ops::Range<i64>,
-    ) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
+    fn get_range(&self, range: std::ops::Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         if range.start < 0 {
             Err(NegativeMemAccess(range.start))
         } else {

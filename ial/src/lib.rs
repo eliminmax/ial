@@ -104,13 +104,13 @@ pub use vec_mem::VecMem;
 use debug_info::DebugInfo;
 use disasm::disassemble_with_debug;
 use itertools::Itertools;
+use std::borrow::Cow;
 use std::convert::AsRef;
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
 use std::io::{self, Write};
 use std::iter::empty;
 use std::ops::{Index, IndexMut, Range};
-use std::borrow::Cow;
 
 pub mod trace;
 
@@ -634,10 +634,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// If the range starts with a negative index, returns [`NegativeMemAccess`] containing that
     /// index.
     #[inline]
-    pub fn get_range(
-        &self,
-        range: Range<i64>,
-    ) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
+    pub fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         self.code.get_range(range)
     }
     /// Write human-readable diagnostic information about the interpreter's state to `writer`
