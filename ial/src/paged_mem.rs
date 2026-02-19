@@ -37,7 +37,7 @@ macro_rules! page_index {
 /// # Examples
 ///
 /// In following example, if `vec_mem` were to execute even a single instruction, it would use
-/// around 16 GiB of heap memory, given the large address accessed, but [`page_mem`] would only use
+/// around 16 GiB of heap memory, given the large address accessed, but `page_mem` would only use
 /// around 60 KiB.
 ///
 /// ```no_run
