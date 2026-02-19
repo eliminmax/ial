@@ -108,8 +108,6 @@ impl std::ops::Index<i64> for PagedMem {
 impl IntcodeMemIndex for PagedMem {}
 
 impl IntcodeMem for PagedMem {
-    type MemSlice<'a> = Cow<'a, [i64]>;
-
     fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         let first = range.start;
         if first < 0 {

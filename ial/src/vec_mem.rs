@@ -4,6 +4,7 @@
 
 use crate::{IntcodeMem, IntcodeMemIndex, NegativeMemAccess};
 use std::ops::{Index, IndexMut};
+use std::borrow::Cow;
 
 #[derive(Debug, PartialEq, Clone)]
 /// A simple type implementing [`IntcodeMem`], using a [`Vec<i64>`] to store the memory.
@@ -68,18 +69,25 @@ impl FromIterator<i64> for VecMem {
 }
 
 impl IntcodeMem for VecMem {
-    type MemSlice<'a> = &'a [i64];
-
     fn get_range(
         &self,
         range: std::ops::Range<i64>,
-    ) -> Result<Self::MemSlice<'_>, NegativeMemAccess> {
+    ) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         if range.start < 0 {
             Err(NegativeMemAccess(range.start))
         } else {
             let start = usize::try_from(range.start).expect("range starts past usize::MAX");
             let end = usize::try_from(range.end).expect("range ends past usize::MAX");
-            Ok(&self.0[start..end])
+            let len = end - start;
+            if end < self.0.len() {
+                Ok(Cow::Borrowed(&self.0[start..end]))
+            } else if start < self.0.len() {
+                let mut v = self.0[start..].to_vec();
+                v.extend(vec![0; len - v.len()]);
+                Ok(Cow::Owned(v))
+            } else {
+                Ok(Cow::Owned(vec![0; len]))
+            }
         }
     }
 }

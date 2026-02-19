@@ -109,14 +109,15 @@ use std::fmt::{self, Debug, Display};
 use std::io::{self, Write};
 use std::iter::empty;
 use std::ops::{Index, IndexMut, Range};
+use std::borrow::Cow;
 
 pub mod trace;
 
 /// A small module that re-exports items useful when working with the Intcode interpreter
 pub mod prelude {
     pub use crate::{IntcodeAddress, State, StepOutcome};
-    /// A type alias for [`Interpreter<PagedMem>`], which is a more flexible default
-    pub type Interpreter = crate::Interpreter<crate::PagedMem>;
+    /// A type alias for [`Interpreter<VecMem>`], which is a sensible default
+    pub type Interpreter = crate::Interpreter<crate::VecMem>;
     pub use std::iter::empty;
 }
 
@@ -231,21 +232,16 @@ pub trait IntcodeMemIndex: Index<i64, Output = i64> + IndexMut<i64> {}
 pub trait IntcodeMem:
     Clone + IntoIterator<Item = i64> + FromIterator<i64> + IntcodeMemIndex
 {
-    /// Type returned by [`IntcodeMem::get_range`]
-    ///
-    /// Recommended types are [`&'a [i64]`][slice] if memory is stored contiguously, and either
-    /// [`Vec<i64>`] or [`Cow<'a, [i64]>`][std::borrow::Cow] if it isn't.
-    type MemSlice<'a>: AsRef<[i64]> + Debug + for<'b> PartialEq<&'b [i64]> + Clone
-    where
-        Self: 'a;
-
     /// Return a range of memory addresses. The range may be either
     ///
     /// # Errors
     ///
     /// If `range` starts at a negative index, [`IntcodeMem::get_range`] must return a
-    /// [`NegativeMemAccess`] containing the starting index of `range`
-    fn get_range(&self, range: Range<i64>) -> Result<Self::MemSlice<'_>, NegativeMemAccess>;
+    /// [`NegativeMemAccess`] containing the starting index of `range`.
+    ///
+    /// If the specified range already exists in a contiguous block of memory, then it should
+    /// return a [`Cow::Borrowed`]. Otherwise, it should return a [`Cow::Owned`].
+    fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess>;
 }
 
 #[derive(Clone)]
@@ -308,13 +304,13 @@ impl<M: IntcodeMem> Index<i64> for Interpreter<M> {
     }
 }
 
-impl IndexMut<IntcodeAddress> for Interpreter {
+impl<M: IntcodeMem> IndexMut<IntcodeAddress> for Interpreter<M> {
     fn index_mut(&mut self, i: IntcodeAddress) -> &mut Self::Output {
         self.code.index_mut(i.get())
     }
 }
 
-impl IndexMut<i64> for Interpreter {
+impl<M: IntcodeMem> IndexMut<i64> for Interpreter<M> {
     fn index_mut(&mut self, i: i64) -> &mut Self::Output {
         assert!(i >= 0, "intcode memory cannot be at a negative index");
         self.code.index_mut(i)
