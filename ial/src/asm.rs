@@ -21,7 +21,7 @@
 //! "#;
 //!
 //! let mut interpreter = Interpreter::new(assemble(HELLO_ASM).unwrap());
-//! let (output, state) = dbg!(interpreter).run_through_inputs(std::iter::empty()).unwrap();
+//! let (output, state) = interpreter.run_through_inputs(std::iter::empty()).unwrap();
 //!
 //! let expected_output: Vec<i64> = b"Hello, world!\n".into_iter().copied().map(i64::from).collect();
 //!
