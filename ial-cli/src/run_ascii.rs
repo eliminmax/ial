@@ -9,7 +9,7 @@ use anyhow::Result;
 use clap::{ArgAction, Parser, ValueHint};
 use ial::asm::{AstBuildErr, assemble_with_debug, build_ast};
 use ial::debug_info::DebugInfo;
-use ial::{State, StepOutcome, prelude::*};
+use ial::{IntcodeMem, Interpreter, InterpreterError, PagedMem, State, StepOutcome, VecMem};
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::fs::{OpenOptions, read_to_string};
@@ -59,6 +59,12 @@ pub(crate) struct RunAsciiArgs {
     #[arg(short = 't', long, action = ArgAction::SetTrue)]
     #[arg(requires = "unbuffered_output")]
     show_trace: bool,
+    /// Use paged interpreter memory
+    ///
+    /// This can save massively on memory if an intcode program uses a large, sparse address space,
+    /// at the potential expense of performance
+    #[arg(short = 'p', long, action = ArgAction::SetTrue)]
+    mem_paging: bool,
 }
 
 macro_rules! to_ascii_char {
@@ -113,11 +119,11 @@ macro_rules! err_with_interp {
     }};
 }
 
-fn interactive_unbufferred(
-    mut interp: Interpreter,
+fn interactive_unbufferred<M: IntcodeMem>(
+    mut interp: Interpreter<M>,
     strict: bool,
     trace: bool,
-) -> Result<(), (AsciiError, Interpreter)> {
+) -> Result<(), (AsciiError, Interpreter<M>)> {
     if trace {
         interp.start_trace();
     }
@@ -152,7 +158,10 @@ fn interactive_unbufferred(
     Ok(())
 }
 
-fn interactive_run(mut interp: Interpreter, strict: bool) -> Result<(), (AsciiError, Interpreter)> {
+fn interactive_run<M: IntcodeMem>(
+    mut interp: Interpreter<M>,
+    strict: bool,
+) -> Result<(), (AsciiError, Interpreter<M>)> {
     let (output, mut state) = err_with_interp!(interp.run_through_inputs([]), interp);
     err_with_interp!(print_ascii(output, strict), interp);
     while state != State::Halted {
@@ -198,8 +207,18 @@ impl RunAsciiArgs {
             (prog, debug_info)
         };
 
-        let interp = Interpreter::new(prog);
+        if self.mem_paging {
+            self.run_impl(Interpreter::<PagedMem>::new(prog), debug_info.as_ref())
+        } else {
+            self.run_impl(Interpreter::<VecMem>::new(prog), debug_info.as_ref())
+        }
+    }
 
+    fn run_impl<M: IntcodeMem>(
+        &self,
+        interp: Interpreter<M>,
+        debug_info: Option<&DebugInfo>,
+    ) -> Result<()> {
         let run_outcome = if self.unbuffered_output || self.show_trace {
             interactive_unbufferred(interp, self.strict_ascii, self.show_trace)
         } else {
@@ -207,7 +226,7 @@ impl RunAsciiArgs {
         };
 
         if let Err((err, interp)) = run_outcome {
-            if let Some(debug_info) = debug_info.as_ref() {
+            if let Some(debug_info) = debug_info {
                 eprintln!("INTERPRETER ERROR\n\n");
                 interp.write_diagnostic(debug_info, &mut stderr())?;
             }
@@ -223,7 +242,7 @@ pub enum AsciiError {
     IoError(io::Error),
     InvalidAsciiChar(char),
     InvalidAsciiInt(i64),
-    InterpreterError(ial::InterpreterError),
+    InterpreterError(InterpreterError),
 }
 
 impl Error for AsciiError {}
@@ -238,8 +257,8 @@ impl Display for AsciiError {
     }
 }
 
-impl From<ial::InterpreterError> for AsciiError {
-    fn from(e: ial::InterpreterError) -> Self {
+impl From<InterpreterError> for AsciiError {
+    fn from(e: InterpreterError) -> Self {
         Self::InterpreterError(e)
     }
 }
