@@ -96,7 +96,7 @@ pub use ial_core::{ParamMode, UnknownMode};
 
 /// A module providing a sort of logical memory management unit, using a hashmap to split memory
 /// into segments, which are each contiguous in memory.
-mod mmu;
+mod paged_mem;
 
 use debug_info::DebugInfo;
 use disasm::disassemble_with_debug;
@@ -121,7 +121,7 @@ pub mod asm;
 pub mod debug_info;
 pub mod disasm;
 
-use mmu::PagedMem;
+use paged_mem::PagedMem;
 
 /// The state of the intcode system, returned whenever the intcode system has stopped.
 ///
