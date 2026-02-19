@@ -247,7 +247,7 @@ pub trait IntcodeMem:
 
 #[derive(Clone)]
 /// An intcode interpreter, which provides optional logging of executed instructions.
-pub struct Interpreter<Mem: IntcodeMem = PagedMem> {
+pub struct Interpreter<Mem: IntcodeMem = VecMem> {
     index: i64,
     rel_offset: i64,
     code: Mem,
@@ -259,19 +259,6 @@ pub struct Interpreter<Mem: IntcodeMem = PagedMem> {
 impl<M: IntcodeMem + PartialEq> PartialEq for Interpreter<M> {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index && self.rel_offset == other.rel_offset && self.code == other.code
-    }
-}
-
-impl Default for Interpreter {
-    fn default() -> Self {
-        Self {
-            index: 0,
-            rel_offset: 0,
-            poisoned: false,
-            halted: false,
-            trace: None,
-            code: PagedMem::from_iter([99])
-        }
     }
 }
 
