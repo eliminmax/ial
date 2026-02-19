@@ -5,7 +5,7 @@
 
 //! Library for working with Intcode and an Intcode assembly language
 //!
-//! This library provides a few different parts to it:
+//! This library has a few different parts to it:
 //!
 //! # Intcode Interpreter
 //!

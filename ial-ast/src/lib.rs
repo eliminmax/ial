@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-//! Module of types related to the Abstract Syntax Tree
+//! Crate of functionality related to the Abstract Syntax Tree
 
 #[doc(hidden)]
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
