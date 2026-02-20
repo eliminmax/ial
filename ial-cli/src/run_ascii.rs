@@ -236,6 +236,8 @@ pub enum AsciiError {
 }
 
 impl Error for AsciiError {}
+
+#[cfg(not(tarpaulin_include))]
 impl Display for AsciiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

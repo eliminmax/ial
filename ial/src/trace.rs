@@ -277,6 +277,7 @@ impl Debug for TracedInstr {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for TracedInstr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

@@ -49,6 +49,7 @@ pub enum DebugInfoError {
     DirectiveTooLarge(usize),
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for DebugInfoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

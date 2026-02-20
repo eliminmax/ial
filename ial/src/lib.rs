@@ -158,6 +158,7 @@ pub enum InterpreterError {
     Poisoned,
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for InterpreterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -183,6 +184,7 @@ impl Display for InterpreterError {
 
 impl Error for InterpreterError {}
 
+#[cfg(not(tarpaulin_include))]
 impl Display for NegativeMemAccess {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "could not convert {} to unsigned index", self.0)
@@ -348,6 +350,7 @@ impl TryFrom<i64> for OpCode {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

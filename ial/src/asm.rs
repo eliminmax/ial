@@ -347,6 +347,7 @@ impl<'a> AstBuildErr<'a> {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for AstBuildErr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0.iter().format("\n"))
