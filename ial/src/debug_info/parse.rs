@@ -140,13 +140,13 @@ impl EncodedSize {
         debug_assert_eq!(
             last & 0x80,
             0,
-            "Invalid final byte for EncodedSize: 0x{last:02x} (most significant byte is 1)"
+            "Invalid final byte for EncodedSize: 0x{last:02x} (most significant bit is 1)"
         );
         for &byte in &slice[..slice.len() - 1] {
             debug_assert_eq!(
                 byte & 0x80,
                 0x80,
-                "Invalid non-final byte for EncodedSize: 0x{byte:02x} (most significant byte is 0)"
+                "Invalid non-final byte for EncodedSize: 0x{byte:02x} (most significant bit is 0)"
             );
         }
     }
