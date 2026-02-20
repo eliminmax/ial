@@ -5,6 +5,7 @@
 //! Module for [`DebugInfo`] and its related functionality
 
 use chumsky::span::{SimpleSpan, Spanned};
+use std::fmt::{self, Display};
 
 #[doc(inline)]
 pub use ial_core::DirectiveKind;
@@ -32,7 +33,6 @@ pub struct DebugInfo {
     pub directives: Box<[DirectiveDebug]>,
 }
 
-use std::fmt::{self, Display};
 #[derive(Debug)]
 /// An error that occurred when attempting to use [`DebugInfo`] to disassemble code
 pub enum DebugInfoError {

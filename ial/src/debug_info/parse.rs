@@ -72,7 +72,10 @@
 use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
 use chumsky::text::Char;
 use ial_ast::util::span;
+use std::error::Error;
+use std::fmt::{self, Debug, Display};
 use std::io::{self, BufRead, Read, Write};
+use std::string::FromUtf8Error;
 
 /// the magic bytes for on-disk debug data.
 pub const MAGIC: [u8; 7] = *b"\0IALDBG";
@@ -438,10 +441,6 @@ pub enum DebugInfoReadError {
     /// A label was valid UTF-8, but was not a valid identifier
     InvalidLabel(Box<str>),
 }
-
-use std::error::Error;
-use std::fmt::{self, Debug, Display};
-use std::string::FromUtf8Error;
 
 impl Debug for EncodedSize {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
