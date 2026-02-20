@@ -26,20 +26,6 @@ const LONG_VERSION: &str = const_format::formatcp!(
     ial_ast::VERSION
 );
 
-#[cfg(feature = "man")]
-#[derive(Parser, Debug)]
-struct GenerateManpageArgs {
-    /// The manpath to write to
-    manpath: PathBuf,
-}
-
-#[cfg(feature = "completion")]
-#[derive(Parser, Debug)]
-struct ShellChoice {
-    /// The shell to generate completion for
-    shell: clap_complete::Shell,
-}
-
 #[derive(Parser, Debug)]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(long_version = LONG_VERSION)]
@@ -59,10 +45,10 @@ enum Action {
     /// Print out a man page
     #[cfg(feature = "man")]
     #[command(visible_alias = "man")]
-    GenerateManpage(GenerateManpageArgs),
+    GenerateManpage { manpath: PathBuf },
     /// Generate shell completion
     #[cfg(feature = "completion")]
-    Complete(ShellChoice),
+    Complete { shell: clap_complete::Shell },
 }
 
 impl Action {
@@ -73,14 +59,14 @@ impl Action {
             Action::Disassemble(disassemble_args) => disassemble_args.run(),
             Action::RunAscii(run_ascii_args) => run_ascii_args.run(),
             #[cfg(feature = "man")]
-            Action::GenerateManpage(GenerateManpageArgs { mut manpath }) => {
+            Action::GenerateManpage { mut manpath } => {
                 use clap::CommandFactory;
                 manpath.push("man1");
                 clap_mangen::generate_to(Self::command(), manpath)?;
                 Ok(())
             }
             #[cfg(feature = "completion")]
-            Action::Complete(ShellChoice { shell }) => {
+            Action::Complete { shell } => {
                 use clap::CommandFactory;
                 clap_complete::aot::generate(
                     shell,
