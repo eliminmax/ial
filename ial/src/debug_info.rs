@@ -48,6 +48,7 @@ pub enum DebugInfoError {
     /// [directive]: ial_ast::Directive
     DirectiveTooLarge(usize),
 }
+
 impl Display for DebugInfoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

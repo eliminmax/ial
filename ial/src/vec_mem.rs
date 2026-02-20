@@ -22,6 +22,7 @@ impl Index<i64> for VecMem {
             .unwrap_or(&0)
     }
 }
+
 impl IndexMut<i64> for VecMem {
     fn index_mut(&mut self, index: i64) -> &mut Self::Output {
         let index = usize::try_from(index).expect("index in range 0..=usize::MAX");
@@ -31,6 +32,7 @@ impl IndexMut<i64> for VecMem {
         self.0.index_mut(index)
     }
 }
+
 impl IntcodeMemIndex for VecMem {}
 
 impl IntoIterator for VecMem {

@@ -192,6 +192,7 @@ impl Display for AssemblyError<'_> {
         }
     }
 }
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of a [`Directive`]
 #[allow(missing_docs, reason = "trivial")]

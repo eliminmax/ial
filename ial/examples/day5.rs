@@ -15,6 +15,7 @@ fn part1(mut i: Interpreter) -> i64 {
 
     diagnostic
 }
+
 fn part2(mut i: Interpreter) -> i64 {
     let (mut outputs, State::Halted) = i.run_through_inputs([5]).unwrap() else {
         panic!();
