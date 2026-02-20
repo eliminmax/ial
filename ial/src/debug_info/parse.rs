@@ -325,16 +325,7 @@ impl DebugInfo {
             write_span!(dir.src_span);
             write_span!(dir.output_span);
         }
-        let compression_level = {
-            use flate2::Compression;
-            match buffer.len().saturating_sub(HEADER.len()) {
-                ..FLATE_LOWER_THRESHOLD => Compression::none(),
-                FLATE_LOWER_THRESHOLD..FLATE_MIDDLE_THRESHOLD => Compression::fast(),
-                FLATE_MIDDLE_THRESHOLD..FLATE_UPPER_THRESHOLD => Compression::default(),
-                FLATE_UPPER_THRESHOLD.. => Compression::best(),
-            }
-        };
-        ZlibEncoder::new(f, compression_level).write_all(&buffer)
+        ZlibEncoder::new(f, flate2::Compression::default()).write_all(&buffer)
     }
 
     /// Read the debug info from the format described in [the module docs][self]
