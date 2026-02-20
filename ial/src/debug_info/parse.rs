@@ -425,8 +425,8 @@ impl DebugInfo {
 #[derive(Debug)]
 /// An error that occored while trying to read [`DebugInfo`] from its opaque on-disk format
 pub enum DebugInfoReadError {
-    /// The first 8 bytes of the on-disk data didn't match the proper magic byte sequence
-    BadMagic([u8; 8]),
+    /// The first 7 bytes of the on-disk data didn't match the proper magic byte sequence
+    BadMagic([u8; 7]),
     /// The version of the on-disk data format was not recognized
     VersionMismatch(u8),
     /// While reading, the contained [`io::Error`] occored
