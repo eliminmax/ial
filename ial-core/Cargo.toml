@@ -7,4 +7,9 @@ name = "ial-core"
 version = "0.1.0"
 edition = "2024"
 
+# don't warn on tarpaulin code coverage cfg conditions or custom cfgs
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(tarpaulin_include)']
+
 [dependencies]

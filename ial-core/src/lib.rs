@@ -89,6 +89,7 @@ impl ParamMode {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for ParamMode {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -119,6 +120,7 @@ pub struct UnknownMode {
     mode_digit: i8,
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for UnknownMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "encountered unknown parameter mode {}", self.digit())
@@ -171,6 +173,7 @@ pub enum AssemblyError<'a> {
     },
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Display for AssemblyError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -22,6 +22,11 @@ flate2 = "1.1.9"
 either = "1.15.0"
 flate2 = "1.1.9"
 
+# don't warn on tarpaulin code coverage cfg conditions or custom cfgs
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(tarpaulin_include)']
+
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can
 # be overridden

@@ -20,6 +20,11 @@ ial-ast = { path = "../ial-ast" }
 ial-core = { path = "../ial-core" }
 itertools = "0.14.0"
 
+# don't warn on tarpaulin code coverage cfg conditions or custom cfgs
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(tarpaulin_include)']
+
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can
 # be overridden

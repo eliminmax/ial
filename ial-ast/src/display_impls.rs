@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![cfg(not(tarpaulin_include))]
+
 use chumsky::span::Spanned;
 use itertools::Itertools;
 
