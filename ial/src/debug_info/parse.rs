@@ -229,32 +229,22 @@ fn encode_size<W: Write>(w: &mut BufWriter<W>, mut size: usize) -> io::Result<()
     w.write_all(&buf[..=i])
 }
 
-#[allow(
-    clippy::cast_possible_truncation,
-    reason = "would fail the checked_shl before overflow"
-)]
 fn read_size<R: BufRead>(reader: &mut R) -> Result<usize, DebugInfoReadError> {
-    reader
+    let bytes: Vec<u8> = reader
         .by_ref()
         .bytes()
         .take_while_inclusive(|r| matches!(r, Ok(0x80..)))
-        .process_results(|iter| {
-            let (peeker, iter) = iter.tee();
-            if peeker.last().is_none_or(|b| b & 0x80 == 0x80) {
-                Err(DebugInfoReadError::IoError(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "unexpected end of file reading encoded size",
-                )))
-            } else {
-                iter.enumerate()
-                    .try_fold(0, |acc, (i, b)| {
-                        (b as usize & 0x7f)
-                            .checked_shl(7 * i as u32)
-                            .map(|n| acc | n)
-                    })
-                    .ok_or(DebugInfoReadError::IntSize)
-            }
-        })?
+        .try_collect()?;
+
+    if bytes.last().is_none_or(|b| b & 0x80 == 0x80) {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "unexpected end of file reading encoded size",
+        )
+        .into());
+    }
+
+    usize::try_from(EncodedSize::from_slice(&bytes)).map_err(Into::into)
 }
 
 impl From<usize> for Box<EncodedSize> {
