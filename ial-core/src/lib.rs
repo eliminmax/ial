@@ -217,3 +217,33 @@ impl TryFrom<u8> for DirectiveKind {
 }
 
 impl std::error::Error for AssemblyError<'_> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn param_mode_extract() {
+        use ParamMode::{Immediate, Positional, Relative};
+        assert_eq!(
+            ParamMode::extract(21099).unwrap(),
+            [Positional, Immediate, Relative]
+        );
+        assert_eq!(
+            ParamMode::extract(-21099).unwrap(),
+            [Positional, Immediate, Relative]
+        );
+
+        assert!(ParamMode::extract(-499).unwrap_err().digit() == 4);
+    }
+
+    #[test]
+    fn directive_kind_try_from() {
+        for i in 0..=u8::MAX {
+            let dk = DirectiveKind::try_from(i);
+            match i {
+                0..=2 => assert_eq!(dk.unwrap() as u8, i),
+                _ => assert_eq!(dk.unwrap_err(), i),
+            }
+        }
+    }
+}
