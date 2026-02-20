@@ -72,9 +72,10 @@
 use super::{DebugInfo, DirectiveDebug, DirectiveKind, SimpleSpan};
 use chumsky::text::Char;
 use ial_ast::util::span;
+use itertools::Itertools;
 use std::error::Error;
 use std::fmt::{self, Debug, Display};
-use std::io::{self, BufRead, Read, Write};
+use std::io::{self, BufRead, BufWriter, Read, Write};
 use std::string::FromUtf8Error;
 
 /// the magic bytes for on-disk debug data.
@@ -96,10 +97,6 @@ const _HEADER: [u8; 8] = const {
 };
 /// An array containing the magic bytes and version number of an IAL debug file
 pub const HEADER: [u8; 8] = _HEADER;
-
-const FLATE_LOWER_THRESHOLD: usize = 2048;
-const FLATE_MIDDLE_THRESHOLD: usize = FLATE_LOWER_THRESHOLD * 4;
-const FLATE_UPPER_THRESHOLD: usize = FLATE_MIDDLE_THRESHOLD * 4;
 
 /// Check if `text` is a valid identifier
 #[must_use]
@@ -192,9 +189,17 @@ impl EncodedSize {
     /// Create an [`EncodedSize`] inline within `buffer`
     ///
     /// Returns a reference to the [`EncodedSize`]
-    pub fn encode_into_vec(buffer: &mut Vec<u8>, size: usize) -> &Self {
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "designed to split a usize into a [u8]"
+    )]
+    pub fn encode_into_vec(buffer: &mut Vec<u8>, mut size: usize) -> &Self {
         let start = buffer.len();
-        encode_size(buffer, size);
+        while size > 0x7f {
+            buffer.push((size & 0x7f) as u8 | 0x80);
+            size >>= 7;
+        }
+        buffer.push(size as u8);
         Self::from_slice(&buffer[start..])
     }
 }
@@ -211,54 +216,58 @@ impl std::ops::Deref for EncodedSize {
     clippy::cast_possible_truncation,
     reason = "designed to split a usize into a [u8]"
 )]
-fn encode_size(vec: &mut Vec<u8>, mut size: usize) {
+fn encode_size<W: Write>(w: &mut BufWriter<W>, mut size: usize) -> io::Result<()> {
+    const BUF_SIZE: usize = (std::mem::size_of::<usize>() * 8).div_ceil(7);
+    let mut buf: [u8; BUF_SIZE] = [0; BUF_SIZE];
+    let mut i = 0;
     while size > 0x7f {
-        vec.push((size & 0x7f) as u8 | 0x80);
+        buf[i] = (size & 0x7f) as u8 | 0x80;
+        i += 1;
         size >>= 7;
     }
-    vec.push(size as u8);
+    buf[i] = size as u8;
+    w.write_all(&buf[..=i])
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "would fail the checked_shl before overflow"
+)]
 fn read_size<R: BufRead>(reader: &mut R) -> Result<usize, DebugInfoReadError> {
-    let mut val = 0;
-    let mut shift: u32 = 0;
-    let mut bytes = reader.by_ref().bytes();
-
-    loop {
-        let b = bytes
-            .next()
-            .ok_or_else(|| {
-                io::Error::new(
+    reader
+        .by_ref()
+        .bytes()
+        .take_while_inclusive(|r| matches!(r, Ok(0x80..)))
+        .process_results(|iter| {
+            let (peeker, iter) = iter.tee();
+            if peeker.last().is_none_or(|b| b & 0x80 == 0x80) {
+                Err(DebugInfoReadError::IoError(io::Error::new(
                     io::ErrorKind::UnexpectedEof,
                     "unexpected end of file reading encoded size",
-                )
-            })
-            .flatten()?;
-        val |= ((b as usize) & 0x7f)
-            .checked_shl(shift)
-            .ok_or(DebugInfoReadError::IntSize)?;
-        if b & 0x80 == 0x80 {
-            shift += 7;
-        } else {
-            break;
-        }
-    }
-    Ok(val)
+                )))
+            } else {
+                iter.enumerate()
+                    .try_fold(0, |acc, (i, b)| {
+                        (b as usize & 0x7f)
+                            .checked_shl(7 * i as u32)
+                            .map(|n| acc | n)
+                    })
+                    .ok_or(DebugInfoReadError::IntSize)
+            }
+        })?
 }
 
 impl From<usize> for Box<EncodedSize> {
     fn from(value: usize) -> Self {
         let mut bytes = Vec::new();
-        encode_size(&mut bytes, value);
+        EncodedSize::encode_into_vec(&mut bytes, value);
         EncodedSize::from_boxed_slice(bytes.into_boxed_slice())
     }
 }
 
-// To allow a single docstring for `pub type BitCounter`, define it to be an alias for _BitCounter,
-// and define _BitCounter using cfg_if.
+// To allow a single docstring for `pub type BitCounter`, define it to be an alias for _BitCounter
 
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-
 type _BitCounter = u32;
 #[cfg(not(any(target_pointer_width = "16", target_pointer_width = "32")))]
 type _BitCounter = usize;
@@ -288,6 +297,13 @@ const _: () = assert!(
     "wrong BitCounter type selected"
 );
 
+macro_rules! write_span {
+    ($writer: ident, $span: expr) => {
+        encode_size(&mut $writer, $span.start)?;
+        encode_size(&mut $writer, $span.end - $span.start)?;
+    };
+}
+
 impl DebugInfo {
     /// Write the debug info into the format described in [the module docs][self]
     ///
@@ -299,33 +315,26 @@ impl DebugInfo {
         let DebugInfo { labels, directives } = self;
 
         f.write_all(&HEADER)?;
+        let mut writer = BufWriter::new(ZlibEncoder::new(f, flate2::Compression::default()));
 
-        let mut buffer = Vec::new();
-
-        macro_rules! write_span {
-            ($span: expr) => {
-                encode_size(&mut buffer, $span.start);
-                encode_size(&mut buffer, $span.end - $span.start);
-            };
-        }
-
-        encode_size(&mut buffer, labels.len());
+        encode_size(&mut writer, labels.len())?;
 
         for (label, addr) in labels {
-            encode_size(&mut buffer, label.inner.len());
-            buffer.extend(label.inner.as_bytes());
-            write_span!(label.span);
-            buffer.extend(addr.to_le_bytes());
+            encode_size(&mut writer, label.inner.len())?;
+            writer.write_all(label.inner.as_bytes())?;
+            write_span!(writer, label.span);
+            writer.write_all(&addr.to_le_bytes())?;
         }
 
-        encode_size(&mut buffer, directives.len());
+        encode_size(&mut writer, directives.len())?;
 
         for dir in directives {
-            buffer.push(dir.kind as u8);
-            write_span!(dir.src_span);
-            write_span!(dir.output_span);
+            writer.write_all(&[dir.kind as u8])?;
+            write_span!(writer, dir.src_span);
+            write_span!(writer, dir.output_span);
         }
-        ZlibEncoder::new(f, flate2::Compression::default()).write_all(&buffer)
+
+        writer.flush()
     }
 
     /// Read the debug info from the format described in [the module docs][self]
@@ -351,13 +360,6 @@ impl DebugInfo {
         let mut reader = io::BufReader::new(ZlibDecoder::new(f));
         let mut buf: [u8; 8] = [0; 8];
 
-        macro_rules! read_i64 {
-            () => {{
-                reader.read_exact(&mut buf)?;
-                i64::from_le_bytes(buf)
-            }};
-        }
-
         let nlabels = read_size(&mut reader)?;
         let mut labels = Vec::with_capacity(nlabels);
         for _ in 0..nlabels {
@@ -374,7 +376,10 @@ impl DebugInfo {
 
             let start = read_size(&mut reader)?;
             let end = start + read_size(&mut reader)?;
-            let addr = read_i64!();
+
+            reader.read_exact(&mut buf)?;
+            let addr = i64::from_le_bytes(buf);
+
             let label = span(label_text, start..end);
             labels.push((label, addr));
         }
@@ -477,18 +482,21 @@ impl Display for DebugInfoReadError {
 
 impl Error for DebugInfoReadError {}
 
+#[cfg(not(tarpaulin_include))]
 impl From<io::Error> for DebugInfoReadError {
     fn from(err: io::Error) -> Self {
         Self::IoError(err)
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl From<FromUtf8Error> for DebugInfoReadError {
     fn from(err: FromUtf8Error) -> Self {
         Self::NonUtf8Label(err)
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl From<NeededBits> for DebugInfoReadError {
     fn from(_: NeededBits) -> Self {
         Self::IntSize
@@ -499,7 +507,7 @@ impl TryFrom<&EncodedSize> for usize {
     type Error = NeededBits;
 
     fn try_from(encoded_val: &EncodedSize) -> Result<Self, Self::Error> {
-        let needed_bits = encoded_val.len().saturating_sub(1) as BitCounter * 7
+        let needed_bits = (encoded_val.len() - 1) as BitCounter * 7
             + (8 - (encoded_val.last().expect("EncodedSize is non-empty")).leading_zeros()
                 as BitCounter);
         if needed_bits > usize::BITS as BitCounter {
@@ -529,7 +537,7 @@ impl TryFrom<&EncodedSize> for usize {
 mod encoded_size_tests;
 
 #[cfg(test)]
-mod round_trip {
+mod misc_tests {
 
     use super::*;
 
@@ -661,5 +669,56 @@ mod round_trip {
         assert_eq!(decoded, expected_serialized);
 
         assert_eq!(DebugInfo::read(written.as_slice()).unwrap(), dbg);
+    }
+
+    #[test]
+    fn bad_header() {
+        let mut bad_magic = HEADER;
+        bad_magic[..7].iter_mut().for_each(|i| *i = !*i);
+
+        assert!(matches!(
+            DebugInfo::read(bad_magic.as_slice()),
+            Err(DebugInfoReadError::BadMagic(..))
+        ));
+        let mut header = HEADER;
+        header[7] = !VERSION;
+        assert!(matches!(
+            DebugInfo::read(header.as_slice()),
+            Err(DebugInfoReadError::VersionMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn bad_labels() {
+        fn gen_bad_label(bytes: &[u8]) -> DebugInfoReadError {
+            let mut bad = HEADER.to_vec();
+            {
+                use flate2::write::ZlibEncoder;
+                let mut writer =
+                    BufWriter::new(ZlibEncoder::new(&mut bad, flate2::Compression::default()));
+                encode_size(&mut writer, 1).unwrap();
+                encode_size(&mut writer, bytes.len()).unwrap();
+                writer.write_all(bytes).unwrap();
+                encode_size(&mut writer, 0).unwrap();
+            };
+            DebugInfo::read(bad.as_slice()).unwrap_err()
+        }
+
+        const NON_IDENT: &[u8] = "this is not a valid identifier".as_bytes();
+        const NON_UTF8: &[u8] = b"\xff\xff\xff";
+
+        let DebugInfoReadError::NonUtf8Label(err) = gen_bad_label(NON_UTF8) else {
+            panic!("incorrect error type for non-UTF8 label")
+        };
+        assert_eq!(err.as_bytes(), NON_UTF8);
+        let DebugInfoReadError::InvalidLabel(il) = gen_bad_label(NON_IDENT) else {
+            panic!("incorrect error type for non-identifier label")
+        };
+        assert_eq!(il.as_bytes(), NON_IDENT);
+
+        assert!(
+            matches!(gen_bad_label(b"10"), DebugInfoReadError::InvalidLabel(_)),
+            "numbers accepted as identifiers"
+        );
     }
 }

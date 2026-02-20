@@ -7,7 +7,7 @@
     reason = "testing validation function called in constructor"
 )]
 
-use super::{BitCounter, EncodedSize, NeededBits};
+use super::*;
 
 #[test]
 fn encoded_size_test() {
@@ -85,4 +85,35 @@ fn encode_into_vec() {
     let es = EncodedSize::encode_into_vec(&mut buf, 0xcafe);
     assert_eq!(usize::try_from(es).unwrap(), 0xcafe);
     assert_eq!(&es[..], &[0xfe, 0x95, 0x03]);
+}
+
+#[test]
+fn write_to_buf_writer() {
+    let mut vec = Vec::new();
+
+    {
+        let mut writer = BufWriter::new(&mut vec);
+        encode_size(&mut writer, 0xcafe).unwrap();
+        writer.flush().unwrap();
+    };
+
+    assert_eq!(
+        usize::try_from(EncodedSize::from_slice(&vec)).unwrap(),
+        0xcafe
+    );
+}
+
+#[test]
+fn read_truncated() {
+    let DebugInfoReadError::IoError(e) = read_size(&mut &[0xff; 4][..]).unwrap_err() else {
+        panic!("improper error type")
+    };
+    assert_eq!(e.kind(), std::io::ErrorKind::UnexpectedEof);
+}
+
+#[test]
+fn debug_format() {
+    #[allow(clippy::unreadable_literal, reason = "match dbg output")]
+    let es = Box::<EncodedSize>::from(0b1110111_0010100_1010101);
+    assert_eq!(&format!("{es:?}"), "EncodedSize(1110111, 0010100, 1010101)");
 }
