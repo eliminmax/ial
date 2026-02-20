@@ -82,7 +82,7 @@ impl Action {
 
 fn debug_path<P: AsRef<Path>>(outfile_path: Option<&P>) -> Cow<'static, Path> {
     match outfile_path {
-        Some(path) => Cow::Owned(path.as_ref().with_extension(".ialdbg")),
+        Some(path) => Cow::Owned(path.as_ref().with_extension("ialdbg")),
         None => Cow::Borrowed(Path::new("ialdbg")),
     }
 }
