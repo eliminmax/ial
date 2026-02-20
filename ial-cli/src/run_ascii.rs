@@ -12,12 +12,12 @@ use ial::debug_info::DebugInfo;
 use ial::{IntcodeMem, Interpreter, InterpreterError, PagedMem, State, StepOutcome, VecMem};
 use std::error::Error;
 use std::fmt::{self, Display};
-use std::fs::{OpenOptions, read_to_string};
+use std::fs::{File, read_to_string};
 use std::io::{self, stderr, stdin};
 use std::iter::empty;
 use std::path::PathBuf;
 
-use crate::{checked_assemble, checked_ast_fn, debug_path};
+use crate::{checked_assemble, checked_ast_fn};
 
 #[derive(Debug, Parser)]
 #[allow(
@@ -29,15 +29,9 @@ pub(crate) struct RunAsciiArgs {
     // File containing the source code to interpret
     #[arg(value_name = "CODE", value_hint = ValueHint::FilePath)]
     code: PathBuf,
-    /// Load debug info from file
-    ///
-    /// If no filename is provided, uses the intcode file name with the extension replaced with
-    /// "ialdbg". If the intcode file has no extension, then ".ialdbg" is simply appended to it.
-    ///
-    /// If no filename or intcode file are provided, uses the name "ialdbg" in the current
-    /// directory.
+    /// Load debug info from provided file
     #[arg(short = 'g', long, value_name = "DEBUG", value_hint = ValueHint::FilePath)]
-    debug_info: Option<Option<PathBuf>>,
+    debug_info: Option<PathBuf>,
     /// Error out on invalid ASCII
     #[arg(short, long, action = ArgAction::SetTrue)]
     strict_ascii: bool,
@@ -194,12 +188,8 @@ impl RunAsciiArgs {
                 .map(str::parse)
                 .collect::<Result<Vec<i64>, _>>()?;
 
-            let debug_info = if let Some(path) = &self.debug_info {
-                Some(DebugInfo::read(
-                    OpenOptions::new()
-                        .read(true)
-                        .open(debug_path(path.as_ref()))?,
-                )?)
+            let debug_info = if let Some(path) = self.debug_info.as_ref() {
+                Some(DebugInfo::read(File::open(path)?)?)
             } else {
                 None
             };

@@ -4,7 +4,7 @@
 
 //! implementation of `ial-cli assemble`
 
-use crate::{checked_assemble, checked_ast_fn, debug_path, read_src};
+use crate::{checked_assemble, checked_ast_fn, read_src};
 use anyhow::Result;
 use clap::{Parser, ValueHint};
 use ial::asm::{AstBuildErr, assemble_ast, assemble_with_debug, build_ast};
@@ -25,18 +25,11 @@ pub(crate) struct AssembleArgs {
     #[arg(value_name = "OUTPUT")]
     #[arg(value_hint = ValueHint::FilePath)]
     output: Option<PathBuf>,
-    /// Output debug info to file
-    ///
-    /// If no filename is provided, uses the output file name with the extension replaced with
-    /// "ialdbg". If the output file has no extension, then ".ialdbg" is simply appended to it.
-    ///
-    /// If no filename or output file are provided, uses the name "ialdbg" in the current
-    /// directory.
+    /// Output debug info to provided file
     #[arg(short = 'g', long)]
     #[arg(value_name = "DEBUG")]
     #[arg(value_hint = ValueHint::FilePath)]
-    #[allow(clippy::option_option, reason = "used to parse properly")]
-    debug_info: Option<Option<PathBuf>>,
+    debug_info: Option<PathBuf>,
 }
 
 impl AssembleArgs {
@@ -55,7 +48,7 @@ impl AssembleArgs {
                         .create(true)
                         .write(true)
                         .truncate(true)
-                        .open(debug_path(dbg_path.as_ref()))?,
+                        .open(dbg_path)?,
                 )?;
 
                 intcode

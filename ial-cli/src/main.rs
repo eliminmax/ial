@@ -80,13 +80,6 @@ impl Action {
     }
 }
 
-fn debug_path<P: AsRef<Path>>(outfile_path: Option<&P>) -> Cow<'static, Path> {
-    match outfile_path {
-        Some(path) => Cow::Owned(path.as_ref().with_extension("ialdbg")),
-        None => Cow::Borrowed(Path::new("ialdbg")),
-    }
-}
-
 fn read_intcode<P: AsRef<Path>>(input: Option<&P>) -> Result<Vec<i64>> {
     let text = if let Some(path) = input {
         fs::read_to_string(path)

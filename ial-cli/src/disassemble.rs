@@ -9,8 +9,6 @@ use ial::disasm::{disassemble, disassemble_with_debug};
 use std::fs::{self, File};
 use std::path::PathBuf;
 
-use crate::debug_path;
-
 #[derive(Debug, Parser)]
 pub(crate) struct DisassembleArgs {
     /// File containing Intcode
@@ -21,18 +19,11 @@ pub(crate) struct DisassembleArgs {
     /// If not set, the Intcode will be read from STDIN.
     #[arg(value_name = "FILE", value_hint = ValueHint::FilePath, required = false)]
     intcode: Option<PathBuf>,
-    /// Load debug info from file
-    ///
-    /// If no filename is provided, uses the intcode file name with the extension replaced with
-    /// "ialdbg". If the intcode file has no extension, then ".ialdbg" is simply appended to it.
-    ///
-    /// If no filename or intcode file are provided, uses the name "ialdbg" in the current
-    /// directory.
+    /// Load debug info from provided file
     #[arg(short = 'g', long)]
     #[arg(value_name = "DEBUG")]
     #[arg(value_hint = ValueHint::FilePath)]
-    #[allow(clippy::option_option, reason = "used to parse properly")]
-    debug_info: Option<Option<PathBuf>>,
+    debug_info: Option<PathBuf>,
     /// Output file for disassembled IAL
     ///
     /// writes to STDOUT if unset
@@ -47,7 +38,7 @@ impl DisassembleArgs {
         let intcode = crate::read_intcode(self.intcode.as_ref())?;
 
         let disasm = if let Some(dbg) = self.debug_info.as_ref() {
-            let debug_info = DebugInfo::read(File::open(debug_path(dbg.as_ref()))?)?;
+            let debug_info = DebugInfo::read(File::open(dbg)?)?;
             disassemble_with_debug(intcode, &debug_info)?
         } else {
             disassemble(intcode)
