@@ -129,6 +129,7 @@ impl Display for UnknownMode {
 
 impl UnknownMode {
     /// Get the digit of the mode as an [`i8`]
+    #[must_use]
     pub fn digit(&self) -> i8 {
         self.mode_digit
     }
