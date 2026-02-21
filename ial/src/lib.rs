@@ -640,6 +640,7 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     pub fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess> {
         self.code.get_range(range)
     }
+
     /// Write human-readable diagnostic information about the interpreter's state to `writer`
     ///
     /// Uses [`debug_info.labels`][DebugInfo::labels] to determine points of interest, and to
