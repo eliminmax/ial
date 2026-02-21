@@ -146,12 +146,14 @@ macro_rules! param {
     }};
 }
 
+#[cfg(not(tarpaulin_include))]
 #[inline]
 /// Unwrap a [`Spanned<T>`] into the underlying `T`
 pub fn unspan<T>(Spanned { inner, .. }: Spanned<T>) -> T {
     inner
 }
 
+#[cfg(not(tarpaulin_include))]
 #[inline]
 /// Wrap a `T` into a [`Spanned<T>`] with the provided range
 pub const fn span<T>(inner: T, range: Range<usize>) -> Spanned<T> {
@@ -165,6 +167,7 @@ pub const fn span<T>(inner: T, range: Range<usize>) -> Spanned<T> {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 #[inline]
 /// Move `inner` into a [`Box`]
 pub fn boxed<T>(inner: T) -> Box<T> {
