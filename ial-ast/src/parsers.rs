@@ -552,4 +552,41 @@ mod ast_tests {
         );
         expr_test!("(1 + +-e) - 1", expected);
     }
+
+    #[test]
+    fn ascii_escapes() {
+        macro_rules! char_test {
+            ($text: expr, $val: expr) => {{
+                assert_eq!(ascii_char().parse($text).unwrap(), Expr::AsciiChar($val));
+            }};
+        }
+        char_test!(r"'\\'", b'\\');
+        char_test!(r"'\''", b'\'');
+        char_test!(r"'\n'", b'\n');
+        char_test!(r"'\t'", b'\t');
+        char_test!(r"'\r'", b'\r');
+        char_test!(r"'\e'", b'\x1b');
+
+        for n in 0..0x80 {
+            let literal_char = format!("'{}'", n as char);
+            if matches!(n, b'\\' | b'\'') {
+                assert!(
+                    ascii_char().parse(&literal_char).has_errors(),
+                    "{literal_char:?}"
+                );
+            } else {
+                char_test!(&literal_char, n);
+            }
+        }
+        for n in 0..=u8::MAX {
+            let hex = format!("'\\x{n:02x}'");
+            char_test!(&hex, n);
+            let oct_nopad = format!("'\\{n:o}'");
+            char_test!(&oct_nopad, n);
+            let oct_pad2 = format!("'\\{n:02o}'");
+            char_test!(&oct_pad2, n);
+            let oct_pad3 = format!("'\\{n:03o}'");
+            char_test!(&oct_pad3, n);
+        }
+    }
 }
