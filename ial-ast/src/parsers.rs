@@ -248,11 +248,17 @@ fn ascii_escape<'a>() -> impl Parser<'a, &'a str, u8, RichErr<'a>> + Clone {
         just('t').to(b'\t'),
         just('r').to(b'\r'),
         just('e').to(b'\x1b'),
-        just('3')
-            .ignore_then(one_of(OCT_DIGITS).then(one_of(OCT_DIGITS)))
-            .map(|(a, b)| 0o300 + ((a as u8 - b'0') * 8) + (b as u8 - b'0')),
-        (one_of(OCT_DIGITS).repeated().at_least(1).at_most(2))
-            .fold(0, |acc, x| acc * 8 + (x as u8 - b'0')),
+        choice((
+            one_of(&OCT_DIGITS[..4])
+                .then(one_of(OCT_DIGITS).repeated().at_most(2))
+                .to_slice(),
+            one_of(OCT_DIGITS)
+                .repeated()
+                .at_least(1)
+                .at_most(2)
+                .to_slice(),
+        ))
+        .map(|s: &str| u8::from_str_radix(s, 8).unwrap()),
         just('x')
             .ignore_then(one_of(HEX_DIGITS).then(one_of(HEX_DIGITS)))
             .map(|(a, b)| (strict_hex_val(a) << 4) | strict_hex_val(b)),
