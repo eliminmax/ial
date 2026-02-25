@@ -313,20 +313,6 @@ impl<'a> ExprResolutionError<'a> {
 /// The labels and expression are stored as an [`OuterExpr`]
 pub struct Parameter<'a>(pub ParamMode, pub Box<OuterExpr<'a>>);
 
-impl Parameter<'_> {
-    /// Return the [span](SimpleSpan) of the parameter
-    #[must_use]
-    pub const fn span(&self) -> SimpleSpan {
-        match self.0 {
-            ParamMode::Positional => self.1.span(),
-            ParamMode::Immediate | ParamMode::Relative => SimpleSpan {
-                start: self.1.span().start,
-                ..self.1.span()
-            },
-        }
-    }
-}
-
 /// An outermost expression with an optional label
 #[derive(Debug, Clone, PartialEq)]
 pub struct OuterExpr<'a> {
@@ -334,21 +320,6 @@ pub struct OuterExpr<'a> {
     pub labels: Vec<Label<'a>>,
     /// the expression itself
     pub expr: Spanned<Expr<'a>>,
-}
-
-impl OuterExpr<'_> {
-    /// Return the span of the outer expression
-    #[must_use]
-    pub const fn span(&self) -> SimpleSpan {
-        if let Some(spanned) = self.labels.as_slice().first() {
-            SimpleSpan {
-                start: spanned.0.span.start,
-                ..self.expr.span
-            }
-        } else {
-            self.expr.span
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
