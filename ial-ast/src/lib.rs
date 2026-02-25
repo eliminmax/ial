@@ -115,6 +115,8 @@ impl Span for SingleByteSpan {
     }
 
     #[inline(always)]
+    // exclude empty function that's optimized away from code coverage
+    #[cfg(not(tarpaulin_include))]
     fn context(&self) {}
 
     #[inline]
@@ -701,3 +703,15 @@ impl<'a> Instr<'a> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Label<'a>(pub Spanned<&'a str>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn single_byte_span_impl() {
+        let sbs = SingleByteSpan::new((), 0..1);
+        assert_eq!(sbs.start(), 0);
+        assert_eq!(sbs.end(), 1);
+    }
+}
