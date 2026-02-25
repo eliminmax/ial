@@ -7,6 +7,7 @@
 #[doc(hidden)]
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+use chumsky::Parser;
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
 use ial_core::DirectiveKind;
@@ -240,7 +241,67 @@ pub enum Expr<'a> {
     Parenthesized(Box<Spanned<Expr<'a>>>),
 }
 
+impl Expr<'_> {
+    /// Check that expressions are semantically identical, ignoring the spans of their elements
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///# use ial_ast::Expr;
+    /// // a and b have the same semantic tokens, but at different positions
+    /// let a = Expr::parse("1 + 1").unwrap();
+    /// let b = Expr::parse("1+1").unwrap();
+    ///
+    /// assert_ne!(a, b);
+    /// assert!(a.eq_ignore_spans(&b));
+    ///
+    /// // while `c` evaluates to the same value as `a`, it has additional semantic tokens
+    /// let c = Expr::parse("(1 + 1)").unwrap();
+    /// assert!(!a.eq_ignore_spans(&c));
+    /// ```
+    #[must_use]
+    pub fn eq_ignore_spans(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Expr::Number(a), Expr::Number(b)) => a == b,
+            (Expr::AsciiChar(a), Expr::AsciiChar(b)) => a == b,
+            (Expr::Ident(a), Expr::Ident(b)) => a == b,
+            (
+                Expr::BinOp {
+                    lhs: lhs_a,
+                    op: op_a,
+                    rhs: rhs_a,
+                },
+                Expr::BinOp {
+                    lhs: lhs_b,
+                    op: op_b,
+                    rhs: rhs_b,
+                },
+            ) => {
+                op_a.inner == op_b.inner
+                    && lhs_a.eq_ignore_spans(lhs_b)
+                    && rhs_a.eq_ignore_spans(rhs_b)
+            }
+            (Expr::Negate(a), Expr::Negate(b))
+            | (Expr::UnaryAdd(a), Expr::UnaryAdd(b))
+            | (Expr::Parenthesized(a), Expr::Parenthesized(b)) => a.eq_ignore_spans(b),
+            _ => false,
+        }
+    }
+}
+
 impl<'a> Expr<'a> {
+    /// Parse an [`Expr`] from a [string slice][str]
+    ///
+    /// # Errors
+    ///
+    /// Any parsing errors that occur are returned
+    pub fn parse(s: &'a str) -> Result<Self, Vec<chumsky::error::Rich<'a, char>>> {
+        parsers::expr()
+            .parse(s.trim())
+            .into_result()
+            .map(util::unspan)
+    }
+
     /// Given a mapping of labels to indexes, try to resolve into a concrete value.
     ///
     /// # Errors
