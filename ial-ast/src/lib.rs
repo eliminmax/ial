@@ -114,7 +114,7 @@ impl Span for SingleByteSpan {
         Self(range.start)
     }
 
-    #[inline]
+    #[inline(always)]
     fn context(&self) {}
 
     #[inline]
@@ -148,6 +148,7 @@ pub enum BinOperator {
 impl BinOperator {
     /// Apply this binary operator to two concrete values
     #[must_use]
+    #[inline]
     pub const fn apply(&self, a: i64, b: i64) -> i64 {
         match self {
             BinOperator::Add => a + b,
