@@ -4,7 +4,8 @@
 [test_config]
 locked = true
 offline = true
-engine = "Llvm"
+engine = "Ptrace"
 test-timeout = "1m"
 target-dir = ".tarpaulin"
-skip-clean = true
+run-types = [ "Doctests", "Tests" ]
+out = [ "Html" ]
