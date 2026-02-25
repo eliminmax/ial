@@ -124,7 +124,7 @@ impl Span for SingleByteSpan {
 
     #[inline]
     fn end(&self) -> Self::Offset {
-        self.0
+        self.0 + 1
     }
 }
 
