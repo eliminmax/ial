@@ -361,6 +361,20 @@ pub struct Line<'a> {
 }
 
 impl<'a> Line<'a> {
+    fn from_tuple(
+        (labels, directive, comment): (
+            Vec<Label<'a>>,
+            Option<Spanned<Directive<'a>>>,
+            Option<Spanned<&'a str>>,
+        ),
+    ) -> Self {
+        Self {
+            labels,
+            directive,
+            comment,
+        }
+    }
+
     /// Thin convenience wrapper around [`Directive::encode_into`]
     ///
     /// Does nothing if [`self.directive`] is [`None`].

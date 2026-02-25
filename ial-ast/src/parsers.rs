@@ -20,33 +20,39 @@ pub trait ClonableParser<'a, T>: Clone + Parser<'a, &'a str, T, RichErr<'a>> {}
 
 impl<'a, T, P: Clone + Parser<'a, &'a str, T, RichErr<'a>>> ClonableParser<'a, T> for P {}
 
-fn padded<'a, T, P: ClonableParser<'a, T>>(parser: P) -> impl ClonableParser<'a, T> {
-    parser.padded_by(text::inline_whitespace())
+trait ParserExt<'a, T>: ClonableParser<'a, T> {
+    fn padded_inline(self) -> impl ClonableParser<'a, T> {
+        self.padded_by(text::inline_whitespace())
+    }
+
+    fn then_some_whitespace(self) -> impl ClonableParser<'a, T> {
+        self.then_ignore(text::inline_whitespace().at_least(1))
+    }
 }
 
-fn with_sep<'a, T, P: ClonableParser<'a, T>>(parser: P) -> impl ClonableParser<'a, T> {
-    parser.then_ignore(text::inline_whitespace().at_least(1))
-}
+impl<'a, T, P: ClonableParser<'a, T>> ParserExt<'a, T> for P {}
 
 fn comma_delimiter<'a>() -> impl ClonableParser<'a, ()> {
-    padded(just(',')).ignored().labelled("comma delimiter")
+    just(',')
+        .padded_inline()
+        .ignored()
+        .labelled("comma delimiter")
 }
 
 /// Generate a [parser][Parser] for a [Parameter]
 #[must_use]
 pub fn parameter<'a>() -> impl ClonableParser<'a, Parameter<'a>> {
-    padded(
-        choice((
-            just('#')
-                .to(ParamMode::Immediate)
-                .labelled("immediate mode prefix ('#')"),
-            just('@')
-                .to(ParamMode::Relative)
-                .labelled("relative mode prefix ('@')"),
-            empty().to(ParamMode::Positional),
-        ))
-        .then(outer_expr()),
-    )
+    choice((
+        just('#')
+            .to(ParamMode::Immediate)
+            .labelled("immediate mode prefix ('#')"),
+        just('@')
+            .to(ParamMode::Relative)
+            .labelled("relative mode prefix ('@')"),
+        empty().to(ParamMode::Positional),
+    ))
+    .then(outer_expr())
+    .padded_inline()
     .map(|(mode, expr)| Parameter(mode, Box::new(expr)))
     .labelled("parameter")
     .as_context()
@@ -77,13 +83,10 @@ pub fn labels<'a>() -> impl ClonableParser<'a, Vec<Label<'a>>> {
 /// On a successful match, returns the [span][SimpleSpan] of the matched keyword in the source.
 #[must_use]
 pub fn mnemonic<'a>(kw: &'static str) -> impl ClonableParser<'a, SimpleSpan> {
-    text::ascii::ident().try_map(move |s: &'a str, span| {
-        if s.eq_ignore_ascii_case(kw) {
-            Ok(span)
-        } else {
-            Err(Rich::custom(span, format!("failed to match keyword {kw}")))
-        }
-    })
+    text::ascii::ident()
+        .filter(|s: &&str| s.eq_ignore_ascii_case(kw))
+        .to_span()
+        .labelled(format!("{kw:?}"))
 }
 
 fn params<'a, const N: usize>() -> impl ClonableParser<'a, [Parameter<'a>; N]> {
@@ -96,29 +99,35 @@ fn params<'a, const N: usize>() -> impl ClonableParser<'a, [Parameter<'a>; N]> {
 
 fn op3<'a>(
     mnemonic_parser: impl ClonableParser<'a, SimpleSpan>,
-    f: impl Fn(Parameter<'a>, Parameter<'a>, Parameter<'a>) -> Instr<'a> + Copy,
+    f: impl Fn(Parameter<'a>, Parameter<'a>, Parameter<'a>) -> Instr<'a> + Clone,
 ) -> impl ClonableParser<'a, Instr<'a>> {
-    mnemonic_parser.ignore_then(params().map(move |[a, b, c]| f(a, b, c)))
+    mnemonic_parser
+        .then_some_whitespace()
+        .ignore_then(params().map(move |[a, b, c]| f(a, b, c)))
 }
 
 fn op2<'a>(
     mnemonic_parser: impl ClonableParser<'a, SimpleSpan>,
-    f: impl Fn(Parameter<'a>, Parameter<'a>) -> Instr<'a> + Copy,
+    f: impl Fn(Parameter<'a>, Parameter<'a>) -> Instr<'a> + Clone,
 ) -> impl ClonableParser<'a, Instr<'a>> {
-    mnemonic_parser.ignore_then(params().map(move |[a, b]| f(a, b)))
+    mnemonic_parser
+        .then_some_whitespace()
+        .ignore_then(params().map(move |[a, b]| f(a, b)))
 }
 
 fn op1<'a>(
     mnemonic_parser: impl ClonableParser<'a, SimpleSpan>,
-    f: impl Fn(Parameter<'a>) -> Instr<'a> + Copy,
+    f: impl Fn(Parameter<'a>) -> Instr<'a> + Clone,
 ) -> impl ClonableParser<'a, Instr<'a>> {
-    mnemonic_parser.ignore_then(params().map(move |[a]| f(a)))
+    mnemonic_parser
+        .then_some_whitespace()
+        .ignore_then(params().map(move |[a]| f(a)))
 }
 
 /// Return a [parser][Parser] for an [`Instr`]
 #[must_use]
 pub fn instr<'a>() -> impl ClonableParser<'a, Instr<'a>> {
-    padded(choice((
+    choice((
         op3(mnemonic("ADD"), Instr::Add),
         op3(mnemonic("MUL"), Instr::Mul),
         op1(mnemonic("IN"), Instr::In),
@@ -130,7 +139,8 @@ pub fn instr<'a>() -> impl ClonableParser<'a, Instr<'a>> {
         op1(mnemonic("RBO"), Instr::Rbo),
         op1(mnemonic("INCB"), Instr::Rbo),
         mnemonic("HALT").to(Instr::Halt),
-    )))
+    ))
+    .padded_inline()
     .labelled("instruction")
     .as_context()
 }
@@ -141,120 +151,139 @@ enum UnaryOp {
     Negate,
 }
 
-fn folder<'a>(
+fn bin_op_folder<'a>(
     lhs: Spanned<Expr<'a>>,
-    (op, rhs): (Spanned<BinOperator>, Spanned<Expr<'a>>),
+    (op, rhs): (Spanned<BinOperator, SingleByteSpan>, Spanned<Expr<'a>>),
 ) -> Spanned<Expr<'a>> {
     let span = SimpleSpan::from(lhs.span.start..rhs.span.end);
     let inner = Expr::BinOp {
         lhs: Box::new(lhs),
-        op: Spanned {
-            inner: op.inner,
-            span: SingleByteSpan(op.span.start),
-        },
+        op,
         rhs: Box::new(rhs),
     };
     Spanned { span, inner }
+}
+
+fn integer_literal<'a>() -> impl ClonableParser<'a, Expr<'a>> {
+    text::int(10)
+        .try_map(|s: &str, span| {
+            s.parse::<i64>()
+                .map(Expr::Number)
+                .map_err(|e| Rich::custom(span, format!("error parsing {s} as i64: {e}")))
+        })
+        .labelled("integer literal")
+}
+
+fn label_expr<'a>() -> impl ClonableParser<'a, Expr<'a>> {
+    text::ident().map(Expr::Ident).labelled("label expression")
+}
+
+fn binop_pair<'a, P: ClonableParser<'a, BinOperator>>(
+    a: P,
+    b: P,
+    label: &'static str,
+) -> impl ClonableParser<'a, Spanned<BinOperator, SingleByteSpan>> {
+    choice((a, b))
+        .spanned()
+        .map(|s| Spanned {
+            inner: s.inner,
+            span: SingleByteSpan(s.span.start),
+        })
+        .padded_inline()
+        .labelled(label)
+}
+
+fn mul_div<'a>() -> impl ClonableParser<'a, Spanned<BinOperator, SingleByteSpan>> {
+    binop_pair(
+        just('*').to(BinOperator::Mul),
+        just('/').to(BinOperator::Div),
+        "binary operator (* or /)",
+    )
+}
+
+fn add_sub<'a>() -> impl ClonableParser<'a, Spanned<BinOperator, SingleByteSpan>> {
+    binop_pair(
+        just('+').to(BinOperator::Add),
+        just('-').to(BinOperator::Sub),
+        "binary operator (+ or -)",
+    )
 }
 
 /// Generate a [parser][Parser] for a ([spanned][Spanned]) [`Expr`]
 #[must_use]
 pub fn expr<'a>() -> impl ClonableParser<'a, Spanned<Expr<'a>>> {
     recursive(|expr| {
-        let int = text::int(10)
-            .try_map(|s: &str, span| {
-                s.parse::<i64>()
-                    .map(Expr::Number)
-                    .map_err(|e| Rich::custom(span, format!("error parsing {s} as i64: {e}")))
-            })
-            .labelled("integer literal");
-        let ident = text::ident()
-            .map(|s: &str| Expr::Ident(s))
-            .labelled("label");
-        let bracketed = expr
-            .delimited_by(just('('), just(')'))
-            .map(|e| Expr::Parenthesized(Box::new(e)))
-            .labelled("bracketed expression");
-        let atom = int.or(ident).or(ascii_char()).or(bracketed).spanned();
-        let unary =
-            padded(choice((just('-').to(UnaryOp::Negate), just('+').to(UnaryOp::Add))).spanned())
-                .repeated()
-                .foldr(
-                    atom,
-                    |Spanned { inner, mut span }: Spanned<_>, rhs: Spanned<Expr<'a>>| {
-                        span.end = rhs.span.end;
-                        Spanned {
-                            inner: match inner {
-                                UnaryOp::Add => Expr::UnaryAdd(Box::new(rhs)),
-                                UnaryOp::Negate => Expr::Negate(Box::new(rhs)),
-                            },
-                            span,
-                        }
-                    },
-                )
-                .labelled("unary expression");
+        // the 1st expression parsing step:
+        //     literals, labelled expressions, and parenthesized subexpressions
+        let parser = choice((
+            integer_literal(),
+            label_expr(),
+            ascii_char(),
+            expr.delimited_by(just('('), just(')'))
+                .map(|e| Expr::Parenthesized(Box::new(e))),
+        ))
+        .spanned();
 
-        let prod = unary
+        // the 2nd expression parsing step:
+        //     unary operations
+        let pass2 = choice((just('-').to(UnaryOp::Negate), just('+').to(UnaryOp::Add)))
+            .spanned()
+            .padded_inline()
+            .repeated()
+            .foldr(
+                parser,
+                |Spanned { inner, mut span }: Spanned<_>, rhs: Spanned<Expr<'a>>| {
+                    span.end = rhs.span.end;
+                    Spanned {
+                        inner: match inner {
+                            UnaryOp::Add => Expr::UnaryAdd(Box::new(rhs)),
+                            UnaryOp::Negate => Expr::Negate(Box::new(rhs)),
+                        },
+                        span,
+                    }
+                },
+            )
+            .labelled("unary expression");
+
+        // the 3rd expression parsing step:
+        //     multiplication and division
+        let pass3 = pass2
             .clone()
-            .foldl(
-                padded(
-                    choice((
-                        just('*').to(BinOperator::Mul),
-                        just('/').to(BinOperator::Div),
-                    ))
-                    .labelled("binary operator (* or /)")
-                    .spanned(),
-                )
-                .then(unary)
-                .repeated(),
-                folder,
-            )
-            .labelled("multiplication or division expression");
+            .foldl(mul_div().then(pass2).repeated(), bin_op_folder);
 
-        prod.clone().foldl(
-            padded(
-                choice((
-                    just('+').to(BinOperator::Add),
-                    just('-').to(BinOperator::Sub),
-                ))
-                .labelled("binary operator (+ or -)")
-                .spanned(),
-            )
-            .then(prod)
-            .repeated(),
-            folder,
-        )
+        // the 4th and final expression parsing step:
+        //     addition and subtraction
+        pass3
+            .clone()
+            .foldl(add_sub().then(pass3).repeated(), bin_op_folder)
     })
     .labelled("expression")
     .as_context()
 }
 
 fn hex_byte<'a>() -> impl ClonableParser<'a, u8> {
-    let hex_digit = || {
+    fn hex_digit<'a>() -> impl ClonableParser<'a, u8> {
         choice((
             one_of("0123456789").map(|c| c as u8 - b'0'),
             one_of("ABCDEF").map(|c| c as u8 - b'A' + 10),
             one_of("abcdef").map(|c| c as u8 - b'a' + 10),
         ))
-    };
+    }
     hex_digit().then(hex_digit()).map(|(a, b)| (a << 4) | b)
 }
 
 fn oct_byte<'a>() -> impl ClonableParser<'a, u8> {
-    (one_of("0123")
-        .then(one_of("01234567").repeated().at_most(2))
-        .to_slice())
-    .or(one_of("01234567")
-        .repeated()
-        .at_least(1)
-        .at_most(2)
-        .to_slice())
-    .map(|s| u8::from_str_radix(s, 8).unwrap())
+    fn oct_digit<'a>() -> impl ClonableParser<'a, char> {
+        one_of("01234567")
+    }
+    (group((one_of("0123"), oct_digit(), oct_digit())).to_slice())
+        .or(oct_digit().repeated().at_least(1).at_most(2).to_slice())
+        .map(|s| u8::from_str_radix(s, 8).unwrap())
 }
 
 fn ascii_escape<'a>() -> impl ClonableParser<'a, u8> {
-    just('\\').ignore_then(
-        choice((
+    just('\\')
+        .ignore_then(choice((
             just('\\').to(b'\\'),
             just('\'').to(b'\''),
             just('\"').to(b'\"'),
@@ -264,20 +293,18 @@ fn ascii_escape<'a>() -> impl ClonableParser<'a, u8> {
             just('e').to(b'\x1b'),
             oct_byte(),
             just('x').ignore_then(hex_byte()),
-        ))
-        .map_err(|e| {
-            Rich::custom(
-                SimpleSpan {
-                    start: e.span().start - 1,
-                    ..*e.span()
-                },
-                match e.found() {
-                    Some(t) => format!("invalid escape sequence: \\{t}"),
-                    None => String::from("unexpected EOF"),
-                },
+        )))
+        .map_err(move |e| {
+            let span = *e.span();
+            let mut msg = String::from(r"invalid escape sequence: \");
+            if let Some(&t) = e.found() {
+                msg.push(t);
+            }
+            <Rich<'a, char> as chumsky::error::Error<'a, &'a str>>::merge(
+                e,
+                Rich::custom(span, msg),
             )
-        }),
-    )
+        })
 }
 
 fn ascii_char<'a>() -> impl ClonableParser<'a, Expr<'a>> {
@@ -296,44 +323,44 @@ fn ascii_char<'a>() -> impl ClonableParser<'a, Expr<'a>> {
 /// Generate a [parser][Parser] for a ([spanned][Spanned]) ASCII string as a [`Vec<u8>`]
 #[must_use]
 pub fn ascii_string<'a>() -> impl ClonableParser<'a, Spanned<Vec<u8>>> {
-    padded(
-        just('"')
-            .ignore_then(
-                choice((
-                    none_of("\"\\")
-                        .filter(|c: &char| c.is_ascii())
-                        .map(|c| c as u8),
-                    ascii_escape(),
-                ))
-                .repeated()
-                .collect(),
-            )
-            .then_ignore(just('"'))
-            .spanned(),
-    )
-    .labelled("ascii string")
-    .as_context()
+    just('"')
+        .ignore_then(
+            choice((
+                none_of("\"\\")
+                    .filter(|c: &char| c.is_ascii())
+                    .map(|c| c as u8),
+                ascii_escape(),
+            ))
+            .repeated()
+            .collect(),
+        )
+        .then_ignore(just('"'))
+        .spanned()
+        .padded_inline()
+        .labelled("ascii string")
+        .as_context()
 }
 
 /// Generate a [parser][Parser] for an ([optional][Option], [spanned][Spanned]) [`Directive`]
 #[must_use]
 pub fn directive<'a>() -> impl ClonableParser<'a, Option<Spanned<Directive<'a>>>> {
-    padded(
-        choice((
-            with_sep(mnemonic("DATA"))
-                .ignore_then(expr().separated_by(comma_delimiter()).collect())
-                .map(Directive::Data)
-                .labelled("data directive")
-                .as_context(),
-            with_sep(mnemonic("ASCII"))
-                .ignore_then(ascii_string())
-                .map(Directive::Ascii)
-                .labelled("ASCII directive")
-                .as_context(),
-            instr().map(Box::new).map(Directive::Instruction),
-        ))
-        .spanned(),
-    )
+    choice((
+        mnemonic("DATA")
+            .then_some_whitespace()
+            .ignore_then(expr().separated_by(comma_delimiter()).collect())
+            .map(Directive::Data)
+            .labelled("data directive")
+            .as_context(),
+        mnemonic("ASCII")
+            .then_some_whitespace()
+            .ignore_then(ascii_string())
+            .map(Directive::Ascii)
+            .labelled("ASCII directive")
+            .as_context(),
+        instr().map(Box::new).map(Directive::Instruction),
+    ))
+    .spanned()
+    .padded_inline()
     .or_not()
     .labelled("directive")
     .as_context()
@@ -345,22 +372,19 @@ fn comment<'a>() -> impl ClonableParser<'a, Option<Spanned<&'a str>>> {
             just(';')
                 .then(any().and_is(just('\n').not()).repeated())
                 .to_slice()
-                .spanned()
-                .labelled("comment")
-                .as_context(),
+                .spanned(),
         )
+        .labelled("comment")
+        .as_context()
         .or_not()
 }
 
 /// Generate a [parser][Parser] for a [`Line`]
 #[must_use]
 pub fn line<'a>() -> impl ClonableParser<'a, Line<'a>> {
-    padded(group((labels(), directive(), comment())))
-        .map(|(labels, directive, comment)| Line {
-            labels,
-            directive,
-            comment,
-        })
+    group((labels(), directive(), comment()))
+        .padded_inline()
+        .map(Line::from_tuple)
         .labelled("line")
 }
 
@@ -375,8 +399,17 @@ pub fn ial<'a>() -> impl ClonableParser<'a, Vec<Line<'a>>> {
 #[cfg(test)]
 mod ast_tests {
 
+    use chumsky::error::RichReason;
+
     use super::*;
     use crate::util::*;
+
+    #[test]
+    fn smoke_test() {
+        let empty_prog = ial().parse("").unwrap();
+        assert_eq!(empty_prog.len(), 1);
+        assert!(empty_prog[0].is_empty());
+    }
 
     #[test]
     fn parse_blank_line() {
@@ -609,5 +642,12 @@ mod ast_tests {
             let oct_pad3 = format!("'\\{n:03o}'");
             char_test!(&oct_pad3, n);
         }
+
+        let errs = ascii_char().parse(r"'\q'").into_errors();
+        assert_eq!(errs.len(), 1);
+        assert_eq!(
+            errs[0].reason(),
+            &RichReason::Custom(String::from(r"invalid escape sequence: \q"))
+        );
     }
 }
