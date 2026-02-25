@@ -138,7 +138,7 @@ impl UnknownMode {
 impl Error for UnknownMode {}
 
 /// An error that occurred while trying to assemble the AST into Intcode
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 #[non_exhaustive]
 pub enum AssemblyError<'a> {
     /// An expression used a label that could not be resolved
