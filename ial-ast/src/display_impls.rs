@@ -7,6 +7,8 @@
 use chumsky::span::Spanned;
 use itertools::Itertools;
 
+use crate::SpannedExpr;
+
 use super::{BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter};
 
 use std::fmt::{self, Display};
@@ -29,11 +31,11 @@ impl Display for Expr<'_> {
             Expr::AsciiChar(c) => write!(f, "'{}'", EscapedByte(*c)),
             Expr::Ident(id) => write!(f, "{id}"),
             Expr::BinOp { lhs, op, rhs } => {
-                write!(f, "{} {} {}", lhs.inner, op.inner, rhs.inner)
+                write!(f, "{} {} {}", lhs.expr, op.inner, rhs.expr)
             }
-            Expr::Negate(e) => write!(f, "-{}", e.inner),
-            Expr::UnaryAdd(e) => write!(f, "+{}", e.inner),
-            Expr::Parenthesized(e) => write!(f, "({})", e.inner),
+            Expr::Negate(e) => write!(f, "-{}", e.expr),
+            Expr::UnaryAdd(e) => write!(f, "+{}", e.expr),
+            Expr::Parenthesized(e) => write!(f, "({})", e.expr),
         }
     }
 }
@@ -71,7 +73,13 @@ impl Display for OuterExpr<'_> {
         for label in &self.labels {
             write!(f, "{label} ")?;
         }
-        write!(f, "{}", self.expr.inner)
+        write!(f, "{}", self.expr)
+    }
+}
+
+impl Display for SpannedExpr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.expr, f)
     }
 }
 
@@ -104,10 +112,10 @@ impl Display for Directive<'_> {
             Directive::Data(exprs) => {
                 write!(f, "DATA ")?;
                 if let Some(expr) = exprs.first() {
-                    write!(f, "{}", expr.inner)?;
+                    write!(f, "{}", expr.expr)?;
                 }
                 for expr in &exprs[1..] {
-                    write!(f, ", {}", expr.inner)?;
+                    write!(f, ", {}", expr.expr)?;
                 }
                 Ok(())
             }

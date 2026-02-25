@@ -152,16 +152,16 @@ enum UnaryOp {
 }
 
 fn bin_op_folder<'a>(
-    lhs: Spanned<Expr<'a>>,
-    (op, rhs): (Spanned<BinOperator, SingleByteSpan>, Spanned<Expr<'a>>),
-) -> Spanned<Expr<'a>> {
+    lhs: SpannedExpr<'a>,
+    (op, rhs): (Spanned<BinOperator, SingleByteSpan>, SpannedExpr<'a>),
+) -> SpannedExpr<'a> {
     let span = SimpleSpan::from(lhs.span.start..rhs.span.end);
-    let inner = Expr::BinOp {
+    let expr = Expr::BinOp {
         lhs: Box::new(lhs),
         op,
         rhs: Box::new(rhs),
     };
-    Spanned { span, inner }
+    SpannedExpr { expr, span }
 }
 
 fn integer_literal<'a>() -> impl ClonableParser<'a, Expr<'a>> {
@@ -211,7 +211,7 @@ fn add_sub<'a>() -> impl ClonableParser<'a, Spanned<BinOperator, SingleByteSpan>
 
 /// Generate a [parser][Parser] for a ([spanned][Spanned]) [`Expr`]
 #[must_use]
-pub fn expr<'a>() -> impl ClonableParser<'a, Spanned<Expr<'a>>> {
+pub fn expr<'a>() -> impl ClonableParser<'a, SpannedExpr<'a>> {
     recursive(|expr| {
         // the 1st expression parsing step:
         //     literals, labelled expressions, and parenthesized subexpressions
@@ -222,7 +222,8 @@ pub fn expr<'a>() -> impl ClonableParser<'a, Spanned<Expr<'a>>> {
             expr.delimited_by(just('('), just(')'))
                 .map(|e| Expr::Parenthesized(Box::new(e))),
         ))
-        .spanned();
+        .spanned()
+        .map(SpannedExpr::from);
 
         // the 2nd expression parsing step:
         //     unary operations
@@ -232,10 +233,10 @@ pub fn expr<'a>() -> impl ClonableParser<'a, Spanned<Expr<'a>>> {
             .repeated()
             .foldr(
                 parser,
-                |Spanned { inner, mut span }: Spanned<_>, rhs: Spanned<Expr<'a>>| {
+                |Spanned { inner, mut span }: Spanned<_>, rhs: SpannedExpr<'a>| {
                     span.end = rhs.span.end;
-                    Spanned {
-                        inner: match inner {
+                    SpannedExpr {
+                        expr: match inner {
                             UnaryOp::Add => Expr::UnaryAdd(Box::new(rhs)),
                             UnaryOp::Negate => Expr::Negate(Box::new(rhs)),
                         },
@@ -456,7 +457,10 @@ mod ast_tests {
 
     #[test]
     fn parse_char_literal() {
-        assert_eq!(expr().parse("'0'").unwrap(), span(expr!(:b'0'), 0..3));
+        assert_eq!(
+            expr().parse("'0'").unwrap(),
+            span(expr!(:b'0'), 0..3).into()
+        );
     }
 
     #[test]
@@ -465,9 +469,9 @@ mod ast_tests {
             directive().parse("DATA 1, 1, 1").unwrap(),
             Some(span(
                 Directive::Data(vec![
-                    span(expr!(1), 5..6),
-                    span(expr!(1), 8..9),
-                    span(expr!(1), 11..12),
+                    span(expr!(1), 5..6).into(),
+                    span(expr!(1), 8..9).into(),
+                    span(expr!(1), 11..12).into(),
                 ]),
                 0..12
             ))
@@ -483,7 +487,10 @@ mod ast_tests {
             line().parse("foo:bar: baz:DATA 0").unwrap(),
             Line {
                 labels: vec![l!("foo", 0..3), l!("bar", 4..7), l!("baz", 9..12)],
-                directive: Some(span(Directive::Data(vec![span(expr!(0), 18..19)]), 13..19)),
+                directive: Some(span(
+                    Directive::Data(vec![span(expr!(0), 18..19).into()]),
+                    13..19
+                )),
                 comment: None,
             }
         );
@@ -548,7 +555,7 @@ mod ast_tests {
             ParamMode::Immediate,
             boxed(OuterExpr {
                 labels: vec![Label(span("out_val", 5..12))],
-                expr: span(expr!(0), 14..15),
+                expr: span(expr!(0), 14..15).into(),
             }),
         );
         let expected = Instr::Out(expected_param);
@@ -561,7 +568,7 @@ mod ast_tests {
 
         macro_rules! expr_test {
             ($expr: literal, $expected: expr) => {
-                let parsed = expr_parse.parse($expr).unwrap().inner;
+                let parsed = expr_parse.parse($expr).unwrap().expr;
                 assert_eq!(parsed, $expected, "{{ {} }} != {{ {parsed} }}", $expr);
             };
         }

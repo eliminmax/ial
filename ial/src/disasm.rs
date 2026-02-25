@@ -166,7 +166,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                     Parameter(
                         modes[$mode_i],
                         boxed(OuterExpr {
-                            expr: span_dis(Expr::Number(mem_iter.next().unwrap_or_default())),
+                            expr: spanned_expr(Expr::Number(mem_iter.next().unwrap_or_default())),
                             labels: vec![],
                         }),
                     )
@@ -196,12 +196,12 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
                 comment: None,
             });
         } else {
-            let mut data = vec![span_dis(Expr::Number(i))];
+            let mut data = vec![spanned_expr(Expr::Number(i))];
             while mem_iter
                 .peek()
                 .is_some_and(|n| parse_op_strict(*n).is_none())
             {
-                data.push(span_dis(Expr::Number(
+                data.push(spanned_expr(Expr::Number(
                     mem_iter
                         .next()
                         .unwrap_or_else(|| unreachable!("already confirmed `Some`")),
@@ -244,6 +244,13 @@ fn span_dis<T>(inner: T) -> Spanned<T> {
     }
 }
 
+fn spanned_expr(expr: Expr<'_>) -> SpannedExpr<'_> {
+    SpannedExpr {
+        expr,
+        span: SimpleSpan::from(0..0),
+    }
+}
+
 fn disasm_outer_expr<'a>(
     addr: i64,
     value: i64,
@@ -254,7 +261,7 @@ fn disasm_outer_expr<'a>(
             .get(&addr)
             .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
             .unwrap_or_default(),
-        expr: span_dis(
+        expr: spanned_expr(
             label_lookups
                 .get(&value)
                 .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),

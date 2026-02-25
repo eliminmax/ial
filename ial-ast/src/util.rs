@@ -41,18 +41,18 @@ pub use crate::param;
 ///# use ial_ast::{prelude::*, util::*};
 /// assert_eq!(
 ///     expr!( (expr!(e);[1..2]) ),
-///     Expr::Parenthesized(boxed(span(Expr::Ident("e"), 1..2)))
+///     Expr::Parenthesized(boxed(span(Expr::Ident("e"), 1..2).into()))
 /// );
 /// assert_eq!(
 ///     expr!(- expr!(e);[1..2]),
-///     Expr::Negate(boxed(span(Expr::Ident("e"), 1..2)))
+///     Expr::Negate(boxed(span(Expr::Ident("e"), 1..2).into()))
 /// );
 /// assert_eq!(
 ///     expr!(expr!(1);[0..1] +[2] expr!(1);[4..5]),
 ///     Expr::BinOp {
-///         lhs: boxed(span(Expr::Number(1), 0..1)),
+///         lhs: boxed(span(Expr::Number(1), 0..1).into()),
 ///         op: Spanned { inner: BinOperator::Add, span: SingleByteSpan(2) },
-///         rhs: boxed(span(Expr::Number(1), 4..5)),
+///         rhs: boxed(span(Expr::Number(1), 4..5).into()),
 ///     }
 /// );
 /// ```
@@ -62,12 +62,12 @@ macro_rules! expr {
     (+ $e:expr;[$span: expr]) => {{
         $crate::Expr::UnaryAdd(
             ::std::boxed::Box::new(
-                $crate::util::span($e, $span)
+                $crate::util::span($e, $span).into()
             )
         )
     }};
     (- $e:expr;[$span: expr]) => {{
-        $crate::Expr::Negate(Box::new($crate::util::span($e, $span)))
+        $crate::Expr::Negate(Box::new($crate::util::span($e, $span).into()))
     }};
     (:$a: literal) => {{
         $crate::Expr::AsciiChar($a as u8)
@@ -76,7 +76,7 @@ macro_rules! expr {
     ($n:literal) => {{ $crate::Expr::Number($n) }};
     ( ($e:expr;[$span: expr]) ) => {{
         $crate::Expr::Parenthesized(
-            ::std::boxed::Box::new($crate::util::span($e, $span))
+            ::std::boxed::Box::new($crate::util::span($e, $span).into())
         )
     }};
     ($l:expr;[$span_l:expr] $op:tt[$op_index:expr] $r:expr;[$span_r:expr]) => {{
@@ -87,12 +87,12 @@ macro_rules! expr {
             [/] => {{ $crate::BinOperator::Div }};
         }
         $crate::Expr::BinOp {
-            lhs: ::std::boxed::Box::new($crate::util::span($l, $span_l)),
+            lhs: ::std::boxed::Box::new($crate::util::span($l, $span_l).into()),
             op: ::chumsky::span::Spanned {
                 inner: op![$op],
                 span: $crate::SingleByteSpan($op_index)
             },
-            rhs: ::std::boxed::Box::new($crate::util::span($r, $span_r)),
+            rhs: ::std::boxed::Box::new($crate::util::span($r, $span_r).into()),
         }
     }};
 }
@@ -109,7 +109,7 @@ macro_rules! expr {
 ///     Parameter(
 ///         ParamMode::Relative,
 ///         boxed(OuterExpr {
-///             expr: span(Expr::Number(0), 1..2),
+///             expr: span(Expr::Number(0), 1..2).into(),
 ///             labels: Vec::new(),
 ///         })
 ///     )
@@ -121,7 +121,7 @@ macro_rules! param {
         $crate::Parameter(
             ::ial_core::ParamMode::Relative,
             ::std::boxed::Box::new($crate::OuterExpr {
-                expr: $crate::util::span($e, ($span.start + 1)..($span.end)),
+                expr: $crate::util::span($e, ($span.start + 1)..($span.end)).into(),
                 labels: ::std::vec::Vec::new(),
             }),
         )
@@ -130,7 +130,7 @@ macro_rules! param {
         $crate::Parameter(
             ::ial_core::ParamMode::Immediate,
             ::std::boxed::Box::new($crate::OuterExpr {
-                expr: $crate::util::span($e, ($span.start + 1)..($span.end)),
+                expr: $crate::util::span($e, ($span.start + 1)..($span.end)).into(),
                 labels: ::std::vec::Vec::new(),
             }),
         )
@@ -139,7 +139,7 @@ macro_rules! param {
         $crate::Parameter(
             ::ial_core::ParamMode::Positional,
             ::std::boxed::Box::new($crate::OuterExpr {
-                expr: $crate::util::span($e, ($span.start)..($span.end)),
+                expr: $crate::util::span($e, ($span.start)..($span.end)).into(),
                 labels: ::std::vec::Vec::new(),
             }),
         )

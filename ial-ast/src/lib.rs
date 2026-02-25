@@ -13,7 +13,7 @@ use chumsky::span::{SimpleSpan, Span, Spanned};
 use ial_core::DirectiveKind;
 use ial_core::{AssemblyError, ParamMode};
 use std::collections::HashMap;
-use std::ops::Range;
+use std::ops::{Deref, Range};
 use util::unspan;
 
 pub mod parsers;
@@ -53,6 +53,7 @@ pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
 pub mod prelude {
     pub use super::{
         BinOperator, Directive, Expr, Instr, Label, Line, OuterExpr, Parameter, SingleByteSpan,
+        SpannedExpr,
     };
     pub use chumsky::span::{SimpleSpan, Spanned};
     pub use ial_core::ParamMode;
@@ -222,23 +223,23 @@ pub enum Expr<'a> {
     /// a binary operation
     BinOp {
         /// the left-hand-side expression
-        lhs: Box<Spanned<Expr<'a>>>,
+        lhs: Box<SpannedExpr<'a>>,
         /// the operation to perform
         op: Spanned<BinOperator, SingleByteSpan>,
         /// the right-hand-side expression
-        rhs: Box<Spanned<Expr<'a>>>,
+        rhs: Box<SpannedExpr<'a>>,
     },
     /// the negation of the inner expression
-    Negate(Box<Spanned<Expr<'a>>>),
+    Negate(Box<SpannedExpr<'a>>),
     #[doc(hidden)]
     /// A unary plus sign, which evaluates to the value of its right-hand side. It's defined for
     /// compatibility with the [proposed assembly syntax] from the Esolangs Community Wiki, but
     /// has no use that I can see.
     ///
     /// [proposed assembly syntax]: <https://esolangs.org/wiki/Intcode#Proposed_Assembly_Syntax>
-    UnaryAdd(Box<Spanned<Expr<'a>>>),
+    UnaryAdd(Box<SpannedExpr<'a>>),
     /// an inner expression in parentheses
-    Parenthesized(Box<Spanned<Expr<'a>>>),
+    Parenthesized(Box<SpannedExpr<'a>>),
 }
 
 impl Expr<'_> {
@@ -289,38 +290,55 @@ impl Expr<'_> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpannedExpr<'a> {
+    pub expr: Expr<'a>,
+    pub span: SimpleSpan,
+}
+
+impl<'a> From<Spanned<Expr<'a>>> for SpannedExpr<'a> {
+    fn from(Spanned { inner: expr, span }: Spanned<Expr<'a>>) -> Self {
+        Self { expr, span }
+    }
+}
+
+impl<'a> Deref for SpannedExpr<'a> {
+    type Target = Expr<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.expr
+    }
+}
+
 impl<'a> Expr<'a> {
-    /// Parse an [`Expr`] from a [string slice][str]
+    /// Parse a [`SpannedExpr`] from a [string slice][str]
     ///
     /// # Errors
     ///
     /// Any parsing errors that occur are returned
-    pub fn parse(s: &'a str) -> Result<Self, Vec<chumsky::error::Rich<'a, char>>> {
-        parsers::expr()
-            .parse(s.trim())
-            .into_result()
-            .map(util::unspan)
+    pub fn parse(s: &'a str) -> Result<SpannedExpr<'a>, Vec<chumsky::error::Rich<'a, char>>> {
+        parsers::expr().parse(s.trim()).into_result()
     }
+}
 
-    /// Given a mapping of labels to indexes, try to resolve into a concrete value.
-    ///
-    /// # Errors
-    ///
-    /// If a label can't be found within `labels`, it will return that label as an Err value
-    pub fn resolve(&self, labels: &HashMap<&'a str, i64>) -> Result<i64, ExprResolutionError<'a>> {
-        match self {
+impl<'a> SpannedExpr<'a> {
+    fn resolve(&self, labels: &HashMap<&'a str, i64>) -> Result<i64, AssemblyError<'a>> {
+        match &self.expr {
             Expr::Number(n) => Ok(*n),
             Expr::AsciiChar(c) => Ok(i64::from(*c)),
             Expr::Ident(s) => labels
                 .get(s)
                 .copied()
-                .ok_or(ExprResolutionError::UnresolvedLabel(s)),
+                .ok_or(AssemblyError::UnresolvedLabel {
+                    label: s,
+                    span: self.span.into_range(),
+                }),
             Expr::BinOp { lhs, op, rhs } => {
                 if **op == BinOperator::Div && rhs.resolve(labels)? == 0 {
-                    Err(ExprResolutionError::DivisionByZero {
-                        lhs_span: lhs.span,
+                    Err(AssemblyError::DivisionByZero {
+                        lhs_span: lhs.span.into_range(),
                         div_index: op.span.0,
-                        rhs_span: rhs.span,
+                        rhs_span: rhs.span.into_range(),
                     })
                 } else {
                     Ok(op.apply(lhs.resolve(labels)?, rhs.resolve(labels)?))
@@ -328,42 +346,6 @@ impl<'a> Expr<'a> {
             }
             Expr::Negate(expr) => Ok(-expr.resolve(labels)?),
             Expr::UnaryAdd(expr) | Expr::Parenthesized(expr) => Ok(expr.resolve(labels)?),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-/// An error occurred resolving an expression to a concrete value
-pub enum ExprResolutionError<'a> {
-    /// The contained identifier could not be resolved into a concrete label
-    UnresolvedLabel(&'a str),
-    /// A division expression's right-hand side evaluated to zero
-    DivisionByZero {
-        /// The left-hand side of the expression
-        lhs_span: SimpleSpan,
-        /// The index of the division operator in the source
-        div_index: usize,
-        /// The right-hand side of the expression
-        rhs_span: SimpleSpan,
-    },
-}
-
-impl<'a> ExprResolutionError<'a> {
-    fn generalize_with_span(self, span: SimpleSpan) -> AssemblyError<'a> {
-        match self {
-            ExprResolutionError::UnresolvedLabel(label) => AssemblyError::UnresolvedLabel {
-                label,
-                span: span.into_range(),
-            },
-            ExprResolutionError::DivisionByZero {
-                lhs_span,
-                div_index,
-                rhs_span,
-            } => AssemblyError::DivisionByZero {
-                lhs_span: lhs_span.into_range(),
-                div_index,
-                rhs_span: rhs_span.into_range(),
-            },
         }
     }
 }
@@ -380,7 +362,7 @@ pub struct OuterExpr<'a> {
     /// the (optional) label of the expression
     pub labels: Vec<Label<'a>>,
     /// the expression itself
-    pub expr: Spanned<Expr<'a>>,
+    pub expr: SpannedExpr<'a>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -467,7 +449,7 @@ pub enum Directive<'a> {
     /// directive.encode_into(&mut assembled, &HashMap::from([("zero", 0)])).unwrap();
     /// assert_eq!(assembled, vec![1, 2, 3, 4, 5]);
     /// ```
-    Data(Vec<Spanned<Expr<'a>>>),
+    Data(Vec<SpannedExpr<'a>>),
     /// A string of text, encoded in accordance with the "Aft Scaffolding Control and Information
     /// Interface" [specification](https://adventofcode.com/2019/day/17), surrounded by
     /// double-quotes.
@@ -552,11 +534,7 @@ impl<'a> Directive<'a> {
         match self {
             Directive::Data(exprs) => {
                 for expr in exprs {
-                    let Spanned { inner: expr, span } = expr;
-                    v.push(
-                        expr.resolve(labels)
-                            .map_err(|err| err.generalize_with_span(span))?,
-                    );
+                    v.push(expr.resolve(labels)?);
                 }
             }
             Directive::Ascii(text) => v.extend(unspan(text).into_iter().map(i64::from)),
@@ -687,10 +665,8 @@ impl<'a> Instr<'a> {
         macro_rules! process_param {
             ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
                 let Parameter(mode, outer_expr) = $param;
-                let Spanned { inner: expr, span } = outer_expr.expr;
                 $instr += mode as i64 * $multiplier;
-                expr.resolve(labels)
-                    .map_err(|err| err.generalize_with_span(span))?
+                outer_expr.expr.resolve(labels)?
             }};
         }
 
@@ -787,7 +763,10 @@ mod tests {
         assert_eq!(expr.resolve(&hash_map! { "a" => 0, "b" => 0}), Ok(0));
         assert_eq!(
             expr.resolve(&hash_map! { "a" => 0}),
-            Err(ExprResolutionError::UnresolvedLabel("b"))
+            Err(AssemblyError::UnresolvedLabel {
+                label: "b",
+                span: 4..5
+            })
         );
         let div_by_0 = Expr::parse("1 / (1 - 1)")
             .unwrap()
@@ -795,10 +774,10 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             div_by_0,
-            ExprResolutionError::DivisionByZero {
-                lhs_span: SimpleSpan::from(0..1),
+            AssemblyError::DivisionByZero {
+                lhs_span: 0..1,
                 div_index: 2,
-                rhs_span: SimpleSpan::from(4..11)
+                rhs_span: 4..11
             }
         );
     }
@@ -819,6 +798,10 @@ mod tests {
         assert_eq_ignore_spans!("1 + 1", "1+1");
         // the following should hit all branches
         assert_eq_ignore_spans!("1+(-'1') + _1", "1 + (   \t  -'1')+_1");
-        assert!(!Expr::parse("-1").unwrap().eq_ignore_spans(&Expr::parse("+1").unwrap()));
+        assert!(
+            !Expr::parse("-1")
+                .unwrap()
+                .eq_ignore_spans(&Expr::parse("+1").unwrap())
+        );
     }
 }
