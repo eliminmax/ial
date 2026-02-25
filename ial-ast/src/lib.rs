@@ -739,11 +739,86 @@ pub struct Label<'a>(pub Spanned<&'a str>);
 #[cfg(test)]
 mod tests {
     use super::*;
+    macro_rules! hash_map {
+        {$($k: expr => $v: expr),*} => {
+            HashMap::from([$(($k, $v)),*])
+        }
+    }
 
     #[test]
     fn single_byte_span_impl() {
         let sbs = SingleByteSpan::new((), 0..1);
         assert_eq!(sbs.start(), 0);
         assert_eq!(sbs.end(), 1);
+    }
+
+    #[test]
+    fn expr_resolution() {
+        macro_rules! assert_resolves_to {
+            ($expr: literal, $val: expr) => {{
+                assert_eq!(
+                    Expr::parse($expr).unwrap().resolve(&HashMap::new()),
+                    Ok($val)
+                );
+            }};
+        }
+        assert_resolves_to!("1", 1);
+        assert_resolves_to!("+1", 1);
+        assert_resolves_to!("-1", -1);
+        assert_resolves_to!("1 + 1", 2);
+        assert_resolves_to!("1 - 1", 0);
+        assert_resolves_to!("1 * 1", 1);
+        assert_resolves_to!("1 / 1", 1);
+        // some more complex order-of-operations stuff
+        assert_resolves_to!("-1 - 1", -2);
+        assert_resolves_to!("-1 * +1", -1);
+        assert_resolves_to!("1 + 1 * 1 + 1", 3);
+        // division truncates towards zero
+        assert_resolves_to!("1 / 2", 0);
+        assert_resolves_to!("3 / 2", 1);
+        assert_resolves_to!("-3 / 2", -1);
+
+        // messy combination of unary adds, double-negatives, and parentheses that should be
+        // equivalent to `1 * 1`
+        assert_resolves_to!("1 *+(+----(1))", 1);
+
+        let expr = Expr::parse("a + b").unwrap();
+        assert_eq!(expr.resolve(&hash_map! { "a" => 1, "b" => 0}), Ok(1));
+        assert_eq!(expr.resolve(&hash_map! { "a" => 0, "b" => 0}), Ok(0));
+        assert_eq!(
+            expr.resolve(&hash_map! { "a" => 0}),
+            Err(ExprResolutionError::UnresolvedLabel("b"))
+        );
+        let div_by_0 = Expr::parse("1 / (1 - 1)")
+            .unwrap()
+            .resolve(&hash_map! {})
+            .unwrap_err();
+        assert_eq!(
+            div_by_0,
+            ExprResolutionError::DivisionByZero {
+                lhs_span: SimpleSpan::from(0..1),
+                div_index: 2,
+                rhs_span: SimpleSpan::from(4..11)
+            }
+        );
+    }
+
+    #[test]
+    fn full_eq_ignore_spans() {
+        macro_rules! assert_eq_ignore_spans {
+            ($a: literal, $b: literal) => {{
+                let a = Expr::parse($a).unwrap();
+                let b = Expr::parse($b).unwrap();
+                assert!(a.eq_ignore_spans(&b));
+            }};
+        }
+        assert_eq_ignore_spans!("+1", "+  1");
+        assert_eq_ignore_spans!("1", "1");
+        assert_eq_ignore_spans!("'1'", "'1'");
+        assert_eq_ignore_spans!("-1", "-\t\t 1");
+        assert_eq_ignore_spans!("1 + 1", "1+1");
+        // the following should hit all branches
+        assert_eq_ignore_spans!("1+(-'1') + _1", "1 + (   \t  -'1')+_1");
+        assert!(!Expr::parse("-1").unwrap().eq_ignore_spans(&Expr::parse("+1").unwrap()));
     }
 }
