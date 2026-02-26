@@ -710,6 +710,8 @@ pub struct Label<'a>(pub Spanned<&'a str>);
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
     macro_rules! hash_map {
         {$($k: expr => $v: expr),*} => {
@@ -799,5 +801,32 @@ mod tests {
                 .unwrap()
                 .eq_ignore_spans(&Expr::parse("+1").unwrap())
         );
+    }
+
+    #[test]
+    fn resolve_all_instructions() {
+        use parsers::{Parser, instr};
+        let tests = [
+            ("ADD #90, #9, 4", vec![1101, 90, 9, 4]),
+            ("MUL #11, #9, 4", vec![1102, 11, 9, 4]),
+            ("IN 2", vec![3, 2]),
+            (r"OUT #'\n'", vec![104, 10]),
+            ("JNZ #1, #2", vec![1105, 1, 2]),
+            ("JZ #0, #2", vec![1106, 0, 2]),
+            ("LT #0, #1, 4", vec![1107, 0, 1, 4]),
+            ("EQ #0, #0, 4", vec![1108, 0, 0, 4]),
+            ("RBO @0", vec![209, 0]),
+            ("HALT", vec![99]),
+        ];
+
+        for (instr_text, expected) in tests {
+            let actual = instr()
+                .parse(instr_text)
+                .unwrap()
+                .resolve(&hash_map! {})
+                .unwrap()
+                .collect_vec();
+            assert_eq!(actual, expected, "{instr_text}");
+        }
     }
 }
