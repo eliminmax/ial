@@ -10,8 +10,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 use chumsky::Parser;
 use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
-use ial_core::DirectiveKind;
-use ial_core::{AssemblyError, ParamMode};
+use ial_core::{AssemblyError, DirectiveKind, OpCode, ParamMode};
 use std::collections::HashMap;
 use std::ops::{Deref, Range};
 use util::unspan;
@@ -637,6 +636,23 @@ pub enum Instr<'a> {
 }
 
 impl Instr<'_> {
+    #[must_use]
+    /// Return the opcode of the instruction as an [`OpCode`]
+    pub const fn op_code(&self) -> OpCode {
+        match self {
+            Instr::Add(_, _, _) => OpCode::Add,
+            Instr::Mul(_, _, _) => OpCode::Mul,
+            Instr::In(_) => OpCode::In,
+            Instr::Out(_) => OpCode::Out,
+            Instr::Jnz(_, _) => OpCode::Jnz,
+            Instr::Jz(_, _) => OpCode::Jz,
+            Instr::Lt(_, _, _) => OpCode::Lt,
+            Instr::Eq(_, _, _) => OpCode::Eq,
+            Instr::Rbo(_) => OpCode::Rbo,
+            Instr::Halt => OpCode::Halt,
+        }
+    }
+
     /// Return the number of integers the instruction will resolve to
     #[must_use]
     pub const fn size(&self) -> i64 {
@@ -662,47 +678,27 @@ impl<'a> Instr<'a> {
         self,
         labels: &HashMap<&'a str, i64>,
     ) -> Result<impl Iterator<Item = i64>, AssemblyError<'a>> {
-        macro_rules! process_param {
-            ($param: ident * $multiplier: literal, &mut $instr: ident) => {{
-                let Parameter(mode, outer_expr) = $param;
-                $instr += mode as i64 * $multiplier;
-                outer_expr.expr.resolve(labels)?
-            }};
-        }
-
-        macro_rules! process_instr {
-            ($val: literal, $a: tt, $b: tt, $c: tt) => {{
-                let mut instr = $val;
-                let a = process_param!($a * 100, &mut instr);
-                let b = process_param!($b * 1000, &mut instr);
-                let c = process_param!($c * 10000, &mut instr);
-                Ok(StackIter::Four(instr, a, b, c))
-            }};
-            ($val: literal, $a: tt, $b: tt) => {{
-                let mut instr = $val;
-                let a = process_param!($a * 100, &mut instr);
-                let b = process_param!($b * 1000, &mut instr);
-                Ok(StackIter::Three(instr, a, b))
-            }};
-            ($val: literal, $a: tt) => {{
-                let mut instr = $val;
-                let a = process_param!($a * 100, &mut instr);
-                Ok(StackIter::Two(instr, a))
-            }};
-            ($val: literal) => {{ Ok(StackIter::One($val)) }};
-        }
-
-        match self.clone() {
-            Instr::Add(a, b, c) => process_instr!(1, a, b, c),
-            Instr::Mul(a, b, c) => process_instr!(2, a, b, c),
-            Instr::In(a) => process_instr!(3, a),
-            Instr::Out(a) => process_instr!(4, a),
-            Instr::Jnz(a, b) => process_instr!(5, a, b),
-            Instr::Jz(a, b) => process_instr!(6, a, b),
-            Instr::Lt(a, b, c) => process_instr!(7, a, b, c),
-            Instr::Eq(a, b, c) => process_instr!(8, a, b, c),
-            Instr::Rbo(a) => process_instr!(9, a),
-            Instr::Halt => process_instr!(99),
+        let mut instr_int = self.op_code() as i64;
+        match self {
+            Instr::Add(a, b, c) | Instr::Mul(a, b, c) | Instr::Lt(a, b, c) | Instr::Eq(a, b, c) => {
+                instr_int += (a.0 as i64 * 100) + (b.0 as i64 * 1000) + (c.0 as i64 * 10000);
+                let a = a.1.expr.resolve(labels)?;
+                let b = b.1.expr.resolve(labels)?;
+                let c = c.1.expr.resolve(labels)?;
+                Ok(StackIter::Four(instr_int, a, b, c))
+            }
+            Instr::Jnz(a, b) | Instr::Jz(a, b) => {
+                instr_int += (a.0 as i64 * 100) + (b.0 as i64 * 1000);
+                let a = a.1.expr.resolve(labels)?;
+                let b = b.1.expr.resolve(labels)?;
+                Ok(StackIter::Three(instr_int, a, b))
+            }
+            Instr::In(a) | Instr::Out(a) | Instr::Rbo(a) => {
+                instr_int += a.0 as i64 * 100;
+                let a = a.1.expr.resolve(labels)?;
+                Ok(StackIter::Two(instr_int, a))
+            }
+            Instr::Halt => Ok(StackIter::One(instr_int)),
         }
     }
 }
