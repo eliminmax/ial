@@ -7,5 +7,4 @@ offline = true
 engine = "Ptrace"
 test-timeout = "1m"
 target-dir = ".tarpaulin"
-run-types = [ "Doctests", "Tests" ]
 out = [ "Html" ]
