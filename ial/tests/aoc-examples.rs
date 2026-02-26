@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-use either::Either;
 use ial::prelude::*;
 use ial::trace::{Trace, TracedInstr};
 use ial::{OpCode, ParamMode};
@@ -23,13 +22,11 @@ macro_rules! interp {
 fn run_to_end(
     interp: &mut Interpreter,
     inputs: impl IntoIterator<Item = i64>,
-) -> Result<Vec<i64>, Either<ial::InterpreterError, Awaiting>> {
-    let (output, state) = interp.run_through_inputs(inputs).map_err(Either::Left)?;
-    if state == State::Halted {
-        Ok(output)
-    } else {
-        Err(Either::Right(Awaiting { output }))
-    }
+) -> Result<Vec<i64>, ial::InterpreterError> {
+    interp.run_through_inputs(inputs).map(|(o, s)| {
+        assert_eq!(s, State::Halted, "interpreter unexpectedly awaiting input");
+        o
+    })
 }
 
 /// A struct with the information about expected traced instruction
@@ -269,10 +266,4 @@ mod day9_examples {
             assert_eq!(output, vec![1125899906842624]);
         }
     }
-}
-
-#[derive(Debug)]
-struct Awaiting {
-    #[allow(dead_code, reason = "for Debug impl")]
-    output: Vec<i64>,
 }

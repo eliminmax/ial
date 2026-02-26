@@ -329,7 +329,6 @@ name = "ial"
 version = "0.2.0-dev"
 dependencies = [
  "chumsky",
- "either",
  "flate2",
  "ial-ast",
  "ial-core",
