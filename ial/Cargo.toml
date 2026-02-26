@@ -18,9 +18,6 @@ ial-core = { path = "../ial-core" }
 ial-ast = { path = "../ial-ast" }
 flate2 = "1.1.9"
 
-[dev-dependencies]
-flate2 = "1.1.9"
-
 # don't warn on tarpaulin code coverage cfg conditions or custom cfgs
 [lints.rust.unexpected_cfgs]
 level = "warn"
