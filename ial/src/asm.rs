@@ -135,6 +135,22 @@ pub fn build_ast(code: &str) -> Result<Ast<'_>, AstBuildErr<'_>> {
 
 type RawDebugInfo<'a> = (Vec<(Spanned<&'a str>, i64)>, Vec<DirectiveDebug>);
 
+fn append_labels<'a>(
+    labels: &mut HashMap<&'a str, (i64, SimpleSpan)>,
+    new_labels: &[Label<'a>],
+    addr: i64,
+) -> Result<(), AssemblyError<'a>> {
+    for &Label(Spanned { inner: label, span }) in new_labels {
+        if let Some((_, old_span)) = labels.insert(label, (addr, span)) {
+            return Err(AssemblyError::DuplicateLabel {
+                label,
+                spans: [old_span.into_range(), span.into_range()],
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Common implementation of [`assemble_ast`] and [`assemble_with_debug`].
 ///
 /// If `generate_debug` is false, then both vecs in the returned [`RawDebugInfo`] will be empty to
@@ -147,45 +163,27 @@ fn assemble_inner<'a>(
     let mut index = 0;
     let mut directives = Vec::new();
 
-    let mut add_label =
-        |label: &'a str, index: i64, span: SimpleSpan| -> Result<(), AssemblyError<'a>> {
-            if let Some((_, old_span)) = labels.insert(label, (index, span)) {
-                Err(AssemblyError::DuplicateLabel {
-                    label,
-                    spans: [old_span.into_range(), span.into_range()],
-                })
-            } else {
-                Ok(())
-            }
-        };
-
     for line in &code.0 {
-        for Label(Spanned { inner: label, span }) in &line.labels {
-            add_label(label, index, *span)?;
-        }
+        append_labels(&mut labels, &line.labels, index)?;
+
         if let Some(directive) = line.directive.as_ref() {
             if let Directive::Instruction(instr) = &directive.inner {
-                macro_rules! add_param_labels {
-                    ($param: ident, $offset: literal) => {{
-                        for &Label(Spanned { inner: label, span }) in &$param.1.labels {
-                            add_label(label, index + $offset, span)?;
-                        }
-                    }};
-                }
                 match instr.as_ref() {
                     Instr::Add(a, b, c)
                     | Instr::Mul(a, b, c)
                     | Instr::Lt(a, b, c)
                     | Instr::Eq(a, b, c) => {
-                        add_param_labels!(a, 1);
-                        add_param_labels!(b, 2);
-                        add_param_labels!(c, 3);
+                        append_labels(&mut labels, &a.1.labels, index + 1)?;
+                        append_labels(&mut labels, &b.1.labels, index + 2)?;
+                        append_labels(&mut labels, &c.1.labels, index + 3)?;
                     }
                     Instr::Jnz(a, b) | Instr::Jz(a, b) => {
-                        add_param_labels!(a, 1);
-                        add_param_labels!(b, 2);
+                        append_labels(&mut labels, &a.1.labels, index + 1)?;
+                        append_labels(&mut labels, &b.1.labels, index + 2)?;
                     }
-                    Instr::In(a) | Instr::Out(a) | Instr::Rbo(a) => add_param_labels!(a, 1),
+                    Instr::In(a) | Instr::Out(a) | Instr::Rbo(a) => {
+                        append_labels(&mut labels, &a.1.labels, index + 1)?;
+                    }
                     Instr::Halt => (),
                 }
             }
