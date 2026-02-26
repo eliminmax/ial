@@ -93,7 +93,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 mod internals;
 
 #[doc(inline)]
-pub use ial_core::{ParamMode, UnknownMode};
+pub use ial_core::{OpCode, ParamMode, UnknownMode};
 
 mod paged_mem;
 mod vec_mem;
@@ -309,62 +309,6 @@ impl<M: IntcodeMem> IndexMut<i64> for Interpreter<M> {
 impl From<UnknownMode> for InterpreterError {
     fn from(mode: UnknownMode) -> Self {
         Self::UnknownMode(i64::from(mode.digit()))
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-/// An Intcode `OpCode`
-///
-/// For explanations of the specific opcodes and their meaning, either go through Advent of Code
-/// 2019, or see [the IAL docs](https://github.com/eliminmax/ial/blob/main/IAL.md#instructions).
-#[allow(missing_docs, reason = "trivial")]
-pub enum OpCode {
-    Add = 1,
-    Mul = 2,
-    In = 3,
-    Out = 4,
-    Jnz = 5,
-    Jz = 6,
-    Lt = 7,
-    Eq = 8,
-    Rbo = 9,
-    Halt = 99,
-}
-
-impl TryFrom<i64> for OpCode {
-    type Error = i64;
-    fn try_from(i: i64) -> Result<Self, Self::Error> {
-        match i {
-            1 => Ok(Self::Add),
-            2 => Ok(Self::Mul),
-            3 => Ok(Self::In),
-            4 => Ok(Self::Out),
-            5 => Ok(Self::Jnz),
-            6 => Ok(Self::Jz),
-            7 => Ok(Self::Lt),
-            8 => Ok(Self::Eq),
-            9 => Ok(Self::Rbo),
-            99 => Ok(Self::Halt),
-            _ => Err(i),
-        }
-    }
-}
-
-#[cfg(not(tarpaulin_include))]
-impl Display for OpCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Add => write!(f, "ADD"),
-            Self::Mul => write!(f, "MUL"),
-            Self::In => write!(f, "IN"),
-            Self::Out => write!(f, "OUT"),
-            Self::Jnz => write!(f, "JNZ"),
-            Self::Jz => write!(f, "JZ"),
-            Self::Lt => write!(f, "LT"),
-            Self::Eq => write!(f, "EQ"),
-            Self::Rbo => write!(f, "RBO"),
-            Self::Halt => write!(f, "HALT"),
-        }
     }
 }
 
