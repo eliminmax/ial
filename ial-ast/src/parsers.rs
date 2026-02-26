@@ -233,15 +233,13 @@ pub fn expr<'a>() -> impl ClonableParser<'a, SpannedExpr<'a>> {
             .repeated()
             .foldr(
                 pass1,
-                |Spanned { inner, mut span }: Spanned<_>, rhs: SpannedExpr<'a>| {
-                    span.end = rhs.span.end;
-                    SpannedExpr {
-                        expr: match inner {
-                            UnaryOp::Add => Expr::UnaryAdd(Box::new(rhs)),
-                            UnaryOp::Negate => Expr::Negate(Box::new(rhs)),
-                        },
-                        span,
-                    }
+                |op: Spanned<_>, rhs: SpannedExpr<'a>| {
+                    let span = op.span.union(rhs.span);
+                    let expr = match *op {
+                        UnaryOp::Add => Expr::UnaryAdd(Box::new(rhs)),
+                        UnaryOp::Negate => Expr::Negate(Box::new(rhs)),
+                    };
+                    SpannedExpr { expr, span }
                 },
             )
             .labelled("unary expression");
