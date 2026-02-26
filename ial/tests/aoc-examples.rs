@@ -19,7 +19,7 @@ macro_rules! interp {
 }
 
 /// Run an interpreter to end, returning its output.
-/// Borrows the interpreter in case it's trace is useful
+/// Borrows the interpreter in case its trace is useful
 fn run_to_end(
     interp: &mut Interpreter,
     inputs: impl IntoIterator<Item = i64>,
