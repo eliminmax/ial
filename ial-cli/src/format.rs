@@ -6,7 +6,9 @@
 
 use crate::read_src;
 use anyhow::Result;
+use chumsky::Parser as _; // import `as _` avoid clash with clap::Parser
 use clap::{ArgAction, Parser, ValueHint};
+use ial_ast::parsers;
 use std::fs;
 use std::path::PathBuf;
 
@@ -25,7 +27,31 @@ pub(crate) struct FormatArgs {
 }
 
 fn checked_format(f: &str, s: &str) -> String {
-    crate::checked_ast_fn(ial_ast::format, f, s)
+    crate::checked_ast_fn(
+        |code| {
+            let mut formatted = String::with_capacity(code.len());
+            let leading_whitespace = || {
+                chumsky::text::whitespace()
+                    .to_slice()
+                    .map(|s: &str| s.replace('\t', "    "))
+            };
+            for l in code.lines() {
+                let (indent, code) = leading_whitespace()
+                    .then(parsers::line())
+                    .parse(l)
+                    .into_result()?;
+                let mut l = format!("{indent}{code}");
+                while l.as_bytes().last().copied() == Some(b' ') {
+                    l.pop();
+                }
+                l.push('\n');
+                formatted += &l;
+            }
+            Ok(formatted)
+        },
+        f,
+        s,
+    )
 }
 
 impl FormatArgs {

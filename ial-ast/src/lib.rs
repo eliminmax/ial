@@ -8,7 +8,6 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 use chumsky::Parser;
-use chumsky::error::Rich;
 use chumsky::span::{SimpleSpan, Span, Spanned};
 use ial_core::{AssemblyError, DirectiveKind, OpCode, ParamMode};
 use std::collections::HashMap;
@@ -19,34 +18,6 @@ pub mod parsers;
 pub mod util;
 
 mod display_impls;
-
-/// Format the code into a reasonable default appearance, attempting to preserve indentation
-///
-/// # Errors
-///
-/// If a line of source code fails to parse, then returns the parser errors
-pub fn format(code: &str) -> Result<String, Vec<Rich<'_, char>>> {
-    use chumsky::prelude::*;
-    let mut formatted = String::with_capacity(code.len());
-    let leading_whitespace = || {
-        text::whitespace()
-            .to_slice()
-            .map(|s: &str| s.replace('\t', "    "))
-    };
-    for l in code.lines() {
-        let (indent, code) = leading_whitespace()
-            .then(parsers::line())
-            .parse(l)
-            .into_result()?;
-        let mut l = format!("{indent}{code}");
-        while l.as_bytes().last().copied() == Some(b' ') {
-            l.pop();
-        }
-        l.push('\n');
-        formatted += &l;
-    }
-    Ok(formatted)
-}
 
 /// a small module that re-exports the types needed to work with the AST of the assembly language.
 pub mod prelude {
