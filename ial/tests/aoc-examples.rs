@@ -141,6 +141,7 @@ mod day5_examples {
             validate_trace(EXPECTED, trace);
         }
     }
+
     mod part2 {
         use std::iter::empty;
 
