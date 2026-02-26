@@ -382,3 +382,46 @@ pub fn assemble(code: &str) -> Result<Vec<i64>, GeneralAsmError<'_>> {
     assemble_ast(build_ast(code).map_err(GeneralAsmError::BuildAst)?)
         .map_err(GeneralAsmError::Assemble)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// ensure that the correct [`AssemblyError`]s are generated for different error types
+    #[test]
+    fn assemble_errors() {
+        macro_rules! assert_assembly_error {
+            ($code: literal, $err: expr) => {{
+                assert_eq!(assemble_ast(build_ast($code).unwrap()), Err($err));
+            }};
+        }
+
+        assert_assembly_error!(
+            "ADD #0, #0, a",
+            AssemblyError::UnresolvedLabel {
+                label: "a",
+                span: 12..13
+            }
+        );
+
+        assert_assembly_error!(
+            "a: a: HALT",
+            AssemblyError::DuplicateLabel {
+                label: "a",
+                spans: [0..1, 3..4]
+            }
+        );
+
+        // can't test DirectiveTooLarge because it would require a directive to be more than
+        // i64::MAX in length.
+
+        assert_assembly_error!(
+            "DATA 1 / 0",
+            AssemblyError::DivisionByZero {
+                lhs_span: 5..6,
+                div_index: 7,
+                rhs_span: 9..10,
+            }
+        );
+    }
+}
