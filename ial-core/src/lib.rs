@@ -302,4 +302,30 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn opcode_try_from() {
+        let test_cases = [
+            (-1, Err(-1)),
+            (0, Err(0)),
+            (1, Ok(OpCode::Add)),
+            (2, Ok(OpCode::Mul)),
+            (3, Ok(OpCode::In)),
+            (4, Ok(OpCode::Out)),
+            (5, Ok(OpCode::Jnz)),
+            (6, Ok(OpCode::Jz)),
+            (7, Ok(OpCode::Lt)),
+            (8, Ok(OpCode::Eq)),
+            (9, Ok(OpCode::Rbo)),
+            (10, Err(10)),
+            (20, Err(20)),
+            (90, Err(90)),
+            (99, Ok(OpCode::Halt)),
+            (100, Err(100)),
+        ];
+
+        for (val, expected) in test_cases {
+            assert_eq!(val.try_into(), expected);
+        }
+    }
 }
