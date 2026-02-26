@@ -215,7 +215,7 @@ pub fn expr<'a>() -> impl ClonableParser<'a, SpannedExpr<'a>> {
     recursive(|expr| {
         // the 1st expression parsing step:
         //     literals, labelled expressions, and parenthesized subexpressions
-        let parser = choice((
+        let pass1 = choice((
             integer_literal(),
             label_expr(),
             ascii_char(),
@@ -232,7 +232,7 @@ pub fn expr<'a>() -> impl ClonableParser<'a, SpannedExpr<'a>> {
             .padded_inline()
             .repeated()
             .foldr(
-                parser,
+                pass1,
                 |Spanned { inner, mut span }: Spanned<_>, rhs: SpannedExpr<'a>| {
                     span.end = rhs.span.end;
                     SpannedExpr {
