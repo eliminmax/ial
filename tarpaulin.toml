@@ -4,7 +4,7 @@
 [test_config]
 locked = true
 offline = true
-engine = "Ptrace"
+engine = "Llvm"
 test-timeout = "1m"
 target-dir = ".tarpaulin"
 out = [ "Html" ]
