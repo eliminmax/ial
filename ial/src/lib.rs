@@ -666,4 +666,29 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         }
         Ok(())
     }
+
+    /// Switch an [`Interpreter`] from one [`IntcodeMem`] type to another
+    ///
+    /// This converts the `Interpreter`'s memory from the existing memory type to `NewMem`, then
+    /// calls [`IntcodeMem::prune`]. All internal state of the interpreter is preserved.
+    pub fn switch_mem_backend<NewMem: IntcodeMem>(self) -> Interpreter<NewMem> {
+        let Interpreter {
+            index,
+            rel_offset,
+            code,
+            poisoned,
+            halted,
+            trace,
+        } = self;
+        let mut code = NewMem::from_iter(code);
+        code.prune();
+        Interpreter {
+            index,
+            rel_offset,
+            code,
+            poisoned,
+            halted,
+            trace,
+        }
+    }
 }
