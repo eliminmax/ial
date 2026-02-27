@@ -58,7 +58,9 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn inner(&self) -> &[Line<'a>] {
         &self.0
     }
@@ -71,7 +73,9 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn inner_mut(&mut self) -> &mut Vec<Line<'a>> {
         &mut self.0
     }
@@ -84,7 +88,9 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn into_inner(self) -> Vec<Line<'a>> {
         self.0
     }
@@ -97,7 +103,9 @@ impl<'a> Ast<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn from_lines(lines: Vec<Line<'a>>) -> Self {
         Self(lines)
     }
@@ -322,7 +330,9 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn inner(&self) -> &[Rich<'a, char>] {
         self.0.as_slice()
     }
@@ -336,7 +346,9 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn into_inner(self) -> Vec<Rich<'a, char>> {
         self.0
     }
@@ -349,7 +361,9 @@ impl<'a> AstBuildErr<'a> {
     /// have breaking changes in minor updates.
     ///
     /// </div>
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn from_inner(v: Vec<Rich<'a, char>>) -> Self {
         Self(v)
     }

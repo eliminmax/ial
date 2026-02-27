@@ -201,6 +201,7 @@ mod address {
     pub struct IntcodeAddress(i64);
     impl IntcodeAddress {
         /// Create a new [`IntcodeAddress`]. If `n` is negative, returns [None]
+        #[cfg(not(tarpaulin_include))]
         #[inline]
         #[must_use]
         pub const fn new(n: i64) -> Option<Self> {
@@ -208,6 +209,7 @@ mod address {
         }
 
         /// get the inner [i64]
+        #[cfg(not(tarpaulin_include))]
         #[inline]
         #[must_use]
         pub const fn get(&self) -> i64 {

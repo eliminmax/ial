@@ -60,25 +60,33 @@ pub struct TracedInstr {
 
 impl TracedInstr {
     /// Return the relative base at the time the traced instruction was executed,
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn rel_base(&self) -> i64 {
         self.rel_base
     }
 
     /// Return the instruction pointer's position when the traced instruction was executed
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn instr_ptr(&self) -> i64 {
         self.instr_ptr
     }
 
     /// Return the actual integer of the traced instruction
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn op_int(&self) -> i64 {
         self.op_int
     }
 
     /// Return the opcode of the traced instruction
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn op_code(&self) -> OpCode {
         self.opcode
     }
@@ -183,7 +191,9 @@ impl<M: IntcodeMem> Interpreter<M> {
     }
 
     /// Get a view of the current trace
+    #[cfg(not(tarpaulin_include))]
     #[must_use]
+    #[inline]
     pub fn show_trace(&self) -> Option<&Trace> {
         self.trace.as_ref()
     }
