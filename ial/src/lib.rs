@@ -692,3 +692,86 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         }
     }
 }
+
+#[cfg(test)]
+mod interpreter_mem_tests {
+    use super::*;
+    type InterpreterV = Interpreter<VecMem>;
+    type InterpreterP = Interpreter<PagedMem>;
+
+    #[test]
+    fn conversion_test() {
+        let interp = InterpreterP::new([99]);
+        let interp: InterpreterV = interp.switch_mem_backend();
+        assert!(matches!(interp.get_range(0..2), Ok(Cow::Owned(_))));
+        let interp: InterpreterP = interp.switch_mem_backend();
+        assert!(matches!(interp.get_range(0..2), Ok(Cow::Borrowed(_))));
+    }
+
+    #[test]
+    fn get_set_tests() {
+        /// mutably and immutably index using both i64 and `IntcodeAddress`
+        fn index_tests<Mem: IntcodeMem>(i: &mut Interpreter<Mem>) {
+            // use address 11 as it's not needed for anything else in this test
+            const IA11: IntcodeAddress = IntcodeAddress::new(11).unwrap();
+            assert_eq!(i[IA11], 0);
+            i[IA11] += 1;
+            assert_eq!(i[11], 1);
+            i[11] -= 1;
+            assert_eq!(i[11], 0);
+        }
+
+        /// Ensure that [`Interpreter::mem_override`] and [`Interpreter::mem_get`] work properly
+        fn mem_override_tests<Mem: IntcodeMem>(i: &mut Interpreter<Mem>) {
+            // use address 12 as it's not needed for anything else in this test
+            assert_eq!(i.mem_override(12, -3), Ok(()));
+            assert_eq!(i.mem_override(-1, 1), Err(NegativeMemAccess(-1)));
+            assert_eq!(i.mem_get(12), Ok(-3));
+            assert_eq!(i.mem_get(-1), Err(NegativeMemAccess(-1)));
+        }
+
+        fn run<Mem: IntcodeMem>(mut i: Interpreter<Mem>) {
+            i[0] += 1; // change the ADD into a MUL
+            assert_eq!(i.run_through_inputs([]), Ok((vec![], State::Halted)));
+            assert_eq!(
+                i.exec_instruction(&mut empty(), &mut vec![]),
+                Ok(StepOutcome::Stopped(State::Halted))
+            );
+        }
+
+        let code = asm::assemble("ADD #11, #9, 4").unwrap();
+
+        let mut i_v = InterpreterV::new(code.clone());
+        let mut i_p = InterpreterP::new(code);
+
+        // the ranges should be identical at the start
+        assert_eq!(i_v.get_range(0..4), i_p.get_range(0..4));
+
+        // both IntcodeMem structs should return borrowed data if it's fully in range
+        assert!(matches!(i_v.get_range(0..4), Ok(Cow::Borrowed(_))));
+        assert!(matches!(i_p.get_range(0..4), Ok(Cow::Borrowed(_))));
+
+        // If it's a bit past the end, VecMem should return Owned data, but PagedMem should still
+        // return Borrowed data, as it's still in page 0
+        assert!(matches!(i_v.get_range(0..8), Ok(Cow::Owned(_))));
+        assert!(matches!(i_p.get_range(0..8), Ok(Cow::Borrowed(_))));
+
+        // If it's fully out-of-bounds, but fits within a single PagedMem page, then it should
+        // have the same results as above
+        assert!(matches!(i_v.get_range(520..530), Ok(Cow::Owned(_))));
+        assert!(matches!(i_p.get_range(520..530), Ok(Cow::Borrowed(_))));
+
+        // If it's past the PagedMem page boundary, then it should return Owned data
+        assert!(matches!(i_p.get_range(0..600), Ok(Cow::Owned(_))));
+
+        assert_eq!(i_v.get_range(-1..3), Err(NegativeMemAccess(-1)));
+        assert_eq!(i_p.get_range(-1..3), Err(NegativeMemAccess(-1)));
+
+        index_tests(&mut i_v);
+        index_tests(&mut i_p);
+        mem_override_tests(&mut i_v);
+        mem_override_tests(&mut i_p);
+        run(i_v);
+        run(i_p);
+    }
+}
