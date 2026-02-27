@@ -617,12 +617,8 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
 
         writeln!(writer, "INTERPRETER STATE")?;
         if let Some(labels) = label_map.get(&self.index) {
-            writeln!(
-                writer,
-                "    instruction pointer: {} ({})",
-                self.index,
-                labels.join(", ")
-            )?;
+            write!(writer, "    instruction pointer: {}", self.index)?;
+            writeln!(writer, " ({})", labels.join(", "))?;
         } else {
             writeln!(writer, "    instruction pointer: {}", self.index)?;
         }
@@ -633,14 +629,10 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         }?;
 
         if let Some(labels) = label_map.get(&self.rel_offset) {
-            writeln!(
-                writer,
-                "    relative base: {} ({})",
-                self.rel_offset,
-                labels.join(", ")
-            )?;
+            write!(writer, "    relative base: {}", self.rel_offset)?;
+            writeln!(writer, " ({})", labels.join(", "))?;
         } else {
-            writeln!(writer, "    relative base {}", self.rel_offset)?;
+            writeln!(writer, "    relative base: {}", self.rel_offset)?;
         }
 
         match disassemble_with_debug(self.code.clone(), debug_info) {
