@@ -266,6 +266,7 @@ pub struct SpannedExpr<'a> {
     pub span: SimpleSpan,
 }
 
+#[cfg(not(tarpaulin_include))]
 impl<'a> From<Spanned<Expr<'a>>> for SpannedExpr<'a> {
     fn from(Spanned { inner: expr, span }: Spanned<Expr<'a>>) -> Self {
         Self { expr, span }

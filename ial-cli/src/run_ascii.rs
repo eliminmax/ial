@@ -249,6 +249,7 @@ impl Display for AsciiError {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl From<InterpreterError> for AsciiError {
     fn from(e: InterpreterError) -> Self {
         Self::InterpreterError(e)

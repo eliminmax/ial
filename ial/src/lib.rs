@@ -309,6 +309,7 @@ impl<M: IntcodeMem> IndexMut<i64> for Interpreter<M> {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl From<UnknownMode> for InterpreterError {
     fn from(mode: UnknownMode) -> Self {
         Self::UnknownMode(i64::from(mode.digit()))
@@ -329,6 +330,7 @@ pub enum StepOutcome {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NegativeMemAccess(pub i64);
 
+#[cfg(not(tarpaulin_include))]
 impl From<NegativeMemAccess> for InterpreterError {
     fn from(i: NegativeMemAccess) -> Self {
         Self::NegativeMemAccess(i)
