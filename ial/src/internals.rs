@@ -158,7 +158,10 @@ mod fallback_tests {
         assert_eq!(traced_instrs.len(), 3);
         assert_eq!(traced_instrs[1].op_code(), crate::OpCode::Mul);
         assert_eq!(traced_instrs[1].stored_val(), Some(99));
-        assert!(matches!(traced_instrs[1].param_modes(), [_, _, ParamMode::Relative]));
+        assert!(matches!(
+            traced_instrs[1].param_modes(),
+            [_, _, ParamMode::Relative]
+        ));
     }
 
     #[test]
