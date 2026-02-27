@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+use crate::State;
+
 use super::{
     IntcodeMem, Interpreter, InterpreterError, NegativeMemAccess, OpCode, ParamMode, StepOutcome,
 };
@@ -25,6 +27,7 @@ pub(crate) fn parse_op(op: i64) -> Result<(OpCode, [ParamMode; 3]), InterpreterE
     ))
 }
 
+type OperationResult = Result<StepOutcome, InterpreterError>;
 impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// Wraps [`Interpreter::mem_get`], marking the interpreter as poisoned on error
     fn resolve(&mut self, address: i64) -> Result<i64, NegativeMemAccess> {
@@ -79,12 +82,49 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         }
     }
 
+    pub(crate) fn input(
+        &mut self,
+        mode: ParamMode,
+        input: &mut impl Iterator<Item = i64>,
+    ) -> OperationResult {
+        let Some(input) = input.next() else {
+            return Ok(StepOutcome::Stopped(super::State::Awaiting));
+        };
+        let dest = self.resolve_dest(mode, 1)?;
+        self.trace([(self.code[self.index + 1], input)]);
+        self.code[dest] = input;
+        self.index += 2;
+        Ok(StepOutcome::Running)
+    }
+
+    pub(crate) fn output(&mut self, mode: ParamMode, output: &mut Vec<i64>) -> OperationResult {
+        let out_val = self.resolve_param(mode, 1)?;
+        self.trace([(self.code[self.index + 1], out_val)]);
+        output.push(out_val);
+        self.index += 2;
+        Ok(StepOutcome::Running)
+    }
+
+    pub(crate) fn rbo(&mut self, mode: ParamMode) -> OperationResult {
+        let offset = self.resolve_param(mode, 1)?;
+        self.trace([(self.code[self.index + 1], offset)]);
+        self.rel_offset += offset;
+        self.index += 2;
+        Ok(StepOutcome::Running)
+    }
+
+    pub(crate) fn halt(&mut self) -> StepOutcome {
+        self.trace([]);
+        self.halted = true;
+        StepOutcome::Stopped(State::Halted)
+    }
+
     /// common logic of all 4 instructions that take 3 parameters
     pub(crate) fn op3(
         &mut self,
         modes: [ParamMode; 3],
         operation: impl Fn(i64, i64) -> i64,
-    ) -> Result<StepOutcome, InterpreterError> {
+    ) -> OperationResult {
         let a = self.resolve_param(modes[0], 1)?;
         let b = self.resolve_param(modes[1], 2)?;
         let dest = self.resolve_dest(modes[2], 3)?;
@@ -103,15 +143,15 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     pub(crate) fn jump(
         &mut self,
         modes: [ParamMode; 3],
-        func: impl Fn(i64) -> bool,
-    ) -> Result<StepOutcome, InterpreterError> {
+        jump_if: impl Fn(i64) -> bool,
+    ) -> OperationResult {
         let expr = self.resolve_param(modes[0], 1)?;
         let dest = self.resolve_param(modes[1], 2)?;
         self.trace([
             (self.code[self.index + 1], expr),
             (self.code[self.index + 2], dest),
         ]);
-        if func(expr) {
+        if jump_if(expr) {
             self.index = dest;
             if dest < 0 {
                 self.poisoned = true;

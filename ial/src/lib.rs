@@ -459,39 +459,14 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         match opcode {
             OpCode::Add => self.op3(modes, |a, b| a + b),
             OpCode::Mul => self.op3(modes, |a, b| a * b),
-            OpCode::In => {
-                let Some(input) = input.next() else {
-                    return Ok(StepOutcome::Stopped(State::Awaiting));
-                };
-                let dest = self.resolve_dest(modes[0], 1)?;
-                self.trace([(self.code[self.index + 1], input)]);
-                self.code[dest] = input;
-                self.index += 2;
-                Ok(StepOutcome::Running)
-            }
-            OpCode::Out => {
-                let out_val = self.resolve_param(modes[0], 1)?;
-                self.trace([(self.code[self.index + 1], out_val)]);
-                output.push(out_val);
-                self.index += 2;
-                Ok(StepOutcome::Running)
-            }
+            OpCode::In => self.input(modes[0], input),
+            OpCode::Out => self.output(modes[0], output),
             OpCode::Jnz => self.jump(modes, |i| i != 0),
             OpCode::Jz => self.jump(modes, |i| i == 0),
             OpCode::Lt => self.op3(modes, |a, b| i64::from(a < b)),
             OpCode::Eq => self.op3(modes, |a, b| i64::from(a == b)),
-            OpCode::Rbo => {
-                let offset = self.resolve_param(modes[0], 1)?;
-                self.trace([(self.code[self.index + 1], offset)]);
-                self.rel_offset += offset;
-                self.index += 2;
-                Ok(StepOutcome::Running)
-            }
-            OpCode::Halt => {
-                self.trace([]);
-                self.halted = true;
-                Ok(StepOutcome::Stopped(State::Halted))
-            }
+            OpCode::Rbo => self.rbo(modes[0]),
+            OpCode::Halt => Ok(self.halt()),
         }
     }
 
@@ -524,10 +499,9 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         let mut outputs = Vec::new();
         let mut inputs = inputs.into_iter();
         loop {
-            match self.exec_instruction(&mut inputs, &mut outputs) {
-                Ok(StepOutcome::Running) => (),
-                Ok(StepOutcome::Stopped(state)) => break Ok((outputs, state)),
-                Err(e) => break Err(e),
+            match self.exec_instruction(&mut inputs, &mut outputs)? {
+                StepOutcome::Running => (),
+                StepOutcome::Stopped(state) => break Ok((outputs, state)),
             }
         }
     }
