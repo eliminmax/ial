@@ -218,6 +218,7 @@ impl IntoIterator for PagedMem {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Debug for PagedMem {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmtstruct = fmt.debug_map();

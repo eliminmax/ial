@@ -245,6 +245,7 @@ impl Trace {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Debug for TracedOp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         macro_rules! arg {
@@ -274,6 +275,7 @@ impl Debug for TracedOp {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl Debug for TracedInstr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TracedInstr")

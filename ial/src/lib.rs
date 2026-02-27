@@ -265,6 +265,7 @@ impl<M: IntcodeMem + PartialEq> PartialEq for Interpreter<M> {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl<M: IntcodeMem + Debug> Debug for Interpreter<M> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Interpreter")
