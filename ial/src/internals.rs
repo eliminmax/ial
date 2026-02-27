@@ -27,7 +27,7 @@ pub(crate) fn parse_op(op: i64) -> Result<(OpCode, [ParamMode; 3]), InterpreterE
 
 impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// Wraps [`Interpreter::mem_get`], marking the interpreter as poisoned on error
-    pub(crate) fn checked_access(&mut self, address: i64) -> Result<i64, NegativeMemAccess> {
+    fn resolve(&mut self, address: i64) -> Result<i64, NegativeMemAccess> {
         let result = self.mem_get(address);
         if result.is_err() {
             self.poisoned = true;
@@ -45,11 +45,9 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         offset: i64,
     ) -> Result<i64, NegativeMemAccess> {
         match mode {
-            ParamMode::Positional => self.checked_access(self.code[self.index + offset]),
+            ParamMode::Positional => self.resolve(self.code[self.index + offset]),
             ParamMode::Immediate => Ok(self.code[self.index + offset]),
-            ParamMode::Relative => {
-                self.checked_access(self.rel_offset + self.code[self.index + offset])
-            }
+            ParamMode::Relative => self.resolve(self.rel_offset + self.code[self.index + offset]),
         }
     }
 
