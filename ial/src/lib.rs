@@ -508,12 +508,12 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     ) -> Result<(Vec<i64>, State), InterpreterError> {
         let mut outputs = Vec::new();
         let mut inputs = inputs.into_iter();
-        loop {
-            match self.exec_instruction(&mut inputs, &mut outputs)? {
-                StepOutcome::Running => (),
-                StepOutcome::Stopped(state) => break Ok((outputs, state)),
+        let state = loop {
+            if let StepOutcome::Stopped(state) = self.exec_instruction(&mut inputs, &mut outputs)? {
+                break state;
             }
-        }
+        };
+        Ok((outputs, state))
     }
 
     /// Pre-compute as much as possible - that is, run every up to, but not including, the first
