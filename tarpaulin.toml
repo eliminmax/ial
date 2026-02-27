@@ -8,3 +8,4 @@ engine = "Llvm"
 test-timeout = "1m"
 target-dir = ".tarpaulin"
 out = [ "Html" ]
+skip-clean = true
