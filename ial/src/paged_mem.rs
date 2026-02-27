@@ -130,7 +130,7 @@ impl IntcodeMem for PagedMem {
         let last = range.end - 1;
         let first_segment = first & !0x1ff;
         let last_segment = last & !0x1ff;
-        if first & !0x1ff == last & !0x1ff {
+        if first_segment == last_segment {
             Ok(Cow::Borrowed(
                 &self.get_segment(first_segment)[page_index!(first)..=page_index!(last)],
             ))
