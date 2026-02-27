@@ -144,52 +144,46 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     let parse_op_strict = |i: i64| -> Option<(OpCode, [ParamMode; 3])> {
         let (opcode, modes) = parse_op(i).ok()?;
         let rebuilt = match opcode {
-            OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq => {
-                opcode as i64
+            op @ (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq) => {
+                op as i64
                     + (modes[0] as i64 * 100)
                     + (modes[1] as i64 * 1000)
                     + (modes[2] as i64 * 10000)
             }
-            OpCode::Jnz | OpCode::Jz => {
-                opcode as i64 + (modes[0] as i64 * 100) + (modes[1] as i64 * 1000)
+            op @ (OpCode::Jnz | OpCode::Jz) => {
+                op as i64 + (modes[0] as i64 * 100) + (modes[1] as i64 * 1000)
             }
-            OpCode::In | OpCode::Out | OpCode::Rbo => opcode as i64 + (modes[0] as i64 * 100),
-            OpCode::Halt => opcode as i64,
+            op @ (OpCode::In | OpCode::Out | OpCode::Rbo) => op as i64 + (modes[0] as i64 * 100),
+            op @ OpCode::Halt => op as i64,
         };
         (rebuilt == i).then_some((opcode, modes))
     };
 
     while let Some(i) = mem_iter.next() {
         if let Some((opcode, modes)) = parse_op_strict(i) {
-            macro_rules! param {
-                ($mode_i: literal) => {{
-                    Parameter(
-                        modes[$mode_i],
-                        boxed(OuterExpr {
-                            expr: spanned_expr(Expr::Number(mem_iter.next().unwrap_or_default())),
-                            labels: vec![],
-                        }),
-                    )
-                }};
-            }
-            macro_rules! instr {
-                ($type: ident, 3) => {{ Instr::$type(param!(0), param!(1), param!(2)) }};
-                ($type: ident, 2) => {{ Instr::$type(param!(0), param!(1)) }};
-                ($type: ident, 1) => {{ Instr::$type(param!(0)) }};
-            }
+            let mut param = |i: usize| {
+                Parameter(
+                    modes[i],
+                    boxed(OuterExpr {
+                        expr: spanned_expr(Expr::Number(mem_iter.next().unwrap_or_default())),
+                        labels: vec![],
+                    }),
+                )
+            };
 
             let instr = match opcode {
-                OpCode::Add => instr!(Add, 3),
-                OpCode::Mul => instr!(Mul, 3),
-                OpCode::In => instr!(In, 1),
-                OpCode::Out => instr!(Out, 1),
-                OpCode::Jnz => instr!(Jnz, 2),
-                OpCode::Jz => instr!(Jz, 2),
-                OpCode::Lt => instr!(Lt, 3),
-                OpCode::Eq => instr!(Eq, 3),
-                OpCode::Rbo => instr!(Rbo, 1),
+                OpCode::Add => Instr::Add(param(0), param(1), param(2)),
+                OpCode::Mul => Instr::Mul(param(0), param(1), param(2)),
+                OpCode::In => Instr::In(param(0)),
+                OpCode::Out => Instr::Out(param(0)),
+                OpCode::Jnz => Instr::Jnz(param(0), param(1)),
+                OpCode::Jz => Instr::Jz(param(0), param(1)),
+                OpCode::Lt => Instr::Lt(param(0), param(1), param(2)),
+                OpCode::Eq => Instr::Eq(param(0), param(1), param(2)),
+                OpCode::Rbo => Instr::Rbo(param(0)),
                 OpCode::Halt => Instr::Halt,
             };
+
             lines.push(Line {
                 labels: vec![],
                 directive: Some(span_dis(Directive::Instruction(boxed(instr)))),
@@ -414,4 +408,35 @@ pub fn disassemble_with_debug(
         write_string!(&mut disasm, "{}:", labels.iter().format(": "));
     }
     disasm
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn disassemble_various() {
+        let progs = [
+            "ADD #1, @1, 1\n",
+            "MUL 3, @20, 3\n",
+            "IN 1\n",
+            "OUT #5\n",
+            "JNZ @1, @2\n",
+            "JZ #0, @0\n",
+            "LT 1, @1, 1032\n",
+            "EQ #8086, @-500, 5\n",
+            "RBO @0\n",
+            "HALT\n",
+            "ASCII \"\\e[48;5;\"\n",
+            "DATA 123, 312, 123\n",
+        ];
+        for prog in progs {
+            use crate::asm::{assemble, assemble_with_debug, build_ast};
+            let (code, dbg) = assemble_with_debug(build_ast(prog).unwrap()).unwrap();
+            let disasm = disassemble(code.iter().copied());
+            // ensure that the original and disassembly result in the same intcode
+            assert_eq!(assemble(&disasm).unwrap(), code);
+            // ensure that dbg-informed disassembly matches the original
+            assert_eq!(disassemble_with_debug(code, &dbg), prog);
+        }
+    }
 }
