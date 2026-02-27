@@ -529,6 +529,8 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         {
             self.exec_instruction(&mut empty(), &mut Vec::with_capacity(0))?;
         }
+        // line results in no actual code, so would be a false negative if counted
+        #[cfg(not(tarpaulin_include))]
         Ok(())
     }
 
