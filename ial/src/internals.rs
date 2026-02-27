@@ -123,3 +123,85 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
         Ok(StepOutcome::Running)
     }
 }
+
+#[cfg(test)]
+mod fallback_tests {
+    //! Some tests that hit parts of the internals that aren't hit by integration tests or other
+    //! modules' unit tests
+
+    use super::*;
+    use std::iter::empty;
+    type InterpreterV = crate::Interpreter<crate::VecMem>;
+    type InterpreterP = crate::Interpreter<crate::PagedMem>;
+
+    fn assemble(s: &'static str) -> Vec<i64> {
+        crate::asm::assemble(s).unwrap()
+    }
+
+    macro_rules! assert_poisoned {
+        ($interp: ident) => {{
+            assert!($interp.poisoned);
+            let poisoned_err = $interp.exec_instruction(&mut empty(), &mut vec![]);
+            assert_eq!(poisoned_err, Err(InterpreterError::Poisoned));
+        }};
+    }
+
+    #[test]
+    fn relative_dest() {
+        let mut interp = InterpreterV::new(assemble("RBO #h\nMUL #11, #9, @0\nh:DATA 0"));
+        interp.start_trace();
+        let (output, state) = interp.run_through_inputs([]).unwrap();
+        assert!(output.is_empty());
+        assert_eq!(state, crate::State::Halted);
+        let trace = interp.end_trace().unwrap();
+        let traced_instrs = trace.as_slice();
+        assert_eq!(traced_instrs.len(), 3);
+        assert_eq!(traced_instrs[1].op_code(), crate::OpCode::Mul);
+        assert_eq!(traced_instrs[1].stored_val(), Some(99));
+        assert!(matches!(traced_instrs[1].param_modes(), [_, _, ParamMode::Relative]));
+    }
+
+    #[test]
+    fn jump_to_negative() {
+        let mut interp = InterpreterV::new([1105, 1, -1]); // JNZ #1, #-1
+        let jump_err = interp
+            .exec_instruction(&mut empty(), &mut vec![])
+            .unwrap_err();
+        assert_eq!(jump_err, InterpreterError::JumpToNegative(-1));
+        assert_poisoned!(interp);
+    }
+
+    #[test]
+    fn bad_indices() {
+        let neg_mem = InterpreterError::NegativeMemAccess(NegativeMemAccess(-1));
+        // read from negative positional
+        let mut interp = InterpreterP::new(assemble("ADD -1, #0, 4"));
+        let pos_read_err = interp.precompute().unwrap_err();
+        assert_eq!(pos_read_err, neg_mem);
+        assert_poisoned!(interp);
+
+        // read from negative relative
+        let mut interp = InterpreterV::new(assemble("RBO -1\nADD @0, #0, 50"));
+        let rel_read_err = interp.precompute().unwrap_err();
+        assert_eq!(rel_read_err, neg_mem);
+        assert_poisoned!(interp);
+
+        // write to negative positional
+        let mut interp = InterpreterV::new(assemble("ADD #0, #1, -1"));
+        let pos_write_err = interp.precompute().unwrap_err();
+        assert_eq!(pos_write_err, neg_mem);
+        assert_poisoned!(interp);
+
+        // write to negative relative
+        let mut interp = InterpreterV::new(assemble("RBO #-2\nADD #0, #0, @1"));
+        let rel_write_err = interp.precompute().unwrap_err();
+        assert_eq!(rel_write_err, neg_mem);
+        assert_poisoned!(interp);
+
+        // write to immediate
+        let mut interp = InterpreterP::new(assemble("add #1, #1, #0"));
+        let imm_write_err = interp.precompute().unwrap_err();
+        assert_eq!(imm_write_err, InterpreterError::WriteToImmediate(0));
+        assert_poisoned!(interp);
+    }
+}
