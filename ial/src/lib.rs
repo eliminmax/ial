@@ -78,7 +78,7 @@
 //! assert_eq!(&default_disasm, "OUT #1024\nHALT\n");
 //!
 //! // It isn't identical, but using the debug info at least matches directive types:
-//! let debug_info_disasm = disassemble_with_debug(intcode, &debug_info).unwrap();
+//! let debug_info_disasm = disassemble_with_debug(intcode, &debug_info);
 //! assert_eq!(&debug_info_disasm, "ASCII \"h\"\nDATA 1024, 99\n")
 //! ```
 //!
@@ -635,14 +635,8 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
             writeln!(writer, "    relative base: {}", self.rel_offset)?;
         }
 
-        match disassemble_with_debug(self.code.clone(), debug_info) {
-            Ok(dis) => writeln!(writer, "\n\nDISASSEMBLY\n{dis}")?,
-            Err(e) => writeln!(
-                writer,
-                "unable to disassemble with provided debug_info: {e}"
-            )?,
-        }
-        Ok(())
+        let dis = disassemble_with_debug(self.code.clone(), debug_info);
+        writeln!(writer, "\n\nDISASSEMBLY\n{dis}")
     }
 
     /// Switch an [`Interpreter`] from one [`IntcodeMem`] type to another

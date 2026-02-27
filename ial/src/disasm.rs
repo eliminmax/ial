@@ -218,7 +218,7 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
     lines.into_iter().format("\n").to_string() + "\n"
 }
 
-use crate::debug_info::{DebugInfo, DebugInfoError, DirectiveDebug, DirectiveKind};
+use crate::debug_info::{DebugInfo, DirectiveDebug, DirectiveKind};
 use crate::internals::parse_op;
 
 macro_rules! write_string {
@@ -275,26 +275,25 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
     start_address: i64,
     label_lookups: &HashMap<i64, Vec<&'a str>>,
     disasm: &mut String,
-) -> Result<i64, DebugInfoError> {
+) -> i64 {
     let directive_size = dbg.output_span.end - dbg.output_span.start;
-    let ints = code.by_ref().take(directive_size).collect_vec();
-
-    if let Some(needed @ 1..) = directive_size.checked_sub(ints.len()) {
-        return Err(DebugInfoError::MissingInts(needed));
-    }
+    let ints = code
+        .by_ref()
+        .chain(std::iter::repeat(0))
+        .take(directive_size)
+        .collect_vec();
 
     macro_rules! fallback {
         ($msg: expr) => {{
             writeln_string!(disasm, "DATA {} ; {}", ints.into_iter().format(", "), $msg);
-            return i64::try_from(directive_size)
-                .map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size));
+            return i64::try_from(directive_size).expect("directive larger than i64::MAX");
         }};
     }
 
     match dbg.kind {
         DirectiveKind::Instruction => {
             if ints.is_empty() || ints.len() > 4 {
-                return Err(DebugInfoError::CorruptDirectiveSize);
+                panic!("invalid instruction directive size: {}", ints.len());
             }
 
             let Ok((op, modes)) = parse_op(ints[0]) else {
@@ -376,26 +375,21 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
         }
     }
 
-    i64::try_from(directive_size).map_err(|_| DebugInfoError::DirectiveTooLarge(directive_size))
+    i64::try_from(directive_size).expect("directives must be smaller than i64::MAX")
 }
 
 /// Dissasmble `code`, using [`DebugInfo`] to avoid some of the limitations of [disassemble]
 ///
-/// # Errors
+/// # Panics
 ///
-/// * If `code` is shorter than expected for [`self.directives`], returns
-///   [`DebugInfoError::MissingInts`].
-/// * If an instruction directive's span is out of the range `1..=4`, returns a
-///   [`DebugInfoError::CorruptDirectiveSize`].
-/// * If a directive's size exceeds [`usize::MAX`], returns a
-///   [`DebugInfoError::DirectiveTooLarge`].
+/// Panics if a directive's size exceeds [`usize::MAX`]
 ///
 /// [`self.labels`]: DebugInfo::labels
 /// [`self.directives`]: DebugInfo::directives
 pub fn disassemble_with_debug(
     mem_iter: impl IntoIterator<Item = i64>,
     debug_info: &DebugInfo,
-) -> Result<String, DebugInfoError> {
+) -> String {
     let mut code = mem_iter.into_iter();
     let label_lookups: HashMap<i64, Vec<&str>> = debug_info
         .labels
@@ -406,30 +400,16 @@ pub fn disassemble_with_debug(
     let mut addr: i64 = 0;
 
     let mut disasm = String::new();
-    for (i, dir) in debug_info.directives.iter().enumerate() {
+    for dir in &debug_info.directives {
         if let Some(labels) = label_lookups.get(&addr) {
-            for label in &labels[..] {
-                write_string!(&mut disasm, "{label}:\t");
-            }
+            write_string!(&mut disasm, "{}:", labels.join(": "));
         }
 
-        match disasm_directive_with_dbg(dir, &mut code, addr, &label_lookups, &mut disasm) {
-            Ok(n) => addr += n,
-            Err(DebugInfoError::MissingInts(mut missing)) => {
-                for dir in &debug_info.directives[i + 1..] {
-                    missing += dir.output_span.end - dir.output_span.start;
-                }
-
-                return Err(DebugInfoError::MissingInts(missing));
-            }
-            Err(e) => return Err(e),
-        }
+        addr += disasm_directive_with_dbg(dir, &mut code, addr, &label_lookups, &mut disasm);
     }
 
     if let Some(labels) = label_lookups.get(&addr) {
-        for label in &labels[..] {
-            write_string!(&mut disasm, "{label}:\t");
-        }
+        write_string!(&mut disasm, "{}:", labels.join(": "));
     }
-    Ok(disasm)
+    disasm
 }

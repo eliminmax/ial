@@ -5,7 +5,6 @@
 //! Module for [`DebugInfo`] and its related functionality
 
 use chumsky::span::{SimpleSpan, Spanned};
-use std::fmt::{self, Display};
 
 #[doc(inline)]
 pub use ial_core::DirectiveKind;
@@ -31,39 +30,5 @@ pub struct DebugInfo {
     pub labels: Box<[(Spanned<Box<str>>, i64)]>,
     /// Boxed slice of debug info about each directive
     pub directives: Box<[DirectiveDebug]>,
-}
 
-#[derive(Debug)]
-/// An error that occurred when attempting to use [`DebugInfo`] to disassemble code
-pub enum DebugInfoError {
-    /// Debug info included at least this many ints beyond the end of the input
-    MissingInts(usize),
-    /// An [instruction directive] had either 0 or more than 4 ints in its [`output_span`]
-    ///
-    /// [instruction directive]: DirectiveKind::Instruction
-    /// [`output_span`]: DirectiveDebug::output_span
-    CorruptDirectiveSize,
-    /// A [directive] from the [`DebugInfo`] was larger than [`i64::MAX`]
-    ///
-    /// [directive]: ial_ast::Directive
-    DirectiveTooLarge(usize),
 }
-
-#[cfg(not(tarpaulin_include))]
-impl Display for DebugInfoError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DebugInfoError::MissingInts(i) => write!(f, "expected at least {i} more ints"),
-            DebugInfoError::CorruptDirectiveSize => {
-                write!(f, "debug info has an invalid instruction directive size")
-            }
-            DebugInfoError::DirectiveTooLarge(size) => {
-                write!(
-                    f,
-                    "debug info has a directive {size} long, which is longer than i64::MAX"
-                )
-            }
-        }
-    }
-}
-impl std::error::Error for DebugInfoError {}

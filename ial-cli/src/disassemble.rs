@@ -39,7 +39,7 @@ impl DisassembleArgs {
 
         let disasm = if let Some(dbg) = self.debug_info.as_ref() {
             let debug_info = DebugInfo::read(File::open(dbg)?)?;
-            disassemble_with_debug(intcode, &debug_info)?
+            disassemble_with_debug(intcode, &debug_info)
         } else {
             disassemble(intcode)
         };
