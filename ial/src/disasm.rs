@@ -292,9 +292,11 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
 
     match dbg.kind {
         DirectiveKind::Instruction => {
-            if ints.is_empty() || ints.len() > 4 {
-                panic!("invalid instruction directive size: {}", ints.len());
-            }
+            debug_assert!(
+                !(ints.is_empty() || ints.len() > 4),
+                "invalid instruction directive size: {}",
+                ints.len()
+            );
 
             let Ok((op, modes)) = parse_op(ints[0]) else {
                 fallback!("expected instruction");
@@ -402,14 +404,14 @@ pub fn disassemble_with_debug(
     let mut disasm = String::new();
     for dir in &debug_info.directives {
         if let Some(labels) = label_lookups.get(&addr) {
-            write_string!(&mut disasm, "{}:", labels.join(": "));
+            write_string!(&mut disasm, "{}: ", labels.iter().format(": "));
         }
 
         addr += disasm_directive_with_dbg(dir, &mut code, addr, &label_lookups, &mut disasm);
     }
 
     if let Some(labels) = label_lookups.get(&addr) {
-        write_string!(&mut disasm, "{}:", labels.join(": "));
+        write_string!(&mut disasm, "{}:", labels.iter().format(": "));
     }
     disasm
 }
