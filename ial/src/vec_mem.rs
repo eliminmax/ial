@@ -59,7 +59,7 @@ impl IntcodeMem for VecMem {
             let start = usize::try_from(range.start).expect("range starts past usize::MAX");
             let end = usize::try_from(range.end).expect("range ends past usize::MAX");
             let len = end - start;
-            if end < self.0.len() {
+            if end <= self.0.len() {
                 Ok(Cow::Borrowed(&self.0[start..end]))
             } else if start < self.0.len() {
                 let mut v = self.0[start..].to_vec();
