@@ -232,3 +232,77 @@ impl fmt::Debug for PagedMem {
         fmtstruct.finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! tests of [`PagedMem`]-specific functionality not covered in
+    //! [`crate::interpreter_mem_tests`]
+    use super::*;
+
+    macro_rules! hash_map {
+        {$($k: expr => $v: expr),*} => {
+            HashMap::from([$(($k, $v)),*])
+        }
+    }
+
+    #[test]
+    /// test that [`PagedMem::active_segments`], and the [`PartialEq`] and [`Clone`] impls exclude
+    /// fully-zeroed segments.
+    fn inactive_ignored() {
+        let a = PagedMem {
+            segments: hash_map! {
+                0x000 => Box::new([1; 512]),
+                0x200 => Box::new([0; 512]),
+                0x400 => Box::new([-1; 512])
+            },
+        };
+        let b = PagedMem::clone(&a);
+        assert_eq!(a.active_segments(), BTreeSet::from([0x000, 0x400]));
+        assert_eq!(b.active_segments(), BTreeSet::from([0x000, 0x400]));
+        assert_eq!(a, b);
+        assert_ne!(a.segments, b.segments);
+    }
+
+    #[test]
+    fn iter_over_gap() {
+        let mut expected = vec![1; 512];
+        expected.extend(vec![0; 512]);
+        expected.extend(vec![-1; 512]);
+        let mem = PagedMem {
+            segments: hash_map! {
+                0x000 => Box::new([1; 512]),
+                0x400 => Box::new([-1; 512])
+            },
+        };
+        assert_eq!(mem.into_iter().collect_vec(), expected);
+    }
+
+    #[test]
+    fn prune_deletes_empty() {
+        let mut mem = PagedMem {
+            segments: hash_map! {
+                0x000 => Box::new([1; 512]),
+                0x200 => Box::new([0; 512]),
+                0x400 => Box::new([-1; 512])
+            },
+        };
+        mem.prune();
+        assert_eq!(
+            mem.segments,
+            hash_map! { 0x000 => Box::new([1; 512]), 0x400 => Box::new([-1; 512])}
+        );
+    }
+
+    #[test]
+    fn range_around_segment() {
+        let mem = PagedMem {
+            segments: hash_map! {
+                0x000 => Box::new([1; 512]),
+                0x200 => Box::new([1; 512]),
+                0x400 => Box::new([1; 512])
+            },
+        };
+
+        assert_eq!(mem.get_range(0x100..0x500), Ok(Cow::Owned(vec![1; 0x400])));
+    }
+}
