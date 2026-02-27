@@ -252,6 +252,16 @@ pub trait IntcodeMem:
     /// For example, [`PagedMem`] drops all pages that are all zeroes then shrinks its segment
     /// map's allocation
     fn prune(&mut self);
+
+    /// Version of [`IntcodeMem::prune`] that takes ownership of `self`, then passes it back, for
+    /// use inline within method chains
+    #[doc(hidden)]
+    #[inline]
+    #[must_use]
+    fn pruned(mut self) -> Self {
+        self.prune();
+        self
+    }
 }
 
 #[derive(Clone)]
@@ -646,23 +656,13 @@ impl<Mem: IntcodeMem> Interpreter<Mem> {
     /// This converts the `Interpreter`'s memory from the existing memory type to `NewMem`, then
     /// calls [`IntcodeMem::prune`]. All internal state of the interpreter is preserved.
     pub fn switch_mem_backend<NewMem: IntcodeMem>(self) -> Interpreter<NewMem> {
-        let Interpreter {
-            index,
-            rel_offset,
-            code,
-            poisoned,
-            halted,
-            trace,
-        } = self;
-        let mut code = NewMem::from_iter(code);
-        code.prune();
         Interpreter {
-            index,
-            rel_offset,
-            code,
-            poisoned,
-            halted,
-            trace,
+            index: self.index,
+            rel_offset: self.rel_offset,
+            code: NewMem::from_iter(self.code).pruned(),
+            poisoned: self.poisoned,
+            halted: self.halted,
+            trace: self.trace,
         }
     }
 }
