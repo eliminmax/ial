@@ -388,7 +388,11 @@ impl DebugInfo {
                 context: (),
             };
             let start = read_size(&mut reader)?;
-            let end = start + read_size(&mut reader)?;
+            let len = read_size(&mut reader)?;
+            if matches!((kind, len), (DirectiveKind::Instruction, 0 | 5..)) {
+                return Err(Error::InvalidInstrDirective(len));
+            }
+            let end = start + len;
             let output_span = SimpleSpan {
                 start,
                 end,
@@ -419,6 +423,8 @@ pub enum DebugInfoReadError {
     IoError(io::Error),
     /// [usize] too small to store a given size
     IntSize,
+    /// An instruction directive's size was less than 0 or more than 4
+    InvalidInstrDirective(usize),
     /// The provided byte didn't match any [`DirectiveKind`]
     BadDirectiveByte(u8),
     /// A [label][DebugInfo::labels]'s [span][SimpleSpan] is backwards
@@ -456,6 +462,9 @@ impl Display for DebugInfoReadError {
             DebugInfoReadError::IoError(error) => Display::fmt(error, f),
             DebugInfoReadError::IntSize => {
                 write!(f, "usize too small to load value")
+            }
+            DebugInfoReadError::InvalidInstrDirective(size) => {
+                write!(f, "instruction directive size {size} is invalid")
             }
             DebugInfoReadError::BadDirectiveByte(byte) => {
                 write!(f, "bad directive byte: 0x{byte:02x}")
@@ -530,6 +539,7 @@ mod encoded_size_tests;
 mod misc_tests {
 
     use super::*;
+    use flate2::write::ZlibEncoder;
 
     /// Unreadable macro to allow for readable test values
     ///
@@ -679,11 +689,28 @@ mod misc_tests {
     }
 
     #[test]
+    fn bad_int_size() {
+        let mut bad = HEADER.to_vec();
+        {
+            let mut writer =
+                BufWriter::new(ZlibEncoder::new(&mut bad, flate2::Compression::default()));
+            writer
+                .write_all(&[0, 1, DirectiveKind::Instruction as u8, 0, 0, 0])
+                .unwrap();
+            encode_size(&mut writer, 12).unwrap();
+        };
+        let err = DebugInfo::read(bad.as_slice()).unwrap_err();
+        assert!(
+            matches!(err, DebugInfoReadError::InvalidInstrDirective(12)),
+            "{err}"
+        );
+    }
+
+    #[test]
     fn bad_labels() {
         fn gen_bad_label(bytes: &[u8]) -> DebugInfoReadError {
             let mut bad = HEADER.to_vec();
             {
-                use flate2::write::ZlibEncoder;
                 let mut writer =
                     BufWriter::new(ZlibEncoder::new(&mut bad, flate2::Compression::default()));
                 encode_size(&mut writer, 1).unwrap();
