@@ -63,7 +63,7 @@ impl PagedMem {
     fn active_segments(&self) -> BTreeSet<i64> {
         self.segments
             .iter()
-            .filter_map(|(&k, v)| (v.as_ref() == &EMPTY).then_some(k))
+            .filter_map(|(&k, v)| (v.as_ref() != &EMPTY).then_some(k))
             .collect()
     }
 
