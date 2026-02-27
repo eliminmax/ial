@@ -246,6 +246,12 @@ pub trait IntcodeMem:
     /// If the specified range already exists in a contiguous block of memory, then it should
     /// return a [`Cow::Borrowed`]. Otherwise, it should return a [`Cow::Owned`].
     fn get_range(&self, range: Range<i64>) -> Result<Cow<'_, [i64]>, NegativeMemAccess>;
+
+    /// Drop memory which can be discarded without losing information
+    ///
+    /// For example, [`PagedMem`] drops all pages that are all zeroes then shrinks its segment
+    /// map's allocation
+    fn prune(&mut self);
 }
 
 #[derive(Clone)]

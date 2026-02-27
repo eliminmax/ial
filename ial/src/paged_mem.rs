@@ -67,12 +67,6 @@ impl PagedMem {
             .collect()
     }
 
-    /// remove all fully-zeroed segments, and shrink the segment map down to size
-    pub fn prune(&mut self) {
-        self.segments.retain(|_, s| s[..] != EMPTY);
-        self.segments.shrink_to_fit();
-    }
-
     fn get_segment(&self, segment_num: i64) -> &[i64; 512] {
         self.segments
             .get(&segment_num)
@@ -150,6 +144,11 @@ impl IntcodeMem for PagedMem {
 
             Ok(Cow::Owned(v))
         }
+    }
+
+    fn prune(&mut self) {
+        self.segments.retain(|_, s| s[..] != EMPTY);
+        self.segments.shrink_to_fit();
     }
 }
 

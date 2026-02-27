@@ -70,4 +70,9 @@ impl IntcodeMem for VecMem {
             }
         }
     }
+
+    fn prune(&mut self) {
+        while self.0.pop_if(|i| *i == 0).is_some() {}
+        self.0.shrink_to_fit();
+    }
 }
