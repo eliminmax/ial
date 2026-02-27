@@ -323,7 +323,7 @@ pub enum StepOutcome {
 
 #[repr(transparent)]
 /// Attempted to access the contained negative memory index
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NegativeMemAccess(pub i64);
 
 impl From<NegativeMemAccess> for InterpreterError {
