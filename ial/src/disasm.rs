@@ -245,6 +245,77 @@ fn spanned_expr(expr: Expr<'_>) -> SpannedExpr<'_> {
     }
 }
 
+fn disasm_ascii(ints: &[i64], disasm: &mut String) {
+    if let Ok(bytes) = ints
+        .iter()
+        .copied()
+        .map(u8::try_from)
+        .collect::<Result<Vec<_>, _>>()
+    {
+        disasm.push_str("ASCII \"");
+        for b in bytes {
+            match b {
+                0x1b => disasm.push_str("\\e"),
+                _ => write_string!(disasm, "{}", b.escape_ascii()),
+            }
+        }
+        disasm.push_str("\"\n");
+    } else {
+        writeln_string!(disasm, "DATA {} ; expected ASCII", ints.iter().format(", "));
+    }
+}
+
+fn disasm_instr<I: Iterator<Item = i64>>(
+    mut ints: I,
+    directive_size: usize,
+    start_address: i64,
+    label_lookups: &HashMap<i64, Vec<&str>>,
+    disasm: &mut String,
+) {
+    let op_int = ints.next().unwrap();
+    if let Some((op, modes)) = parse_op_strict(op_int) {
+        match (op, directive_size) {
+            (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq, 4)
+            | (OpCode::Jnz | OpCode::Jz, 3)
+            | (OpCode::In | OpCode::Out | OpCode::Rbo, 2) => {
+                let param_fmt =
+                    |((mode, num), addr), f: &mut dyn FnMut(&dyn Display) -> fmt::Result| {
+                        if let Some(labels) = label_lookups.get(&addr) {
+                            f(&format_args!("{mode}{}: {num}", labels.iter().format(": ")))
+                        } else {
+                            f(&format_args!("{mode}{num}"))
+                        }
+                    };
+                let params = modes
+                    .iter()
+                    .zip(ints.map(|i| {
+                        label_lookups
+                            .get(&i)
+                            .map_or_else(|| i.to_string(), |v| v[0].to_string())
+                    }))
+                    .zip(start_address + 1..)
+                    .format_with(", ", |param, f| param_fmt(param, f));
+                writeln_string!(disasm, "{op} {}", params);
+            }
+            (OpCode::Halt, 1) => writeln_string!(disasm, "HALT"),
+            (op, 1) => {
+                writeln_string!(disasm, "DATA {op_int} ; invalid length {op} instruction");
+            }
+            (op, _) => {
+                write_string!(disasm, "DATA {op_int}, {}", ints.format(", "));
+                writeln_string!(disasm, " ; invalid length {op} instruction");
+            }
+        }
+    } else {
+        writeln_string!(
+            disasm,
+            "DATA {} ; {}",
+            std::iter::once(op_int).chain(ints).format(", "),
+            "expected instruction"
+        );
+    }
+}
+
 fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
     dbg: &'a DirectiveDebug,
     code: &mut I,
@@ -258,78 +329,19 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
         return 0;
     }
 
-    let mut ints = code
+    let ints = code
         .by_ref()
         .chain(std::iter::repeat(0))
         .take(directive_size);
 
     match dbg.kind {
         DirectiveKind::Instruction => {
-            let op_int = ints.next().unwrap();
-            if let Some((op, modes)) = parse_op_strict(op_int) {
-                match (op, directive_size) {
-                    (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq, 4)
-                    | (OpCode::Jnz | OpCode::Jz, 3)
-                    | (OpCode::In | OpCode::Out | OpCode::Rbo, 2) => {
-                        let param_fmt = |((mode, num), addr), f: &mut dyn FnMut(&dyn Display) -> fmt::Result | {
-                            if let Some(labels) = label_lookups.get(&addr) {
-                                f(&format_args!("{mode}{}: {num}", labels.iter().format(": ")))
-                            } else {
-                                f(&format_args!("{mode}{num}"))
-                            }
-                        };
-                        let params = modes
-                            .iter()
-                            .zip(ints.map(|i| {
-                                label_lookups
-                                    .get(&i)
-                                    .map_or_else(|| i.to_string(), |v| v[0].to_string())
-                            }))
-                            .zip(start_address + 1..)
-                            .format_with(", ", |param, f| param_fmt(param, f));
-                        writeln_string!(disasm, "{op} {}", params);
-                    }
-                    (OpCode::Halt, 1) => writeln_string!(disasm, "HALT"),
-                    (op, 1) => {
-                        writeln_string!(disasm, "DATA {op_int} ; invalid length {op} instruction");
-                    }
-                    (op, _) => {
-                        write_string!(disasm, "DATA {op_int}, {}", ints.format(", "));
-                        writeln_string!(disasm, " ; invalid length {op} instruction");
-                    }
-                }
-            } else {
-                writeln_string!(
-                    disasm,
-                    "DATA {} ; {}",
-                    std::iter::once(op_int).chain(ints).format(", "),
-                    "expected instruction"
-                );
-            }
+            disasm_instr(ints, directive_size, start_address, label_lookups, disasm);
         }
         DirectiveKind::Data => {
             writeln_string!(disasm, "DATA {}", ints.format(", "));
         }
-        DirectiveKind::Ascii => {
-            let (mut scan, ints) = ints.tee();
-            if scan.all(|i| (0..=255).contains(&i)) {
-                disasm.push_str("ASCII \"");
-                for i in ints {
-                    #[allow(
-                        clippy::cast_possible_truncation,
-                        clippy::cast_sign_loss,
-                        reason = "already known to be in range 0..=255"
-                    )]
-                    match i as u8 {
-                        b'\x1b' => disasm.push_str("\\e"),
-                        b => write_string!(disasm, "{}", b.escape_ascii()),
-                    }
-                }
-                disasm.push_str("\"\n");
-            } else {
-                writeln_string!(disasm, "DATA {} ; expected ASCII", ints.format(", "));
-            }
-        }
+        DirectiveKind::Ascii => disasm_ascii(&ints.collect_vec(), disasm),
     }
 
     i64::try_from(directive_size).expect("directives must be smaller than i64::MAX")
