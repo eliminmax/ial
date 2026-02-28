@@ -414,4 +414,56 @@ mod tests {
             assert_eq!(disassemble_with_debug(code, &dbg), prog);
         }
     }
+
+    #[test]
+    fn dbg_disassemble_edge_cases() {
+        let empty = DirectiveDebug {
+            kind: DirectiveKind::Data,
+            src_span: (0..0).into(),
+            output_span: (0..0).into(),
+        };
+        let bad_instr_len = DirectiveDebug {
+            kind: DirectiveKind::Instruction,
+            src_span: (0..0).into(),
+            output_span: (0..6).into(),
+        };
+
+        let mut dbg = DebugInfo {
+            labels: boxed([]),
+            directives: boxed([empty, bad_instr_len]),
+        };
+
+        let disasm = disassemble_with_debug([], &dbg);
+        let mut lines = disasm.lines();
+        assert_eq!(lines.next(), Some("; empty directive"));
+        assert_eq!(
+            lines.next(),
+            Some("DATA 0, 0, 0, 0, 0, 0 ; expected instruction")
+        );
+        assert!(lines.next().is_none());
+
+        dbg.directives = boxed([bad_instr_len]);
+        let disasm = disassemble_with_debug([99], &dbg);
+        lines = disasm.lines();
+        assert_eq!(
+            lines.next(),
+            Some("DATA 99, 0, 0, 0, 0, 0 ; invalid length HALT instruction")
+        );
+        assert!(lines.next().is_none());
+
+        dbg.directives[0].output_span.end = 1;
+        let disasm = disassemble_with_debug([1], &dbg);
+        lines = disasm.lines();
+        assert_eq!(
+            lines.next(),
+            Some("DATA 1 ; invalid length ADD instruction")
+        );
+        assert!(lines.next().is_none());
+
+        dbg.directives[0].kind = DirectiveKind::Ascii;
+        let disasm = disassemble_with_debug([-1], &dbg);
+        lines = disasm.lines();
+        assert_eq!(lines.next(), Some("DATA -1 ; expected ASCII"));
+        assert!(lines.next().is_none());
+    }
 }
