@@ -265,8 +265,8 @@ fn disasm_ascii(ints: &[i64], disasm: &mut String) {
     }
 }
 
-fn disasm_instr<I: Iterator<Item = i64>>(
-    mut ints: I,
+fn disasm_instr(
+    mut ints: impl Iterator<Item = i64>,
     directive_size: usize,
     start_address: i64,
     label_lookups: &HashMap<i64, Vec<&str>>,
@@ -316,9 +316,9 @@ fn disasm_instr<I: Iterator<Item = i64>>(
     }
 }
 
-fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
+fn disasm_directive_with_dbg<'a>(
     dbg: &'a DirectiveDebug,
-    code: &mut I,
+    code: &mut impl Iterator<Item = i64>,
     start_address: i64,
     label_lookups: &HashMap<i64, Vec<&'a str>>,
     disasm: &mut String,
