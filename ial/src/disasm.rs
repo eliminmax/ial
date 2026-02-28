@@ -11,7 +11,25 @@ use ial_ast::prelude::*;
 use ial_ast::util::boxed;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::fmt::Write;
+use std::fmt::{self, Display, Write};
+
+fn parse_op_strict(i: i64) -> Option<(OpCode, [ParamMode; 3])> {
+    let (opcode, modes) = parse_op(i).ok()?;
+    let rebuilt = match opcode {
+        op @ (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq) => {
+            op as i64
+                + (modes[0] as i64 * 100)
+                + (modes[1] as i64 * 1000)
+                + (modes[2] as i64 * 10000)
+        }
+        op @ (OpCode::Jnz | OpCode::Jz) => {
+            op as i64 + (modes[0] as i64 * 100) + (modes[1] as i64 * 1000)
+        }
+        op @ (OpCode::In | OpCode::Out | OpCode::Rbo) => op as i64 + (modes[0] as i64 * 100),
+        op @ OpCode::Halt => op as i64,
+    };
+    (rebuilt == i).then_some((opcode, modes))
+}
 
 /// Create disassembly from Intcode memory
 ///
@@ -141,24 +159,6 @@ pub fn disassemble(mem_iter: impl IntoIterator<Item = i64>) -> String {
 
     let mut lines = Vec::new();
 
-    let parse_op_strict = |i: i64| -> Option<(OpCode, [ParamMode; 3])> {
-        let (opcode, modes) = parse_op(i).ok()?;
-        let rebuilt = match opcode {
-            op @ (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq) => {
-                op as i64
-                    + (modes[0] as i64 * 100)
-                    + (modes[1] as i64 * 1000)
-                    + (modes[2] as i64 * 10000)
-            }
-            op @ (OpCode::Jnz | OpCode::Jz) => {
-                op as i64 + (modes[0] as i64 * 100) + (modes[1] as i64 * 1000)
-            }
-            op @ (OpCode::In | OpCode::Out | OpCode::Rbo) => op as i64 + (modes[0] as i64 * 100),
-            op @ OpCode::Halt => op as i64,
-        };
-        (rebuilt == i).then_some((opcode, modes))
-    };
-
     while let Some(i) = mem_iter.next() {
         if let Some((opcode, modes)) = parse_op_strict(i) {
             let mut param = |i: usize| {
@@ -245,24 +245,6 @@ fn spanned_expr(expr: Expr<'_>) -> SpannedExpr<'_> {
     }
 }
 
-fn disasm_outer_expr<'a>(
-    addr: i64,
-    value: i64,
-    label_lookups: &HashMap<i64, Vec<&'a str>>,
-) -> OuterExpr<'a> {
-    OuterExpr {
-        labels: label_lookups
-            .get(&addr)
-            .map(|labels| labels.iter().map(|id| Label(span_dis(*id))).collect())
-            .unwrap_or_default(),
-        expr: spanned_expr(
-            label_lookups
-                .get(&value)
-                .map_or(Expr::Number(value), |ids| Expr::Ident(ids[0])),
-        ),
-    }
-}
-
 fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
     dbg: &'a DirectiveDebug,
     code: &mut I,
@@ -271,87 +253,66 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
     disasm: &mut String,
 ) -> i64 {
     let directive_size = dbg.output_span.end - dbg.output_span.start;
-    let ints = code
+    if directive_size == 0 {
+        writeln_string!(disasm, "; empty directive");
+        return 0;
+    }
+
+    let mut ints = code
         .by_ref()
         .chain(std::iter::repeat(0))
-        .take(directive_size)
-        .collect_vec();
-
-    macro_rules! fallback {
-        ($msg: expr) => {{
-            writeln_string!(disasm, "DATA {} ; {}", ints.into_iter().format(", "), $msg);
-            return i64::try_from(directive_size).expect("directive larger than i64::MAX");
-        }};
-    }
+        .take(directive_size);
 
     match dbg.kind {
         DirectiveKind::Instruction => {
-            debug_assert!(
-                !(ints.is_empty() || ints.len() > 4),
-                "invalid instruction directive size: {}",
-                ints.len()
-            );
-
-            let Ok((op, modes)) = parse_op(ints[0]) else {
-                fallback!("expected instruction");
-            };
-
-            macro_rules! param {
-                ($mode_i: literal) => {{
-                    let int = ints[$mode_i + 1];
-                    let outer_expr = boxed(disasm_outer_expr(
-                        start_address + $mode_i + 1,
-                        int,
-                        label_lookups,
-                    ));
-                    Parameter(modes[$mode_i], outer_expr)
-                }};
-            }
-
-            macro_rules! instr {
-                ($type: ident, 3) => {{ Instr::$type(param!(0), param!(1), param!(2)) }};
-                ($type: ident, 2) => {{ Instr::$type(param!(0), param!(1)) }};
-                ($type: ident, 1) => {{ Instr::$type(param!(0)) }};
-                ($type: ident, 0) => {{ Instr::$type }};
-            }
-
-            macro_rules! write_instr {
-                ($type: ident, $n: tt) => {{
-                    if $n + 1 > ints.len() {
-                        fallback!(format_args!(
-                            "insufficient parameters for {} instruction",
-                            op
-                        ))
+            let op_int = ints.next().unwrap();
+            if let Some((op, modes)) = parse_op_strict(op_int) {
+                match (op, directive_size) {
+                    (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq, 4)
+                    | (OpCode::Jnz | OpCode::Jz, 3)
+                    | (OpCode::In | OpCode::Out | OpCode::Rbo, 2) => {
+                        let param_fmt = |((mode, num), addr), f: &mut dyn FnMut(&dyn Display) -> fmt::Result | {
+                            if let Some(labels) = label_lookups.get(&addr) {
+                                f(&format_args!("{mode}{}: {num}", labels.iter().format(": ")))
+                            } else {
+                                f(&format_args!("{mode}{num}"))
+                            }
+                        };
+                        let params = modes
+                            .iter()
+                            .zip(ints.map(|i| {
+                                label_lookups
+                                    .get(&i)
+                                    .map_or_else(|| i.to_string(), |v| v[0].to_string())
+                            }))
+                            .zip(start_address + 1..)
+                            .format_with(", ", |param, f| param_fmt(param, f));
+                        writeln_string!(disasm, "{op} {}", params);
                     }
-                    writeln_string!(disasm, "{}", instr!($type, $n));
-                    if ints.len() > $n + 1 {
-                        writeln_string!(
-                            disasm,
-                            "DATA {}; leftover parameters from above instruction",
-                            ints[$n + 1..].into_iter().format(", ")
-                        );
+                    (OpCode::Halt, 1) => writeln_string!(disasm, "HALT"),
+                    (op, 1) => {
+                        writeln_string!(disasm, "DATA {op_int} ; invalid length {op} instruction");
                     }
-                }};
-            }
-
-            match op {
-                OpCode::Add => write_instr!(Add, 3),
-                OpCode::Mul => write_instr!(Mul, 3),
-                OpCode::In => write_instr!(In, 1),
-                OpCode::Out => write_instr!(Out, 1),
-                OpCode::Jnz => write_instr!(Jnz, 2),
-                OpCode::Jz => write_instr!(Jz, 2),
-                OpCode::Lt => write_instr!(Lt, 3),
-                OpCode::Eq => write_instr!(Eq, 3),
-                OpCode::Rbo => write_instr!(Rbo, 1),
-                OpCode::Halt => write_instr!(Halt, 0),
+                    (op, _) => {
+                        write_string!(disasm, "DATA {op_int}, {}", ints.format(", "));
+                        writeln_string!(disasm, " ; invalid length {op} instruction");
+                    }
+                }
+            } else {
+                writeln_string!(
+                    disasm,
+                    "DATA {} ; {}",
+                    std::iter::once(op_int).chain(ints).format(", "),
+                    "expected instruction"
+                );
             }
         }
         DirectiveKind::Data => {
-            writeln_string!(disasm, "DATA {}", ints.into_iter().format(", "));
+            writeln_string!(disasm, "DATA {}", ints.format(", "));
         }
         DirectiveKind::Ascii => {
-            if ints.iter().all(|i| (0..=255).contains(i)) {
+            let (mut scan, ints) = ints.tee();
+            if scan.all(|i| (0..=255).contains(&i)) {
                 disasm.push_str("ASCII \"");
                 for i in ints {
                     #[allow(
@@ -366,7 +327,7 @@ fn disasm_directive_with_dbg<'a, I: Iterator<Item = i64>>(
                 }
                 disasm.push_str("\"\n");
             } else {
-                fallback!("expected ASCII");
+                writeln_string!(disasm, "DATA {} ; expected ASCII", ints.format(", "));
             }
         }
     }
@@ -413,9 +374,11 @@ pub fn disassemble_with_debug(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::asm::{assemble, assemble_with_debug, build_ast};
+
     #[test]
     fn disassemble_various() {
-        let progs = [
+        const PROGS: [&str; 12] = [
             "ADD #1, @1, 1\n",
             "MUL 3, @20, 3\n",
             "IN 1\n",
@@ -429,8 +392,8 @@ mod tests {
             "ASCII \"\\e[48;5;\"\n",
             "DATA 123, 312, 123\n",
         ];
-        for prog in progs {
-            use crate::asm::{assemble, assemble_with_debug, build_ast};
+
+        for prog in PROGS {
             let (code, dbg) = assemble_with_debug(build_ast(prog).unwrap()).unwrap();
             let disasm = disassemble(code.iter().copied());
             // ensure that the original and disassembly result in the same intcode
