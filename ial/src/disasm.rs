@@ -316,11 +316,11 @@ fn disasm_instr(
     }
 }
 
-fn disasm_directive_with_dbg<'a>(
-    dbg: &'a DirectiveDebug,
+fn disasm_directive_with_dbg(
+    dbg: &DirectiveDebug,
     code: &mut impl Iterator<Item = i64>,
     start_address: i64,
-    label_lookups: &HashMap<i64, Vec<&'a str>>,
+    label_lookups: &HashMap<i64, Vec<&str>>,
     disasm: &mut String,
 ) -> i64 {
     let directive_size = dbg.output_span.end - dbg.output_span.start;
