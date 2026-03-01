@@ -7,7 +7,7 @@ default: update-deps lint test doc doctests
 
 hookdir := `git config get core.hooksPath || echo "$(git rev-parse --git-dir)"/hooks`
 
-[doc('invoke `githooks` recipes in git hook scripts')]
+[doc('configure git hooks to invoke `githooks` recipes')]
 init-git-hooks:
     just install-git-hook 'pre-commit'
     just install-git-hook 'pre-push'
