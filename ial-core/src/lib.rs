@@ -237,6 +237,20 @@ pub enum OpCode {
     Halt = 99,
 }
 
+impl OpCode {
+    /// Return the number of parameters that the instruction takes
+    #[must_use]
+    #[inline]
+    pub const fn num_args(self) -> usize {
+        match self {
+            OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq => 3,
+            OpCode::Jnz | OpCode::Jz => 2,
+            OpCode::In | OpCode::Out | OpCode::Rbo => 1,
+            OpCode::Halt => 0,
+        }
+    }
+}
+
 impl TryFrom<i64> for OpCode {
     type Error = i64;
     fn try_from(i: i64) -> Result<Self, Self::Error> {

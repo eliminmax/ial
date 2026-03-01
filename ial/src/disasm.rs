@@ -275,9 +275,8 @@ fn disasm_instr(
     let op_int = ints.next().unwrap();
     if let Some((op, modes)) = parse_op_strict(op_int) {
         match (op, directive_size) {
-            (OpCode::Add | OpCode::Mul | OpCode::Lt | OpCode::Eq, 4)
-            | (OpCode::Jnz | OpCode::Jz, 3)
-            | (OpCode::In | OpCode::Out | OpCode::Rbo, 2) => {
+            (OpCode::Halt, 1) => writeln_string!(disasm, "HALT"),
+            (op, n) if n == op.num_args() + 1 => {
                 let param_fmt =
                     |((mode, num), addr), f: &mut dyn FnMut(&dyn Display) -> fmt::Result| {
                         if let Some(labels) = label_lookups.get(&addr) {
@@ -297,7 +296,6 @@ fn disasm_instr(
                     .format_with(", ", |param, f| param_fmt(param, f));
                 writeln_string!(disasm, "{op} {}", params);
             }
-            (OpCode::Halt, 1) => writeln_string!(disasm, "HALT"),
             (op, 1) => {
                 writeln_string!(disasm, "DATA {op_int} ; invalid length {op} instruction");
             }
