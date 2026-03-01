@@ -10,3 +10,8 @@ members = ["ial", "ial-ast", "ial-cli", "ial-core"]
 lto = true
 codegen-units = 1
 strip = "symbols"
+
+[patch.crates-io]
+ial = { path = 'ial' }
+ial-ast = { path = 'ial-ast' }
+ial-core = { path = 'ial-core' }
