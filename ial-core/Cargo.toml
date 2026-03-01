@@ -12,6 +12,10 @@ edition = "2024"
 level = "warn"
 check-cfg = ['cfg(tarpaulin_include)']
 
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+unescaped_backticks = "deny"
+
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can
 # be overridden

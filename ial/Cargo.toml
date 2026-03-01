@@ -23,6 +23,10 @@ flate2 = "1.1.9"
 level = "warn"
 check-cfg = ['cfg(tarpaulin_include)', 'cfg(tarpaulin)']
 
+[lints.rustdoc]
+broken_intra_doc_links = "deny"
+unescaped_backticks = "deny"
+
 [lints.clippy]
 # enable these categories with a negative priority, so that individual lints can
 # be overridden
