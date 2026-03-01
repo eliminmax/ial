@@ -19,14 +19,17 @@ fn src(name: &str) -> String {
 }
 
 macro_rules! test {
-    {$name: ident, $expected: expr} => {
+    {$name: ident, $input: expr, $expected: expr} => {
         #[test]
         fn $name() {
             let mut interp = Interpreter::new(assemble(&src(stringify!($name))).unwrap());
-            let outcome = interp.run_through_inputs([]);
+            let outcome = interp.run_through_inputs($input);
             let expected = $expected;
             assert_eq!(outcome, expected, "expected {expected:?}, got {outcome:?}");
         }
+    };
+    {$name: ident, $expected: expr} => {
+        test! { $name, [], $expected }
     }
 }
 
@@ -37,3 +40,8 @@ fn ascii_to_ints(ascii: impl IntoIterator<Item = u8>) -> Vec<i64> {
 test! { err, Err(InterpreterError::NegativeMemAccess(ial::NegativeMemAccess(-1))) }
 test! { hello, Ok((ascii_to_ints(*b"Hello, world!\n"), State::Halted)) }
 test! { param_label, Ok((ascii_to_ints([b'1']), State::Halted)) }
+test! {
+    rev,
+    ascii_to_ints(*b"Hello, world!\n"),
+    Ok((ascii_to_ints(*b"!dlrow ,olleH\n"), State::Halted))
+}

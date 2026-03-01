@@ -1,0 +1,22 @@
+; SPDX-FileCopyrightText: 2026 Eli Array Minkoff
+;
+; SPDX-License-Identifier: 0BSD
+
+; Read a line of ASCII input, then print it backwards
+RBO #buf
+
+read_loop:
+    RBO #1
+    IN @0
+    EQ @0, #'\n', newline_cond
+    JZ #newline_cond: 0, #read_loop
+
+out_loop:
+    RBO #-1
+    OUT @0
+    JNZ @-1, #out_loop
+OUT #'\n'
+
+HALT
+
+buf: DATA 0
