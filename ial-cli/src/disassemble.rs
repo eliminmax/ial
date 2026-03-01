@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![cfg(not(tarpaulin_include))]
+
 use anyhow::Result;
 use clap::{Parser, ValueHint};
 use ial::debug_info::DebugInfo;

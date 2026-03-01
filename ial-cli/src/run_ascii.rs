@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![cfg(not(tarpaulin_include))]
+
 //! Run interactively in Aft Scaffolding Control and Information Interface mode, using stdin and
 //! stdout for I/O
 
@@ -237,7 +239,6 @@ pub enum AsciiError {
 
 impl Error for AsciiError {}
 
-#[cfg(not(tarpaulin_include))]
 impl Display for AsciiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -249,7 +250,6 @@ impl Display for AsciiError {
     }
 }
 
-#[cfg(not(tarpaulin_include))]
 impl From<InterpreterError> for AsciiError {
     fn from(e: InterpreterError) -> Self {
         Self::InterpreterError(e)

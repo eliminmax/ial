@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![cfg(not(tarpaulin_include))]
+
 //! implementation of `ial-cli format`
 
 use crate::read_src;

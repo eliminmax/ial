@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+#![cfg(not(tarpaulin_include))]
+
 //! implementation of `ial-cli assemble`
 
 use crate::{checked_assemble, checked_ast_fn, read_src};
