@@ -30,5 +30,4 @@ pub struct DebugInfo {
     pub labels: Box<[(Spanned<Box<str>>, i64)]>,
     /// Boxed slice of debug info about each directive
     pub directives: Box<[DirectiveDebug]>,
-
 }
