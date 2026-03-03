@@ -20,6 +20,7 @@ pub trait ClonableParser<'a, T>: Clone + Parser<'a, &'a str, T, RichErr<'a>> {}
 
 impl<'a, T, P: Clone + Parser<'a, &'a str, T, RichErr<'a>>> ClonableParser<'a, T> for P {}
 
+/// Private extension trait to [`ClonableParser`]s used to make implementation less verbose
 trait ParserExt<'a, T>: ClonableParser<'a, T> {
     fn padded_inline(self) -> impl ClonableParser<'a, T> {
         self.padded_by(text::inline_whitespace())
@@ -33,10 +34,7 @@ trait ParserExt<'a, T>: ClonableParser<'a, T> {
 impl<'a, T, P: ClonableParser<'a, T>> ParserExt<'a, T> for P {}
 
 fn comma_delimiter<'a>() -> impl ClonableParser<'a, ()> {
-    just(',')
-        .padded_inline()
-        .ignored()
-        .labelled("comma delimiter")
+    just(',').padded_inline().ignored().labelled("comma")
 }
 
 /// Generate a [parser][Parser] for a [Parameter]
@@ -73,7 +71,7 @@ pub fn labels<'a>() -> impl ClonableParser<'a, Vec<Label<'a>>> {
         .map(Label)
         .labelled("label")
         .as_context()
-        .then_ignore(text::inline_whitespace())
+        .padded_inline()
         .repeated()
         .collect()
 }
@@ -92,7 +90,6 @@ pub fn mnemonic<'a>(kw: &'static str) -> impl ClonableParser<'a, SimpleSpan> {
 fn params<'a, const N: usize>() -> impl ClonableParser<'a, [Parameter<'a>; N]> {
     parameter()
         .separated_by(comma_delimiter())
-        .exactly(N)
         .allow_trailing()
         .collect_exactly()
 }
@@ -381,7 +378,6 @@ pub fn line<'a>() -> impl ClonableParser<'a, Line<'a>> {
     group((labels(), directive(), comment()))
         .padded_inline()
         .map(Line::from_tuple)
-        .labelled("line")
 }
 
 /// Generate a [parser][Parser] for a full IAL program
