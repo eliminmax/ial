@@ -74,6 +74,11 @@ check-coverage:
 check-reuse:
     reuse lint
 
+[group('check')]
+[doc('make sure all crates versions match up')]
+validate-versions:
+    python3 tooling/validate-versions.py
+
 [doc('build documentation with rustdoc')]
 doc:
     cargo doc --no-deps
@@ -90,8 +95,8 @@ pre-push: check
 
 [group('meta-recipes')]
 [doc('meta-recipe to run lightweight `check`s')]
-lint: clippy check-reuse fmt-check spellcheck
+lint: clippy check-reuse fmt-check spellcheck validate-versions
 
 [group('meta-recipes')]
 [doc('meta-recipe to run all `check`s')]
-check: spellcheck fmt-check clippy doctests check-coverage check-reuse
+check: spellcheck fmt-check clippy doctests check-coverage check-reuse validate-versions
