@@ -491,12 +491,10 @@ impl<'a> Directive<'a> {
     ///
     /// # Errors
     /// If the directive is either an [`Instruction`] or a [`Data`] directive, and an
-    /// expression fails to [resolve], returns an [`AssemblyError`]
+    /// expression fails to resolve, returns an [`AssemblyError`]
     ///
     /// [`Instruction`]: Directive::Instruction
     /// [`Data`]: Directive::Data
-    /// [resolve]: Expr::resolve
-    ///
     pub fn encode_into(
         self,
         v: &mut Vec<i64>,

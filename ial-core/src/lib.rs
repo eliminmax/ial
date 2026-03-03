@@ -195,7 +195,7 @@ impl Display for AssemblyError<'_> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-/// The type of a [`Directive`]
+/// The type of a directive
 #[allow(missing_docs, reason = "trivial")]
 pub enum DirectiveKind {
     Instruction = 0,
