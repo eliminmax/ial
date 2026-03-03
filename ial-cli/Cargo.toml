@@ -15,9 +15,9 @@ clap = { version = "4.5.57", features = ["derive", "wrap_help"] }
 clap_complete = { version = "4.5.66", optional = true }
 clap_mangen = { version = "0.2.31", optional = true }
 const_format = { version = "0.2.35", features = ["fmt"] }
-ial = { version = "0.2.0-dev", features = ["ast"] }
-ial-ast = { version = "0.1.0" }
-ial-core = { version = "0.1.0" }
+ial = { version = "0.2.0", features = ["ast"] }
+ial-ast = "0.1.0"
+ial-core = "0.2.0"
 itertools = "0.14.0"
 
 # don't warn on tarpaulin code coverage cfg conditions or custom cfgs

@@ -4,7 +4,7 @@
 
 [package]
 name = "ial"
-version = "0.2.0-dev"
+version = "0.2.0"
 edition = "2024"
 
 [features]
@@ -12,10 +12,10 @@ default = []
 ast = []
 
 [dependencies]
-chumsky = { version = "0.12.0" }
-itertools = { version = "0.14.0" }
-ial-core = { version = "0.1.0" }
-ial-ast = { version = "0.1.0" }
+chumsky = "0.12.0"
+itertools = "0.14.0"
+ial-core = "0.2.0"
+ial-ast = "0.1.0"
 flate2 = "1.1.9"
 
 # don't warn on tarpaulin code coverage cfg conditions or custom cfgs
