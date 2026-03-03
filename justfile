@@ -12,24 +12,24 @@ init-git-hooks:
     just install-git-hook 'pre-commit'
     just install-git-hook 'pre-push'
 
-[private]
 [doc('set up the provided git hook to run its corresponding just recipe')]
+[private]
 install-git-hook git-hook:
     #!/bin/sh
-    if [ -e "{{hookdir / git-hook}}" ]; then
-        if grep -q {{quote ("just " + git-hook)}} {{quote(hookdir / git-hook)}}; then
-            echo "already installed {{hookdir / git-hook}}"
+    if [ -e "{{ hookdir / git-hook }}" ]; then
+        if grep -q {{ quote("just " + git-hook) }} {{ quote(hookdir / git-hook) }}; then
+            echo "already installed {{ hookdir / git-hook }}"
             exit 0
         fi
-        if [ "$(head -n1 {{quote(hookdir / git-hook)}})" != '#!/bin/sh' ]; then
-            echo "{{git-hook}} already exists and is not a POSIX script" >&2
+        if [ "$(head -n1 {{ quote(hookdir / git-hook) }})" != '#!/bin/sh' ]; then
+            echo "{{ git-hook }} already exists and is not a POSIX script" >&2
             exit 1
         fi
     else
-        echo '#!/bin/sh' > {{quote(hookdir / git-hook)}}
-        chmod +x {{quote(hookdir / git-hook)}}
+        echo '#!/bin/sh' > {{ quote(hookdir / git-hook) }}
+        chmod +x {{ quote(hookdir / git-hook) }}
     fi
-    echo just {{quote((git-hook))}} >> {{quote(hookdir / git-hook)}}
+    echo just {{ quote((git-hook)) }} >> {{ quote(hookdir / git-hook) }}
 
 [doc('update dependencies to latest compatible versions')]
 update-deps:
@@ -43,14 +43,14 @@ test:
 fmt:
     cargo fmt
 
-[group('check')]
 [doc('run codespell on all files in repo')]
+[group('check')]
 spellcheck:
     git ls-files -z -- . ':!:LICENSES/*.txt' ':!:ial/tests/colortest' |\
             xargs -0 codespell
 
-[group('check')]
 [doc('validate rust formatting')]
+[group('check')]
 fmt-check:
     cargo fmt --check
 
@@ -64,18 +64,18 @@ clippy:
 doctests:
     cargo test --locked --offline doc
 
-[group('check')]
 [doc('ensure code coverage is at least 90%')]
+[group('check')]
 check-coverage:
     cargo tarpaulin --locked --offline --fail-under 90
 
-[group('check')]
 [doc('validate REUSE copyright headers')]
+[group('check')]
 check-reuse:
     reuse lint
 
-[group('check')]
 [doc('make sure all crates versions match up')]
+[group('check')]
 validate-versions:
     python3 tooling/validate-versions.py
 
@@ -93,10 +93,10 @@ pre-commit: lint doctests
 [group('githooks')]
 pre-push: check
 
-[group('meta-recipes')]
 [doc('meta-recipe to run lightweight `check`s')]
+[group('meta-recipes')]
 lint: clippy check-reuse fmt-check spellcheck validate-versions
 
-[group('meta-recipes')]
 [doc('meta-recipe to run all `check`s')]
+[group('meta-recipes')]
 check: spellcheck fmt-check clippy doctests check-coverage check-reuse validate-versions
