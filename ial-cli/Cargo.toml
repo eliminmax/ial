@@ -5,6 +5,9 @@
 [package]
 name = "ial-cli"
 version = "0.1.0"
+authors = ["Eli Array Minkoff"]
+description = "command-line interface to ial"
+license = "0BSD"
 edition = "2024"
 
 [dependencies]

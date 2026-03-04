@@ -5,6 +5,9 @@
 [package]
 name = "ial-core"
 version = "0.2.0"
+authors = ["Eli Array Minkoff"]
+description = "ial internals used within ial-ast"
+license = "0BSD"
 edition = "2024"
 
 # don't warn on tarpaulin code coverage cfg conditions or custom cfgs

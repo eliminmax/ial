@@ -5,6 +5,9 @@
 [package]
 name = "ial"
 version = "0.2.0"
+authors = ["Eli Array Minkoff"]
+description = "library for working with an Intcode Assembly Language"
+license = "0BSD"
 edition = "2024"
 
 [features]
