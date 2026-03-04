@@ -179,7 +179,6 @@ fn report_ast_build_err(err: &Rich<'_, char>, file: &str, source: &str) {
 
 fn print_parse_errors(errs: &[Rich<'_, char>], file: &str, src: &str) -> ! {
     for err in errs {
-        eprintln!("report_ast_build_err({err:?}, {file:?}, ...");
         report_ast_build_err(err, file, src);
     }
     std::process::exit(1)
