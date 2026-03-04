@@ -6,6 +6,8 @@
 name = "ial-cli"
 version = "0.1.0"
 authors = ["Eli Array Minkoff"]
+homepage = "https://github.com/eliminmax/ial/tree/main"
+repository = "https://github.com/eliminmax/ial/tree/main"
 description = "command-line interface to ial"
 license = "0BSD"
 edition = "2024"

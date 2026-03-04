@@ -6,6 +6,8 @@
 name = "ial-core"
 version = "0.2.0"
 authors = ["Eli Array Minkoff"]
+homepage = "https://github.com/eliminmax/ial/tree/main"
+repository = "https://github.com/eliminmax/ial/tree/main"
 description = "ial internals used within ial-ast"
 license = "0BSD"
 edition = "2024"

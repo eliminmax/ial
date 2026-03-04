@@ -6,6 +6,8 @@
 name = "ial"
 version = "0.2.0"
 authors = ["Eli Array Minkoff"]
+homepage = "https://github.com/eliminmax/ial/tree/main"
+repository = "https://github.com/eliminmax/ial/tree/main"
 description = "library for working with an Intcode Assembly Language"
 license = "0BSD"
 edition = "2024"
