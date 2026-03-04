@@ -7,5 +7,7 @@ offline = true
 engine = "Llvm"
 test-timeout = "1m"
 target-dir = ".tarpaulin"
+packages = ["ial-core", "ial-ast", "ial"]
+exclude-files = ["target/*"]
 out = [ "Html" ]
 skip-clean = true
